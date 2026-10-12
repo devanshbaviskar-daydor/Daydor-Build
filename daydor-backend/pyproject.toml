@@ -1,0 +1,21 @@
+[project]
+name = "daydor-backend"
+version = "0.1.0"
+description = "Daydor HR platform backend: data model, access control, queue, workflows and gates"
+requires-python = ">=3.11"
+dependencies = [
+  "sqlalchemy>=2.0",
+  "alembic>=1.13",
+  "psycopg[binary]>=3.1",
+  "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

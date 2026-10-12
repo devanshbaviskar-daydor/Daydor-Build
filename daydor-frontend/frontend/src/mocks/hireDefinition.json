@@ -1,0 +1,123 @@
+{
+ "title": "Requisition to first payslip (hand-written, steps 1-8)",
+ "description": "Seat check, requisition, budget approval, job posting, screening, interview, offer.",
+ "initial": "start",
+ "states": {
+  "start": {
+   "terminal": false,
+   "on": {
+    "advance": {
+     "to": "s01_position"
+    }
+   }
+  },
+  "s01_position": {
+   "terminal": false,
+   "on": {
+    "advance": {
+     "to": "s02_job_requisition"
+    }
+   }
+  },
+  "s02_job_requisition": {
+   "terminal": false,
+   "on": {
+    "advance": {
+     "to": "s03_approval_request"
+    }
+   }
+  },
+  "s03_approval_request": {
+   "terminal": false,
+   "enter_jobs": [
+    {
+     "queue": "platform",
+     "kind": "requisition_approval_router"
+    }
+   ],
+   "on": {
+    "advance": {
+     "to": "s04_job_posting",
+     "gate": "g_requisition_budget"
+    }
+   }
+  },
+  "s04_job_posting": {
+   "terminal": false,
+   "enter_jobs": [
+    {
+     "queue": "ta",
+     "kind": "job_posting_publisher"
+    }
+   ],
+   "on": {
+    "advance": {
+     "to": "s05_application"
+    }
+   }
+  },
+  "s05_application": {
+   "terminal": false,
+   "enter_jobs": [
+    {
+     "queue": "ta",
+     "kind": "candidate_screener_intake"
+    }
+   ],
+   "on": {
+    "advance": {
+     "to": "s06_screening_result"
+    }
+   }
+  },
+  "s06_screening_result": {
+   "terminal": false,
+   "enter_jobs": [
+    {
+     "queue": "ta",
+     "kind": "candidate_screener_assess"
+    }
+   ],
+   "on": {
+    "advance": {
+     "to": "s07_interview",
+     "gate": "g_aedt",
+     "gate_if": "requires_g_aedt"
+    }
+   }
+  },
+  "s07_interview": {
+   "terminal": false,
+   "enter_jobs": [
+    {
+     "queue": "ta",
+     "kind": "interview_scheduler"
+    }
+   ],
+   "on": {
+    "advance": {
+     "to": "s08_offer"
+    }
+   }
+  },
+  "s08_offer": {
+   "terminal": false,
+   "enter_jobs": [
+    {
+     "queue": "ta",
+     "kind": "offer_letter_generator"
+    }
+   ],
+   "on": {
+    "advance": {
+     "to": "done",
+     "gate": "g_offer_band",
+     "gate_if": "requires_g_offer_band"
+    }
+   }
+  },
+  "done": {
+   "terminal": true
+  }
+ }
+}

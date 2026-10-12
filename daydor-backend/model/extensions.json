@@ -1,0 +1,11 @@
+{
+  "_comment": "Proposed additions to the artifact model. Applied by the generator on top of daydor_model.json. Push these back into the artifact so it stays the single source of truth.",
+  "columns": [
+    {"table": "approval_request", "name": "requested_by_user_id", "type": "uuid", "cls": "S", "fk": "app_user", "nullable": true,
+     "reason": "Maker-checker: the database must know who raised the request to stop the same person approving it."},
+    {"table": "approval_request", "name": "requested_by_agent_run_id", "type": "uuid", "cls": "S", "fk": "agent_task_run", "nullable": true,
+     "reason": "Maker-checker for agent-raised requests; links the gate to the agent run that computed the subject."},
+    {"table": "approval_request", "name": "decision_note", "type": "text", "cls": "C1", "nullable": true,
+     "reason": "Approver's reason, needed for audit of rejections and overrides."}
+  ]
+}

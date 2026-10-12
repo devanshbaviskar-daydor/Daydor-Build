@@ -1,0 +1,3 @@
+{
+  "approval_request.status": ["pending", "approved", "rejected", "expired"]
+}

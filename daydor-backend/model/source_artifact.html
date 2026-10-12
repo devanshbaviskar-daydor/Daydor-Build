@@ -1,0 +1,1116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Daydor — Data Model & Access Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+:root{
+  --paper:#F3F4F0; --raised:#FBFBF8; --sunk:#E7E9E2; --ink:#1A1D25; --soft:#4A4F5E; --faint:#7C8190; --hair:#D4D7CE;
+  --accent:#2F6E68; --accent-soft:#DFEBE8;
+  --d-ro:#556270; --d-priv:#6B6A2C; --d-ref:#857F72; --d-hr:#6E56A8; --d-ta:#A34E7E; --d-ob:#2F6E68; --d-it:#2F6E9E;
+  --d-pay:#2F8A5E; --d-ben:#3E7CB1; --d-time:#5E8C3E; --d-comp:#9A7B2E; --d-perf:#7A5CA8; --d-learn:#3E8C82; --d-fin:#B58323; --d-er:#A15A3E;
+  --c-S:#9AA0A6; --c-C0:#6F8F8B; --c-C1:#3F7CA8; --c-C2:#B58323; --c-C3:#C0553A; --c-C4:#7B3F8F;
+  --lv0:transparent; --lv1:rgba(47,110,104,.16); --lv2:rgba(47,110,104,.34); --lv3:rgba(47,110,104,.62); --lv4:#2F6E68;
+  --lvtext:#fff; --shadow:rgba(26,29,37,.10);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --paper:#15171C; --raised:#1C1F26; --sunk:#252932; --ink:#ECEAE3; --soft:#B5B8C3; --faint:#848997; --hair:#343844;
+  --accent:#72C2B8; --accent-soft:#1D302D;
+  --d-ro:#A9B3BF; --d-priv:#C9C77A; --d-ref:#B9B2A3; --d-hr:#C0AEE0; --d-ta:#E6A8CB; --d-ob:#6FBDB4; --d-it:#8DC1EA;
+  --d-pay:#8FDCB0; --d-ben:#9BC4EE; --d-time:#A9D687; --d-comp:#DABE6E; --d-perf:#C1AAE6; --d-learn:#85D2C6; --d-fin:#E5C078; --d-er:#E3A17E;
+  --c-S:#7E848D; --c-C0:#98B9B4; --c-C1:#7FB3DA; --c-C2:#E2BF6A; --c-C3:#EC8B6E; --c-C4:#C595D6;
+  --lv1:rgba(114,194,184,.16); --lv2:rgba(114,194,184,.32); --lv3:rgba(114,194,184,.58); --lv4:#72C2B8; --lvtext:#10201E; --shadow:rgba(0,0,0,.4);
+}}
+:root[data-theme="dark"]{
+  --paper:#15171C; --raised:#1C1F26; --sunk:#252932; --ink:#ECEAE3; --soft:#B5B8C3; --faint:#848997; --hair:#343844;
+  --accent:#72C2B8; --accent-soft:#1D302D;
+  --d-ro:#A9B3BF; --d-priv:#C9C77A; --d-ref:#B9B2A3; --d-hr:#C0AEE0; --d-ta:#E6A8CB; --d-ob:#6FBDB4; --d-it:#8DC1EA;
+  --d-pay:#8FDCB0; --d-ben:#9BC4EE; --d-time:#A9D687; --d-comp:#DABE6E; --d-perf:#C1AAE6; --d-learn:#85D2C6; --d-fin:#E5C078; --d-er:#E3A17E;
+  --c-S:#7E848D; --c-C0:#98B9B4; --c-C1:#7FB3DA; --c-C2:#E2BF6A; --c-C3:#EC8B6E; --c-C4:#C595D6;
+  --lv1:rgba(114,194,184,.16); --lv2:rgba(114,194,184,.32); --lv3:rgba(114,194,184,.58); --lv4:#72C2B8; --lvtext:#10201E; --shadow:rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0}
+body{background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px;line-height:1.5}
+.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{display:flex;flex-direction:column;height:100%}
+header{display:flex;flex-wrap:wrap;gap:.6rem 1.2rem;align-items:flex-end;padding:.9rem 1.1rem .7rem;background:var(--raised);border-bottom:1px solid var(--hair)}
+.brand{margin-right:auto;min-width:0}
+.brand h1{margin:0;font-size:1.15rem;font-weight:600;letter-spacing:-.01em}
+.brand p{margin:.1rem 0 0;color:var(--soft);font-size:.82rem;max-width:70ch}
+.controls{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.ctl{display:flex;flex-direction:column;gap:.15rem}
+.ctl label{font-size:.7rem;color:var(--faint)}
+.ctl select,.ctl input{background:var(--paper);border:1px solid var(--hair);border-radius:6px;padding:.32rem .5rem;font-size:.82rem;min-width:0}
+.ctl input{width:170px}
+nav.tabs{display:flex;gap:.2rem;padding:0 1.1rem;background:var(--raised);border-bottom:1px solid var(--hair);overflow-x:auto}
+nav.tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:.55rem .8rem;font-size:.86rem;color:var(--soft);cursor:pointer;white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);font-weight:500}
+.body{flex:1 1 auto;display:flex;min-height:0}
+.stage{flex:1 1 auto;min-width:0;position:relative;overflow:hidden}
+.pane{position:absolute;inset:0;display:none;overflow:auto}
+.pane.on{display:block}
+#pane-schema{overflow:hidden}
+aside.inspector{flex:0 0 420px;border-left:1px solid var(--hair);background:var(--raised);overflow:auto;padding:1rem 1.1rem 2rem}
+svg#graph{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+svg#graph:active{cursor:grabbing}
+.cl-label{font-size:12px;font-weight:600}
+.cl-count{font-size:11px;fill:var(--faint)}
+.node rect.box{fill:var(--raised);stroke:var(--hair)}
+.node text.nm{font-family:"IBM Plex Mono",monospace;font-size:11px;fill:var(--ink)}
+.node text.gl{font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:500}
+.node{cursor:pointer;transition:opacity .15s}
+.node.sel rect.box{stroke:var(--accent);stroke-width:2}
+.node.match rect.box{stroke:var(--c-C2);stroke-width:2}
+.edge{fill:none;stroke:var(--faint);stroke-opacity:.28;stroke-width:1}
+.edge.hot{stroke:var(--accent);stroke-opacity:.95;stroke-width:1.6}
+.edge.dim{stroke-opacity:.06}
+.flowpath{fill:none;stroke:var(--accent);stroke-width:2.4;stroke-dasharray:6 4}
+.badge circle{fill:var(--accent)}
+.badge text{fill:var(--lvtext);font-size:10px;font-weight:600;text-anchor:middle;dominant-baseline:central}
+.overlay{position:absolute;display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
+.overlay.tl{left:.8rem;top:.8rem}
+.leg{display:flex;gap:.3rem .8rem;flex-wrap:wrap;align-items:center;background:var(--raised);border:1px solid var(--hair);border-radius:6px;padding:.3rem .6rem;font-size:.74rem;color:var(--soft)}
+.overlay.tl{right:.8rem}
+.overlay.bl{left:.8rem;bottom:.8rem;background:var(--raised);border:1px solid var(--hair);border-radius:8px;padding:.5rem .7rem;font-size:.74rem;color:var(--soft);flex-direction:column;align-items:flex-start;gap:.25rem;max-width:300px;box-shadow:0 2px 10px var(--shadow)}
+.btn{border:1px solid var(--hair);background:var(--raised);color:var(--soft);border-radius:6px;padding:.3rem .6rem;font-size:.78rem;cursor:pointer}
+.btn:hover{color:var(--ink);border-color:var(--accent)}
+.btn.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+.chip-trace{background:var(--accent);color:var(--lvtext);border-radius:6px;padding:.3rem .6rem;font-size:.78rem;border:0;cursor:pointer}
+.legend-row{display:flex;gap:.55rem;flex-wrap:wrap;align-items:center}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;vertical-align:middle;margin-right:.25rem}
+.sw{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:middle;margin-right:.3rem;border:1px solid var(--hair)}
+.lv2pat{background-image:repeating-linear-gradient(45deg,var(--lv3) 0 2px,transparent 2px 5px)}
+/* inspector */
+.insp h2{margin:0;font-family:"IBM Plex Mono",monospace;font-size:1.05rem;font-weight:500;word-break:break-all}
+.insp .meta{display:flex;flex-wrap:wrap;gap:.35rem;margin:.45rem 0 .6rem}
+.tag{font-size:.72rem;border:1px solid var(--hair);border-radius:999px;padding:.08rem .5rem;color:var(--soft);background:var(--paper)}
+.tag.dom{border-color:transparent;color:var(--lvtext)}
+.insp p.desc{margin:.2rem 0 .8rem;color:var(--soft);font-size:.85rem;max-width:62ch}
+.insp h3{font-size:.8rem;font-weight:600;margin:1.1rem 0 .4rem;color:var(--ink)}
+.coltbl{width:100%;border-collapse:collapse;font-size:.76rem}
+.coltbl th{font-weight:500;color:var(--faint);text-align:left;padding:.15rem .2rem;border-bottom:1px solid var(--hair);font-size:.68rem}
+.coltbl td{padding:.22rem .2rem;border-bottom:1px solid var(--hair);vertical-align:middle}
+.coltbl td.cn{font-family:"IBM Plex Mono",monospace;word-break:break-all}
+.coltbl td.ct{color:var(--faint);font-family:"IBM Plex Mono",monospace;font-size:.7rem}
+.coltbl th.r,.coltbl td.r{width:15px;padding:.1rem 1px;text-align:center}
+.cell{display:block;width:13px;height:13px;border-radius:2px;margin:auto;border:1px solid var(--hair)}
+.cl{font-size:.66rem;font-weight:600;border-radius:3px;padding:0 .25rem;color:var(--lvtext)}
+.flag{font-size:.62rem;color:var(--faint);margin-left:.25rem}
+.coltbl tr.lensrow td{background:var(--accent-soft)}
+.list{margin:0;padding:0;list-style:none;font-size:.8rem}
+.list li{padding:.18rem 0;border-bottom:1px dashed var(--hair)}
+.link{color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:2px;background:none;border:0;padding:0;font-family:"IBM Plex Mono",monospace;font-size:.78rem}
+.wk{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:.7rem;border:1px solid var(--hair);border-radius:4px;padding:.02rem .35rem;margin:.12rem .15rem 0 0;background:var(--paper)}
+.wk.w{border-color:var(--accent);color:var(--accent)}
+pre.ddl{background:var(--paper);border:1px solid var(--hair);border-radius:6px;padding:.6rem;font-size:.7rem;overflow-x:auto;white-space:pre;line-height:1.45}
+details summary{cursor:pointer;font-size:.8rem;font-weight:600;margin-top:1rem}
+.gate{border-left:3px solid var(--c-C3);padding:.25rem .5rem;margin:.3rem 0;background:var(--paper);font-size:.78rem}
+.rolecard{background:var(--paper);border:1px solid var(--hair);border-radius:8px;padding:.6rem .7rem;font-size:.8rem;margin-top:.6rem}
+/* access */
+.access-wrap{padding:1rem 1.2rem 2rem;max-width:1180px}
+.section-h{font-size:1rem;font-weight:600;margin:0 0 .25rem}
+.section-p{margin:0 0 .9rem;color:var(--soft);font-size:.85rem;max-width:78ch}
+.ladder{display:grid;grid-template-columns:150px 1fr;gap:.45rem .8rem;align-items:center;margin-bottom:1.4rem}
+.ladder .tier{font-size:.74rem;color:var(--faint);text-align:right}
+.ladder .roles{display:flex;gap:.35rem;flex-wrap:wrap;align-items:center}
+.rchip{border:1px solid var(--hair);background:var(--raised);border-radius:6px;padding:.28rem .6rem;font-size:.8rem;cursor:pointer}
+.rchip.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.rchip small{color:var(--faint);margin-left:.3rem;font-size:.7rem}
+.arrow{color:var(--faint);font-size:.8rem}
+.caps{border-collapse:collapse;font-size:.78rem;margin-bottom:1.5rem}
+.caps th,.caps td{padding:.25rem .45rem;border:1px solid var(--hair);text-align:center}
+.caps th{font-weight:500;background:var(--raised)}
+.caps td.rl{text-align:left;white-space:nowrap}
+.lvcell{display:inline-flex;align-items:center;justify-content:center;width:28px;height:20px;border-radius:3px;font-family:"IBM Plex Mono",monospace;font-size:.7rem;font-weight:600}
+.matrix-scroll{overflow:auto;border:1px solid var(--hair);border-radius:8px;max-height:72vh;background:var(--raised)}
+table.matrix{border-collapse:separate;border-spacing:0;font-size:.76rem}
+table.matrix th{position:sticky;top:0;background:var(--raised);z-index:2;font-weight:500;padding:.4rem .2rem;border-bottom:1px solid var(--hair);font-size:.7rem;color:var(--soft);vertical-align:bottom;min-width:46px;line-height:1.2}
+table.matrix th.tn{left:0;z-index:3;text-align:left;min-width:210px;padding-left:.6rem}
+table.matrix td{padding:2px 3px;border-bottom:1px solid var(--hair);text-align:center}
+table.matrix td.tn{position:sticky;left:0;background:var(--raised);text-align:left;font-family:"IBM Plex Mono",monospace;padding-left:.6rem;z-index:1;white-space:nowrap}
+table.matrix tr.grp td{background:var(--sunk);font-family:inherit;font-weight:600;font-size:.74rem;text-align:left;padding:.3rem .6rem;position:sticky;left:0}
+table.matrix td.c button{width:38px;height:20px;border-radius:3px;border:1px solid var(--hair);cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:.68rem;font-weight:600;padding:0}
+table.matrix tr.selrow td.tn{color:var(--accent);font-weight:500}
+table.matrix th.lenscol,table.matrix td.lenscol{background:var(--accent-soft)}
+/* flows */
+.flows{display:grid;grid-template-columns:260px 1fr;gap:1.2rem;padding:1rem 1.2rem 2rem;max-width:1180px}
+.flowlist button{display:block;width:100%;text-align:left;border:1px solid var(--hair);background:var(--raised);border-radius:8px;padding:.55rem .7rem;margin-bottom:.45rem;cursor:pointer}
+.flowlist button.on{border-color:var(--accent);background:var(--accent-soft)}
+.flowlist b{display:block;font-weight:500;font-size:.86rem}
+.flowlist span{font-size:.75rem;color:var(--soft)}
+.steps{list-style:none;margin:0;padding:0;counter-reset:s}
+.steps li{display:grid;grid-template-columns:28px 1fr;gap:.6rem;padding:.45rem 0;border-bottom:1px solid var(--hair)}
+.steps li::before{counter-increment:s;content:counter(s);width:24px;height:24px;border-radius:50%;background:var(--accent);color:var(--lvtext);font-size:.72rem;font-weight:600;display:flex;align-items:center;justify-content:center}
+.steps .top{display:flex;gap:.45rem;flex-wrap:wrap;align-items:center}
+.op{font-size:.68rem;font-weight:600;border-radius:3px;padding:.02rem .35rem;border:1px solid var(--hair)}
+.op.W{background:var(--lv4);color:var(--lvtext);border-color:transparent}
+.op.R{background:var(--lv2)}
+.op.A{background:var(--c-C3);color:#fff;border-color:transparent}
+.steps .note{font-size:.8rem;color:var(--soft);margin-top:.1rem}
+.tchip{font-family:"IBM Plex Mono",monospace;font-size:.78rem;border:0;background:none;padding:0;cursor:pointer;border-bottom:2px solid;color:var(--ink)}
+/* coverage */
+.cov{padding:1rem 1.2rem 2rem;max-width:1100px}
+.chart{margin-bottom:1.8rem}
+.bars{display:flex;flex-direction:column;gap:.3rem}
+.bar{display:grid;grid-template-columns:170px 1fr 34px;gap:.6rem;align-items:center;font-size:.8rem;cursor:pointer;border-radius:4px;padding:.1rem .2rem}
+.bar:hover{background:var(--sunk)}
+.bar .track{display:flex;height:16px;border-radius:3px;overflow:hidden;background:var(--sunk)}
+.bar .track span{display:block;height:100%}
+.bar .n{font-family:"IBM Plex Mono",monospace;font-size:.75rem;color:var(--soft);text-align:right}
+.chart .legend-row{font-size:.74rem;color:var(--soft);margin:.4rem 0 0}
+.decisions{counter-reset:d;list-style:none;padding:0;margin:0}
+.decisions li{padding:.6rem .8rem;border:1px solid var(--hair);border-radius:8px;margin-bottom:.5rem;background:var(--raised);font-size:.84rem}
+.decisions li b{font-weight:600}
+.decisions li p{margin:.2rem 0 0;color:var(--soft)}
+@media (max-width:900px){
+  html,body{height:auto}
+  .app{height:auto;min-height:100%}
+  .body{flex-direction:column}
+  .stage{height:68vh;flex:0 0 auto}
+  aside.inspector{flex:0 0 auto;border-left:0;border-top:1px solid var(--hair)}
+  .flows{grid-template-columns:1fr}
+  .ladder{grid-template-columns:1fr}.ladder .tier{text-align:left}
+  .bar{grid-template-columns:120px 1fr 30px}
+  .ctl input{width:130px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand">
+    <h1>Daydor data model and access map</h1>
+    <p id="lead"></p>
+  </div>
+  <div class="controls">
+    <div class="ctl"><label for="lens">View as role</label>
+      <select id="lens"></select></div>
+    <div class="ctl"><label for="juris">Jurisdiction pack</label>
+      <select id="juris"><option value="">India + US</option><option value="IN">India only</option><option value="US">US only</option></select></div>
+    <div class="ctl"><label for="q">Find a table or column</label>
+      <input id="q" type="search" placeholder="e.g. pan, payslip" autocomplete="off"></div>
+  </div>
+</header>
+<nav class="tabs" role="tablist">
+  <button role="tab" data-tab="schema" aria-selected="true">Schema map</button>
+  <button role="tab" data-tab="access" aria-selected="false">Access hierarchy</button>
+  <button role="tab" data-tab="flows" aria-selected="false">Data flows</button>
+  <button role="tab" data-tab="coverage" aria-selected="false">Coverage and decisions</button>
+</nav>
+<div class="body">
+  <div class="stage">
+    <section class="pane on" id="pane-schema">
+      <svg id="graph" aria-label="Entity relationship map"></svg>
+      <div class="overlay tl">
+        <button class="btn" id="fit">Fit to screen</button>
+        <button class="btn on" id="hideEmp" aria-pressed="true">Hide links to employee</button>
+        <span id="traceChip"></span>
+        <div class="leg" id="legend"></div>
+      </div>
+    </section>
+    <section class="pane" id="pane-access"></section>
+    <section class="pane" id="pane-flows"></section>
+    <section class="pane" id="pane-coverage"></section>
+  </div>
+  <aside class="inspector insp" id="insp" aria-live="polite"></aside>
+</div>
+</div>
+
+<script>
+/* =========================================================
+   Reference vocabularies
+   ========================================================= */
+const DOM = {
+  ro:{label:'Platform & tenancy'}, priv:{label:'Privacy, audit & evidence'}, ref:{label:'Statutory reference'},
+  hr:{label:'Core HR'}, ta:{label:'Talent acquisition'}, ob:{label:'Onboarding'}, it:{label:'IT & identity'},
+  pay:{label:'Payroll'}, ben:{label:'Benefits'}, time:{label:'Time & leave'}, comp:{label:'Comp & equity'},
+  perf:{label:'Performance'}, learn:{label:'Learning'}, fin:{label:'Finance & spend'}, er:{label:'ER & offboarding'}
+};
+const DOM_ORDER = ['ro','priv','ref','hr','ta','ob','it','pay','ben','time','comp','perf','learn','fin','er'];
+const CLASSES = {
+  S:{label:'System',desc:'Keys, status enums, timestamps. Follows the table-level grant.'},
+  C0:{label:'Business',desc:'Non-personal company data: plan names, rates, legal entity names.'},
+  C1:{label:'Personal',desc:'Identifies a person in a work context: name, work email, dates, title.'},
+  C2:{label:'Confidential',desc:'Pay, ratings, balances, equity. Need-to-know.'},
+  C3:{label:'Restricted PII',desc:'Aadhaar, PAN, SSN, bank, DOB, addresses, contacts, visa. Encrypted or masked; decrypt per purpose.'},
+  C4:{label:'Special category',desc:'Race, disability, veteran, medical reason, ER findings, background findings, garnishments.'}
+};
+const CLASS_ORDER = ['S','C0','C1','C2','C3','C4'];
+const LV = [
+  {g:'·',label:'No access'},{g:'Σ',label:'Aggregate only'},{g:'M',label:'Masked'},{g:'R',label:'Read'},{g:'W',label:'Read + write'}
+];
+const ROLES = [
+  {id:'A',name:'Daydor admin',short:'Daydor\nadmin',tier:'Platform',db:'daydor_admin',desc:'Runs the platform: schema, migrations, tenant provisioning. Sees platform metadata and counts, never tenant people data. Break-glass needs two approvers and is fully audited.'},
+  {id:'O',name:'Daydor ops',short:'Daydor\nops',tier:'Platform',db:'daydor_ops',desc:'Operates payroll and compliance on the client\u2019s behalf (the managed-service model). Full working access inside assigned tenants only; restricted PII stays masked on screen because agents decrypt it at the moment of use.'},
+  {id:'F',name:'Founder / owner',short:'Founder',tier:'Tenant',db:'tenant_founder',desc:'The client company\u2019s approver of record. Sees the whole company and approves money-moving and threshold gates. Restricted PII is masked; special-category data appears only as aggregates.'},
+  {id:'H',name:'HR admin',short:'HR\nadmin',tier:'Tenant specialist',db:'tenant_hr',desc:'Client-side people lead. Full Core HR including restricted PII, decrypted per purpose and logged. Special-category data only by designation (EEO officer, ER investigator).'},
+  {id:'P',name:'Payroll & finance',short:'Payroll &\nfinance',tier:'Tenant specialist',db:'tenant_payroll',desc:'Runs pay, filings and spend. Sees compensation in full; bank and PAN stay masked because disbursal decrypts inside the worker, not on screen.'},
+  {id:'I',name:'IT admin',short:'IT\nadmin',tier:'Tenant specialist',db:'tenant_it',desc:'Identity, app access and devices. Sees who works here and when they start or leave. No pay, no performance, no PII.'},
+  {id:'M',name:'People manager',short:'Manager',tier:'Scoped',db:'tenant_manager',desc:'Sees their reporting subtree (direct and indirect) through reporting_closure. Reviews, time, leave and team expenses. Leave reasons and PII hidden; team pay visible only if the tenant enables it.'},
+  {id:'E',name:'Employee',short:'Employee',tier:'Scoped',db:'tenant_employee',desc:'Self-service on their own record. The only role that can grant or withdraw DPDP consent and submit self-identification. Colleagues\u2019 directory fields come through a separate employee_directory view.'},
+  {id:'U',name:'External auditor',short:'Auditor',tier:'Lateral',db:'external_auditor',desc:'Time-boxed, read-only access for a statutory inspection or SOC 2. Restricted PII masked, special-category excluded, every query logged.'},
+  {id:'G',name:'Domain agents',short:'Agents',tier:'Lateral',db:'agent_<domain>',desc:'Service principals, one database role per domain orchestrator. Rights follow the worker map from the agent graph; RLS still applies; C3 decrypts only through app.decrypt_pii(column, purpose).'}
+];
+const RID = ROLES.map(r=>r.id);
+const ROLE = Object.fromEntries(ROLES.map(r=>[r.id,r]));
+/* Column-class ceilings per role: S, C0, C1, C2, C3, C4 */
+const CAPS = {
+  A:{S:4,C0:4,C1:1,C2:1,C3:0,C4:0}, O:{S:4,C0:4,C1:4,C2:4,C3:2,C4:1}, F:{S:4,C0:4,C1:4,C2:4,C3:2,C4:1},
+  H:{S:4,C0:4,C1:4,C2:4,C3:4,C4:3}, P:{S:4,C0:4,C1:3,C2:4,C3:2,C4:0}, I:{S:4,C0:4,C1:3,C2:0,C3:0,C4:0},
+  M:{S:4,C0:4,C1:3,C2:3,C3:0,C4:0}, E:{S:4,C0:4,C1:4,C2:3,C3:4,C4:4}, U:{S:3,C0:3,C1:3,C2:3,C3:2,C4:0},
+  G:{S:4,C0:4,C1:4,C2:4,C3:4,C4:0}
+};
+const SRC = {doc:'Data Model Design doc', gap:'Enterprise gap analysis', graph:'Implied by agent graph', new:'Proposed here'};
+const SRC_COLOR = {doc:'var(--d-hr)', gap:'var(--d-ta)', graph:'var(--d-it)', new:'var(--accent)'};
+
+/* Table-level grants by domain. Order: A O F H P I M E U G */
+const DEF = {ref:'4333300333', hr:'1444333334', ta:'1444003034', ob:'1434344434', it:'1433143334', pay:'1443400334', ben:'1434300434',
+  time:'1434304434', comp:'1444303334', perf:'1334004434', learn:'1434013434', fin:'1441403434', er:'1444333334', ro:'3444333333', priv:'0333300033'};
+
+/* =========================================================
+   Tables
+   ========================================================= */
+const T = [];
+function parseCols(s){
+  return s.split(';').map(x=>x.trim()).filter(Boolean).map(x=>{
+    const p=x.split(/\s+/); const c={n:p[0],ty:p[1],cl:p[2]};
+    p.slice(3).forEach(f=>{ if(f.startsWith('fk:')) c.fk=f.slice(3); else if(f==='IN'||f==='US') c.j=f; else c[f]=true; });
+    return c;
+  });
+}
+function t(id,d,src,j,desc,cols,o={}){ T.push(Object.assign({id,d,src,j,desc,raw:cols},o)); }
+
+/* Platform & tenancy */
+t('tenant','ro','doc','','One row per client company and the root of isolation: every tenant-scoped row\u2019s tenant_id references it.',
+ 'legal_name text C0; cin text C0; primary_state_code text C0; status enum S; founder_user_id uuid S fk:app_user null; data_residency_region text S; plan_tier enum S',
+ {global:true,acl:'4333000033'});
+t('legal_entity','ro','new','','A registered employer under the tenant, such as an Indian Pvt Ltd, a US Inc, or an EOR partner. Payroll, filings, benefits and thresholds hang off the entity because statutory registrations are per entity.',
+ 'name text C0; country_code text C0; entity_type enum S; employer_registrations jsonb C0; is_eor_partner bool S',{acl:'3443300033'});
+t('department','ro','new','','Org units as a tree. Carries the cost centre that GL postings roll up to.',
+ 'name text C0; parent_department_id uuid S fk:department null; head_employee_id uuid S fk:employee null; cost_center_code text C0',{acl:'3444333333'});
+t('location','ro','new','','Work locations. state_code drives PT slabs in India and state tax nexus in the US.',
+ 'name text C0; country_code text C0; state_code text C0; is_remote bool S; legal_entity_id uuid S fk:legal_entity',{acl:'3444333333'});
+t('app_user','ro','doc','','Who can log in, distinct from employee (a record about a person). tenant_id is nullable only for Daydor staff, the one deliberate exception to tenant scoping.',
+ 'email citext C1 uniq; role enum S; employee_id uuid S fk:employee null; is_active bool S; mfa_enrolled bool S; last_login_at ts S null',
+ {nullTenant:true,acl:'4443040333',cap:{A:{C1:3}}});
+t('role_assignment','ro','new','','Grants a role at a scope (tenant, department, team, self). This makes access hierarchical: one person can be an employee everywhere, a manager over a subtree, and the EEO officer by designation.',
+ 'user_id uuid S fk:app_user; role enum S; scope_type enum S; scope_id uuid S null; granted_by_user_id uuid S fk:app_user; valid_from ts S; valid_to ts S null; purpose text C0',{acl:'4443030333'});
+t('tenant_compliance_config','ro','doc','','Soft per-tenant preferences as data, never schema. Holds the switch for whether managers see team pay.',
+ 'settings jsonb C0; manager_can_view_comp bool S; approver_overrides jsonb S; feature_flags jsonb S',{acl:'3443300033'});
+t('approval_request','ro','doc','','One polymorphic row per gate instance, pointing at whatever it guards. deadline_at closes Gap 2 (registration_deadline_scheduler) from the design doc.',
+ 'gate_type text S; subject_table text S; subject_id uuid S; required_approver_role enum S; status enum S; resolved_by_user_id uuid S fk:app_user null; resolved_at ts S null; escalated_at ts S null; deadline_at ts S null; idempotency_key text S uniq',{acl:'1444433334'});
+t('agent_task_run','ro','new','','One row per agent worker execution. Gives gated-irreversible workers a durable idempotency record and lets ops see what agents did without reading Temporal history.',
+ 'worker_name text S; domain text S; status enum S; idempotency_key text S uniq; approval_request_id uuid S fk:approval_request null; input_ref text C1; started_at ts S; finished_at ts S null; error_code text S null',{acl:'3322220034'});
+
+/* Privacy, audit & evidence */
+t('document','priv','doc','','The vault (document_vault in the 32-table ERD). document_class picks the retention rule; blobs live in India-resident object storage behind signed URLs.',
+ 'subject_type enum S; subject_id uuid S; document_class enum S; storage_ref text C3; retention_class uuid S fk:retention_policy; consent_record_id uuid S fk:consent_record null; signed_at ts S null',{acl:'0434200334'});
+t('consent_record','priv','doc','','Purpose- and field-scoped DPDP consent, one row per (employee, data_category, purpose). Only the data principal writes it; PAN, bank and Aadhaar columns cannot be populated without a granted row.',
+ 'employee_id uuid S fk:employee; data_category enum S; purpose enum S; status enum S; granted_at ts S; withdrawn_at ts S null; consent_artifact_ref text C1',{acl:'0333300433'});
+t('data_subject_request','priv','doc','','DPDP access, correction and erasure requests with the 90-day clock. partially_fulfilled_retention_held is the honest outcome when a statutory floor wins.',
+ 'employee_id uuid S fk:employee; request_type enum S; status enum S; received_at ts S; due_at ts S der; resolution_notes text C2',{acl:'0434000433'});
+t('audit_log','priv','doc','','Append-only business-event log written in the same transaction as the mutation. Indexed by (tenant_id, subject_id, occurred_at) for the 72-hour breach report.',
+ 'actor_user_id uuid S fk:app_user null; actor_kind enum S; agent_task_run_id uuid S fk:agent_task_run null; event_type text S; subject_table text S; subject_id uuid S; before_value jsonb C3 null; after_value jsonb C3 null; occurred_at ts S',
+ {acl:'2333220134',appendOnly:true});
+t('legal_hold','priv','new','','Backs the root orchestrator\u2019s legal-hold gate. Every irreversible worker checks for an active hold on its subject before acting.',
+ 'scope_type enum S; scope_id uuid S; reason text C2; placed_by_user_id uuid S fk:app_user; placed_at ts S; released_at ts S null',{acl:'3444000033'});
+t('retention_policy','priv','doc','','Shared reference: duration plus the anchor field the clock starts from (filed_on, last_entry_date, employee.date_of_exit, created_at). Four statutes, four anchors.',
+ 'retention_class text S uniq; record_type text C0; duration_months int C0; anchor_field enum C0; legal_basis text C0; jurisdiction text S',{global:true,acl:'4333300033'});
+
+/* Statutory reference */
+t('pt_slab_rule','ref','doc','IN','Professional-tax slabs per state, effective-dated so a past period always recomputes against the slab in force then.',
+ 'state_code text C0; effective_from date S; effective_to date S null; slab_min numeric C0; slab_max numeric C0 null; monthly_amount numeric C0',{global:true});
+t('statutory_rate_rule','ref','doc','','Generalises the doc\u2019s epf_rate_rule and esi_rate_rule into one effective-dated table keyed by scheme, so US FICA, FUTA and SUI rates fit the same shape.',
+ 'scheme enum C0; jurisdiction_code text C0; effective_from date S; effective_to date S null; wage_ceiling numeric C0 null; employee_rate numeric C0; employer_rate numeric C0',{global:true});
+
+/* Core HR */
+t('employee','hr','doc','','One person in one tenant (employee_core in the 32-table ERD). hire_event_id is the creation idempotency key. Raw Aadhaar is never stored: masked last-4 plus an offline e-KYC reference.',
+ 'hire_event_id text S uniq; full_name text C1; work_email citext C1; employment_type enum C1; legal_entity_id uuid S fk:legal_entity; department_id uuid S fk:department; location_id uuid S fk:location; position_id uuid S fk:position null; state_code text C1; date_of_joining date C1; date_of_exit date C1 null; is_active bool S; date_of_birth date C3; personal_address text C3; aadhaar_last4 text C3 mask IN; aadhaar_ekyc_ref text C3 enc IN; pan_encrypted bytea C3 enc IN; ssn_encrypted bytea C3 enc US; bank_account_encrypted bytea C3 enc',
+ {acl:'1444333434'});
+t('employment_record','hr','doc','','Effective-dated job and pay structure. Immutable once a payroll run has used it; a raise is a new version. wage_floor_compliant enforces the Labour Codes 50% Basic+DA floor.',
+ 'employee_id uuid S fk:employee; effective_from date S; effective_to date S null; job_profile_id uuid S fk:job_profile; comp_band_id uuid S fk:comp_band null; fte numeric C1; ctc_annual numeric C2; basic_da_monthly numeric C2; other_allowances_json jsonb C2; wage_floor_compliant bool S IN; tax_regime_election enum C2 IN; flsa_status enum C1 US',
+ {acl:'1444303334'});
+t('position','hr','gap','','A budgeted seat, distinct from the person in it, so backfills and reorgs keep headcount-plan history. headcount-planner already assumes this exists.',
+ 'department_id uuid S fk:department; job_profile_id uuid S fk:job_profile; status enum S; budgeted_fte numeric C1; budgeted_cost numeric C2; current_employee_id uuid S fk:employee null; opened_at date S; closed_at date S null',{acl:'1444303034'});
+t('job_profile','hr','gap','','Company-level reference data the gap analysis flagged as load-bearing: replaces free-text job_title and gives comp-band-validator something to validate against.',
+ 'title text C0; job_family text C0; level text C0; flsa_default enum C0 US; description text C0',{acl:'1444303334'});
+t('comp_band','hr','gap','','Pay range per job profile and geo, effective-dated. The other half of the job_profile / comp_band follow-up blocking comp-band-validator.',
+ 'job_profile_id uuid S fk:job_profile; location_id uuid S fk:location null; currency text C0; band_min numeric C2; band_mid numeric C2; band_max numeric C2; effective_from date S; effective_to date S null',{acl:'1444303234'});
+t('reporting_line','hr','new','','Effective-dated reporting edges. A materialised closure built from this table is what the manager RLS policy checks: is this row\u2019s employee anywhere under me?',
+ 'employee_id uuid S fk:employee; manager_employee_id uuid S fk:employee; relation enum S; effective_from date S; effective_to date S null',{acl:'1444333334'});
+t('emergency_contact','hr','gap','','A flat miss in the 32-table list. Needed from day one at any company size.',
+ 'employee_id uuid S fk:employee; contact_name text C3; relationship text C3; phone text C3; priority int S',{acl:'0224002403'});
+t('work_authorization','hr','gap','US','Case-status tracking for I-9, E-Verify, H-1B, OPT and TN with expiry and next action, instead of a static document in the vault.',
+ 'employee_id uuid S fk:employee; auth_type enum C3; status enum C3; i9_section2_completed_at ts C1 null; everify_case_no text C3 null; everify_status enum C1; expiration_date date C3 null; sponsor_flag bool C3; renewal_case_status enum C3 null; next_action_due date C1 null',{acl:'0424200334'});
+t('self_identification','hr','gap','US','Voluntary EEO self-ID kept apart from decision records in a restricted schema. Hiring managers never see it; reporting reads an aggregate view only.',
+ 'employee_id uuid S fk:employee; race_ethnicity enum C4; gender enum C4; veteran_status enum C4; disability_status enum C4; collection_context enum S; collected_at ts S; next_reoffer_due date S',
+ {acl:'0111000411',cap:{G:{S:1,C4:1},O:{C4:1}}});
+t('threshold_obligation','hr','doc','','Per-scheme applicability (ESI, EPF, Gratuity, POSH, ACA ALE, EEO-1, WARN) per legal entity, with the founder confirmation gate and a registration deadline.',
+ 'legal_entity_id uuid S fk:legal_entity; scheme enum C0; headcount_at_check int C0; threshold int C0; applicable bool S; crossed_at date S null; registration_deadline date S null; approval_request_id uuid S fk:approval_request null',{acl:'1444300034'});
+t('skill','hr','gap','','One skill catalogue shared by recruiting, performance, learning and succession.',
+ 'name text C0; category text C0',{acl:'1444333334'});
+t('employee_skill','hr','gap','','Proficiency per person per skill with its source, so training and succession have something to reason from.',
+ 'employee_id uuid S fk:employee; skill_id uuid S fk:skill; proficiency_level int C2; source enum S; last_updated ts S',{acl:'0334004434'});
+
+/* Talent acquisition */
+t('job_requisition','ta','graph','','Request to fill a position, routed for budget sign-off.',
+ 'position_id uuid S fk:position; hiring_manager_id uuid S fk:employee; status enum S; target_start_date date C0; approval_request_id uuid S fk:approval_request null',{acl:'1444304034'});
+t('job_posting','ta','graph','','A published req. pay_transparency_checked closes the review flag: no posting goes live without a salary-range check.',
+ 'requisition_id uuid S fk:job_requisition; channel enum S; pay_range_min numeric C0; pay_range_max numeric C0; pay_transparency_checked bool S; posted_at ts S null; closed_at ts S null',{acl:'1444003334'});
+t('candidate','ta','gap','','A person before hire. Kept separate from employee per TA\u2019s own boundary: candidate is not employee until hire is confirmed.',
+ 'full_name text C1; email citext C1; phone text C3; resume_ref text C3; source enum S; retain_until date S; converted_employee_id uuid S fk:employee null',{acl:'1444003034'});
+t('application','ta','graph','','Candidate applied to a requisition, with stage history.',
+ 'candidate_id uuid S fk:candidate; requisition_id uuid S fk:job_requisition; stage enum S; stage_changed_at ts S; rejection_reason_code enum C2 null',{acl:'1444003034'});
+t('screening_result','ta','graph','','Automated screening output, the highest-exposure decision in TA. Records tool version, audit in force, candidate notice and human review so LL144, IL HB3773 and CO SB24-205 are provable.',
+ 'application_id uuid S fk:application; aedt_audit_id uuid S fk:aedt_audit null; tool_name text C0; model_version text C0; score numeric C2; recommendation enum C2; candidate_notified_at ts S null; human_reviewer_user_id uuid S fk:app_user null; human_override bool S',{acl:'1444002034'});
+t('aedt_audit','ta','graph','','Bias-audit currency for each screening tool. aedt-audit-monitor blocks the screener when expires_on has passed.',
+ 'tool_name text C0; auditor_firm text C0; audit_date date S; expires_on date S; impact_ratio_summary jsonb C1; published_url text C0',{acl:'1444000034'});
+t('interview','ta','graph','','Scheduled interviews and scorecards.',
+ 'application_id uuid S fk:application; interviewer_employee_id uuid S fk:employee; scheduled_at ts S; scorecard jsonb C2 null; recommendation enum C2 null',{acl:'1444004034'});
+t('background_check','ta','graph','','Vendor check plus the FCRA adverse-action stages. Findings are special category: HR only.',
+ 'candidate_id uuid S fk:candidate; vendor text C0; ordered_at ts S; status enum S; findings_summary text C4 null; adverse_action_stage enum S null; pre_adverse_notice_at ts S null',{acl:'0314000034'});
+t('offer','ta','graph','','Offer drafted from the approved band. within_band false routes to the founder.',
+ 'application_id uuid S fk:application; comp_band_id uuid S fk:comp_band; proposed_base numeric C2; proposed_equity numeric C2 null; within_band bool S; approval_request_id uuid S fk:approval_request null; offer_document_id uuid S fk:document null; sent_at ts S null; accepted_at ts S null',{acl:'1444303034'});
+
+/* Onboarding */
+t('checklist','ob','graph','','One checklist per lifecycle event. kind is onboarding or offboarding, so ER reuses the same shape.',
+ 'employee_id uuid S fk:employee; kind enum S; template_key text C0; status enum S; due_date date S',{acl:'1434344434'});
+t('checklist_task','ob','graph','','Tasks owned by different domains (IT, payroll, the manager, the new hire). blocking tasks hold the next stage.',
+ 'checklist_id uuid S fk:checklist; owner_domain enum S; assignee_user_id uuid S fk:app_user null; title text C0; status enum S; due_at ts S; completed_at ts S null; blocking bool S',{acl:'1434344434'});
+
+/* IT */
+t('access_role_template','it','graph','','Default app bundle per job profile and department. Anything outside it is an exception gate.',
+ 'job_profile_id uuid S fk:job_profile; department_id uuid S fk:department null; app_bundle jsonb C0',{acl:'1433143334'});
+t('identity_account','it','graph','','Directory identity (Google, Okta, Entra). Deprovisioning always passes through a gate.',
+ 'employee_id uuid S fk:employee; directory_provider text C0; external_id text C1; status enum S; provisioned_at ts S; deprovisioned_at ts S null; approval_request_id uuid S fk:approval_request null',{acl:'1433143334'});
+t('app_access_grant','it','graph','','Per-app access with its source (template or exception). The input to access-compliance-auditor\u2019s drift check.',
+ 'identity_account_id uuid S fk:identity_account; app_name text C0; permission_level text C0; source enum S; template_id uuid S fk:access_role_template null; approval_request_id uuid S fk:approval_request null; granted_at ts S; revoked_at ts S null',{acl:'1433143334'});
+t('device','it','graph','','Hardware inventory.',
+ 'asset_tag text C0; model text C0; serial_no text C1; status enum S; purchase_cost numeric C0',{acl:'1433143034'});
+t('device_assignment','it','graph','','Who holds which device, including the shipping address (restricted).',
+ 'device_id uuid S fk:device; employee_id uuid S fk:employee; assigned_at ts S; shipped_to_address text C3 null; tracking_no text C1 null; returned_at ts S null',{acl:'1433143334'});
+
+/* Payroll */
+t('payroll_profile','pay','gap','','Per-employee pay setup. Carries the tax-residency fields from the gap analysis (work_state vs tax_state, reciprocity) plus India UAN and ESIC numbers.',
+ 'employee_id uuid S fk:employee; pay_frequency enum C1; payment_method enum S; work_state text C1; tax_state text C1 US; reciprocity_agreement_flag bool S US; state_registration_status enum S US; w4_elections jsonb C2 US; uan_number text C3 IN; esic_ip_number text C3 IN',{acl:'1443400334'});
+t('payroll_run','pay','doc','','One cycle for one legal entity. Maker-checker: payroll builds it, the founder releases it.',
+ 'legal_entity_id uuid S fk:legal_entity; period_start date S; period_end date S; status enum S; gross_total numeric C2 der; net_total numeric C2 der; anomaly_score numeric S null; approval_request_id uuid S fk:approval_request null; disbursed_at ts S null; retention_class uuid S fk:retention_policy',{acl:'1443400034'});
+t('payslip','pay','doc','','Derived per employee per run, and pinned to the employment_record version it used so it stays an honest record after later changes.',
+ 'payroll_run_id uuid S fk:payroll_run; employee_id uuid S fk:employee; employment_record_id uuid S fk:employment_record; gross_pay numeric C2 der; net_pay numeric C2 der; tax_withheld numeric C2 der; issued_at ts S null; retention_class uuid S fk:retention_policy',{acl:'1443400334'});
+t('payslip_line','pay','new','','Earnings and deduction components, each pointing at the rule row that produced it, so a recompute is explainable line by line.',
+ 'payslip_id uuid S fk:payslip; component_code text C0; amount numeric C2; rule_id uuid S fk:statutory_rate_rule null',{acl:'1443400334'});
+t('garnishment_order','pay','graph','','Court-ordered deductions. Special category: the issuing authority and order reveal legal circumstances.',
+ 'employee_id uuid S fk:employee; issuing_authority text C4; order_type enum C4; amount_or_pct numeric C4; priority int S; effective_from date S; effective_to date S null',
+ {acl:'0413400334',cap:{P:{C4:3},G:{C4:3}}});
+t('filing_record','pay','doc','','One statutory submission (ECR, ESI, 24Q, 941, W-2, state UI) with its acknowledgement.',
+ 'legal_entity_id uuid S fk:legal_entity; scheme enum C0; period text C0; filed_on date S null; acknowledgement_no text C1 null; document_id uuid S fk:document null; approval_request_id uuid S fk:approval_request null; retention_class uuid S fk:retention_policy',{acl:'1443400034'});
+t('gratuity_accrual_balance','pay','doc','IN','Running per-employee gratuity liability, read (not recomputed) by final settlement at exit.',
+ 'employee_id uuid S fk:employee; as_of_period date S; accrued_amount numeric C2; gratuity_wage_base numeric C2',{acl:'1443400334'});
+t('contractor_invoice','pay','graph','','Global and contractor invoices routed through local payment rails.',
+ 'contractor_employee_id uuid S fk:employee; legal_entity_id uuid S fk:legal_entity; period text C0; amount numeric C2; currency text C0; status enum S; approval_request_id uuid S fk:approval_request null; paid_at ts S null',{acl:'1443403034'});
+
+/* Benefits */
+t('benefit_plan','ben','graph','','Plans offered per entity and plan year (group health in India, medical and 401k in the US).',
+ 'legal_entity_id uuid S fk:legal_entity; plan_type enum C0; carrier text C0; plan_year int C0; employer_contribution numeric C0',{acl:'1434300334'});
+t('benefit_election','ben','graph','','What the employee chose, effective-dated, and when it reached the carrier.',
+ 'employee_id uuid S fk:employee; benefit_plan_id uuid S fk:benefit_plan; coverage_tier enum C2; employee_cost numeric C2; life_event_id uuid S fk:life_event null; effective_from date S; effective_to date S null; carrier_sent_at ts S null',{acl:'1434300434'});
+t('dependent','ben','graph','','Covered family members. Restricted PII about people who are not employees.',
+ 'employee_id uuid S fk:employee; full_name text C3; relationship enum C3; date_of_birth date C3; covered_plan_ids jsonb C2',{acl:'0424200434'});
+t('life_event','ben','graph','','Qualifying life events. The event type itself (divorce, birth) is special category.',
+ 'employee_id uuid S fk:employee; event_type enum C4; event_date date C3; evidence_document_id uuid S fk:document null; status enum S; window_closes_at date S',{acl:'0314100434',cap:{G:{C4:3}}});
+t('cobra_event','ben','graph','US','COBRA qualifying events and the statutory notice timeline.',
+ 'employee_id uuid S fk:employee; qualifying_event enum C2; event_date date S; notice_due_at date S; notice_sent_at ts S null; election_status enum S; approval_request_id uuid S fk:approval_request null',{acl:'1434300334'});
+
+/* Time & leave */
+t('time_punch','time','graph','','Raw punches. Geo is restricted and optional.',
+ 'employee_id uuid S fk:employee; punched_at ts C1; kind enum S; source enum S; geo_point text C3 null',{acl:'1434304434'});
+t('timecard','time','graph','','Approved hours per period, the hand-off from time to payroll.',
+ 'employee_id uuid S fk:employee; period_start date S; period_end date S; regular_hours numeric C2; overtime_hours numeric C2; status enum S; approved_by_user_id uuid S fk:app_user null',{acl:'1434304434'});
+t('leave_policy','time','graph','','Leave types and accrual rules per entity.',
+ 'legal_entity_id uuid S fk:legal_entity; leave_type text C0; accrual_rule jsonb C0; carry_forward_cap numeric C0',{acl:'1434304334'});
+t('leave_balance','time','graph','','Accrued balance per policy, also read by final settlement for encashment.',
+ 'employee_id uuid S fk:employee; leave_policy_id uuid S fk:leave_policy; balance_days numeric C2; as_of date S',{acl:'1434304334'});
+t('leave_request','time','graph','','Dates are visible to managers; the medical or family reason is special category and hidden from them.',
+ 'employee_id uuid S fk:employee; leave_policy_id uuid S fk:leave_policy; start_date date C1; end_date date C1; status enum S; reason_detail text C4 null; fmla_designation enum C4 null US; approval_request_id uuid S fk:approval_request null',
+ {acl:'1434304434',cap:{G:{C4:3}}});
+
+/* Comp & equity */
+t('compensation_event','comp','gap','','A proposed pay change (merit, promotion, adjustment, bonus). Approval writes a new employment_record version rather than editing the old one.',
+ 'employee_id uuid S fk:employee; event_type enum S; cycle_ref text C0; proposed_amount numeric C2; comp_band_id uuid S fk:comp_band null; out_of_band bool S; proposed_by_user_id uuid S fk:app_user; approval_request_id uuid S fk:approval_request null; resulting_record_id uuid S fk:employment_record null; effective_date date S',{acl:'1444304334'});
+t('equity_grant','comp','gap','','Options, RSUs and Indian ESOPs, priced against the valuation in force on the grant date.',
+ 'employee_id uuid S fk:employee; grant_type enum C2; shares numeric C2; strike_price numeric C2; grant_date date S; valuation_409a_id uuid S fk:valuation_409a null; board_approved_at date S null; approval_request_id uuid S fk:approval_request null',{acl:'1444300334'});
+t('vesting_event','comp','gap','','Scheduled and realised vesting tranches.',
+ 'equity_grant_id uuid S fk:equity_grant; vest_date date S; shares_vested numeric C2; status enum S',{acl:'1444300334'});
+t('option_exercise','comp','graph','','Exercises with FMV and withholding, an irreversible worker.',
+ 'equity_grant_id uuid S fk:equity_grant; exercised_at ts S; shares numeric C2; fmv_at_exercise numeric C2; tax_withheld numeric C2; status enum S',{acl:'1444300334'});
+t('valuation_409a','comp','graph','','US 409A, or the India Rule 11UA FMV report used for ESOP perquisite tax. Stale valuations trip the 409A gate.',
+ 'legal_entity_id uuid S fk:legal_entity; valuation_date date S; fmv_per_share numeric C2; provider text C0; expires_on date S; trigger_event text C1 null',{acl:'1444300034'});
+
+/* Performance */
+t('review_cycle','perf','graph','','A review period and its calibration status.',
+ 'name text C0; opens_at date S; closes_at date S; calibration_status enum S',{acl:'1334004334'});
+t('performance_review','perf','graph','','Self assessment, manager rating, and the calibrated rating that feeds merit.',
+ 'review_cycle_id uuid S fk:review_cycle; employee_id uuid S fk:employee; reviewer_employee_id uuid S fk:employee; self_assessment text C2 null; manager_rating numeric C2 null; calibrated_rating numeric C2 null; submitted_at ts S null',{acl:'1334004434'});
+t('pip','perf','graph','','Performance plans are tracked by an agent, never initiated by one.',
+ 'employee_id uuid S fk:employee; initiated_by_user_id uuid S fk:app_user; plan_document_id uuid S fk:document; milestones jsonb C2; outcome enum C2 null; started_at date S; ends_at date S',{acl:'0134004334'});
+
+/* Learning */
+t('course','learn','graph','','Course catalogue with jurisdiction rules (POSH in India, state harassment training in the US).',
+ 'title text C0; jurisdiction_rule text C0; is_mandatory bool S; validity_months int C0 null',{acl:'1434013334'});
+t('training_assignment','learn','gap','','training_record in the 32-table ERD: assigned courses, deadlines and completion.',
+ 'employee_id uuid S fk:employee; course_id uuid S fk:course; assigned_reason enum S; due_at date S; completed_at ts S null; score numeric C2 null',{acl:'1434013434'});
+t('certification','learn','graph','','Licences and certifications with expiry; role-critical ones hard-stop.',
+ 'employee_id uuid S fk:employee; name text C1; issuer text C1; issued_on date S; expires_on date S null; role_critical bool S; document_id uuid S fk:document null',{acl:'1434013434'});
+
+/* Finance */
+t('expense','fin','graph','','Employee expenses checked against policy and routed by amount.',
+ 'employee_id uuid S fk:employee; amount numeric C2; category text C0; receipt_document_id uuid S fk:document null; policy_flags jsonb S; approval_request_id uuid S fk:approval_request null; reimbursed_at ts S null; gl_journal_entry_id uuid S fk:gl_journal_entry null',{acl:'1441403434'});
+t('corporate_card','fin','graph','','Card limits set per role.',
+ 'employee_id uuid S fk:employee; last4 text C3 mask; spend_limit numeric C2; status enum S',{acl:'1441403334'});
+t('vendor_bill','fin','graph','','Three-way match on vendor bills, gated above materiality.',
+ 'legal_entity_id uuid S fk:legal_entity; vendor_name text C0; amount numeric C0; po_ref text C0 null; match_status enum S; approval_request_id uuid S fk:approval_request null; paid_at ts S null',{acl:'1441400034'});
+t('gl_journal_entry','fin','graph','','Ledger postings. Payroll posts at cost-centre grain, never per employee, so finance staff never infer an individual\u2019s pay from the GL.',
+ 'legal_entity_id uuid S fk:legal_entity; source_table text S; source_id uuid S; period text C0; cost_center_code text C0; debit_account text C0; credit_account text C0; amount numeric C1; posted_at ts S null; approval_request_id uuid S fk:approval_request null',{acl:'1440400034'});
+
+/* ER & offboarding */
+t('er_case','er','graph','','Complaints logged and routed by agents, never adjudicated by them. Founder sees that a case exists but not its content, since in a small company the founder may be the subject.',
+ 'complainant_employee_id uuid S fk:employee; subject_employee_id uuid S fk:employee null; category enum C4; status enum S; intake_at ts S; assigned_investigator_user_id uuid S fk:app_user null; outcome enum C4 null; legal_hold_id uuid S fk:legal_hold null; approval_request_id uuid S fk:approval_request null',{acl:'0124000234'});
+t('er_case_note','er','new','','Investigation notes, encrypted and append-only. Readable only by the assigned investigator role.',
+ 'er_case_id uuid S fk:er_case; author_user_id uuid S fk:app_user; note_body bytea C4 enc; visibility enum S',{acl:'0004000000',appendOnly:true});
+t('termination','er','graph','','The exit event every downstream domain reacts to (IT deprovisioning, final pay, COBRA, equity).',
+ 'employee_id uuid S fk:employee; termination_type enum C2; reason_code enum C2; notice_date date C1; last_working_day date C1; initiated_by_user_id uuid S fk:app_user; rehire_eligible enum C2 null; exit_interview_at ts C1 null; approval_request_id uuid S fk:approval_request null',{acl:'1444333334'});
+t('final_settlement','er','doc','','Full and final: pending wages, gratuity from the running balance, encashment and recoveries, released through the same disbursal worker as payroll.',
+ 'employee_id uuid S fk:employee; termination_id uuid S fk:termination; pending_wages numeric C2; gratuity_payout numeric C2 IN; leave_encashment numeric C2; recoveries numeric C2; total_settlement numeric C2 der; approval_request_id uuid S fk:approval_request; disbursed_at ts S null',{acl:'0443400334'});
+
+/* finalise columns */
+T.forEach(tb=>{
+  const cols = parseCols(tb.raw);
+  const head=[{n:'id',ty:'uuid',cl:'S',pk:true}];
+  if(!tb.global) head.push({n:'tenant_id',ty:'uuid',cl:'S',fk:'tenant',null:!!tb.nullTenant});
+  const tail=[{n:'created_at',ty:'ts',cl:'S'}];
+  if(!tb.appendOnly) tail.push({n:'updated_at',ty:'ts',cl:'S'});
+  tb.cols = head.concat(cols, tail);
+  if(!tb.acl) tb.acl = DEF[tb.d];
+});
+const TB = Object.fromEntries(T.map(x=>[x.id,x]));
+
+/* =========================================================
+   Agent worker map (from the agent graph): [writes, reads]
+   ========================================================= */
+const WK={
+approval_request:[['requisition-approval-router','offer-approval-router','timecard-approval-router','expense-approval-router'],['every gated worker']],
+audit_log:[['every worker (insert only)'],[]], agent_task_run:[['every worker'],[]],
+legal_hold:[[],['root orchestrator','deprovisioning-agent','direct-deposit-disburser']],
+retention_policy:[[],['document-vault-manager']],
+document:[['document-vault-manager','new-hire-doc-collector','offer-letter-generator','payslip-issuer','tax-filing-submitter'],[]],
+consent_record:[[],['employee-record-writer','direct-deposit-disburser','tax-filing-submitter']],
+employee:[['employee-record-writer'],['headcount-planner','sso-identity-provisioner','eligibility-calculator','onboarding-checklist-builder','jurisdiction-classifier']],
+employment_record:[['employee-record-writer'],['gross-pay-calculator','comp-band-validator','merit-cycle-calculator','final-pay-calculator']],
+position:[['employee-record-writer'],['headcount-planner','requisition-drafter']],
+job_profile:[[],['comp-band-validator','offer-letter-generator','app-access-granter','training-assignment-engine']],
+comp_band:[[],['comp-band-validator','offer-letter-generator','job-posting-publisher','merit-cycle-calculator']],
+reporting_line:[['org-chart-updater'],['timecard-approval-router','expense-approval-router','self-review-reminder']],
+emergency_contact:[['employee-record-writer'],[]],
+work_authorization:[['i9-e-verify-initiator'],['new-hire-doc-collector']],
+self_identification:[[],['eeo-report-builder (aggregate view)']],
+threshold_obligation:[['headcount-planner','aca-affordability-monitor'],['eligibility-calculator']],
+skill:[[],['training-assignment-engine']],
+employee_skill:[['completion-tracker'],['calibration-data-aggregator','training-assignment-engine']],
+job_requisition:[['requisition-drafter'],['requisition-approval-router','headcount-planner','job-posting-publisher']],
+job_posting:[['job-posting-publisher'],[]],
+candidate:[['candidate-screener'],['background-check-initiator']],
+application:[['candidate-screener','interview-scheduler'],['aedt-candidate-notifier']],
+screening_result:[['candidate-screener','aedt-candidate-notifier'],['aedt-audit-monitor']],
+aedt_audit:[['aedt-audit-monitor'],['candidate-screener']],
+interview:[['interview-scheduler'],[]],
+background_check:[['background-check-initiator','background-check-flagger'],[]],
+offer:[['offer-letter-generator'],['offer-approval-router','comp-band-validator']],
+checklist:[['onboarding-checklist-builder','termination-checklist-builder'],[]],
+checklist_task:[['onboarding-checklist-builder','new-hire-doc-collector','first-day-notifier','knowledge-transfer-coordinator','equipment-return-tracker'],[]],
+access_role_template:[[],['app-access-granter','access-compliance-auditor']],
+identity_account:[['sso-identity-provisioner','deprovisioning-agent'],['access-compliance-auditor']],
+app_access_grant:[['app-access-granter','password-vault-sharer','deprovisioning-agent'],['app-access-exception-flagger','access-compliance-auditor']],
+device:[['device-inventory-allocator','device-purchase-initiator'],[]],
+device_assignment:[['device-inventory-allocator','device-shipment-tracker','equipment-return-tracker'],[]],
+payroll_profile:[['employee-record-writer'],['tax-withholding-calculator','jurisdiction-classifier']],
+payroll_run:[['payroll-run-builder','direct-deposit-disburser'],['payroll-anomaly-detector','gl-poster']],
+payslip:[['gross-pay-calculator','payslip-issuer'],['deduction-reconciler']],
+payslip_line:[['gross-pay-calculator','tax-withholding-calculator','garnishment-processor'],[]],
+garnishment_order:[[],['garnishment-processor']],
+filing_record:[['tax-filing-submitter','w2-1099-generator','in-country-tax-remitter'],[]],
+gratuity_accrual_balance:[['payroll-run-builder'],['final-pay-calculator']],
+contractor_invoice:[['contractor-invoice-processor','multi-currency-payment-router'],[]],
+pt_slab_rule:[[],['tax-withholding-calculator']],
+statutory_rate_rule:[[],['gross-pay-calculator','tax-withholding-calculator','in-country-tax-remitter']],
+benefit_plan:[[],['eligibility-calculator']],
+benefit_election:[['election-processor','carrier-file-transmitter'],['deduction-reconciler']],
+dependent:[['election-processor'],['carrier-file-transmitter']],
+life_event:[['qle-validator','enrollment-window-notifier'],[]],
+cobra_event:[['cobra-trigger-detector','cobra-notice-generator'],[]],
+time_punch:[[],['punch-validator']],
+timecard:[['punch-validator','timecard-approval-router'],['timecard-aggregator']],
+leave_policy:[[],['pto-accrual-calculator','leave-request-processor']],
+leave_balance:[['pto-accrual-calculator'],['final-pay-calculator']],
+leave_request:[['leave-request-processor','leave-return-coordinator'],['fmla-eligibility-checker']],
+compensation_event:[['merit-cycle-calculator','bonus-calculator'],['comp-band-validator']],
+equity_grant:[['grant-drafter'],['vesting-schedule-tracker','409a-trigger-monitor']],
+vesting_event:[['vesting-schedule-tracker'],[]], option_exercise:[['exercise-processor'],[]],
+valuation_409a:[[],['409a-trigger-monitor','grant-drafter']],
+review_cycle:[['review-cycle-launcher'],['self-review-reminder']],
+performance_review:[[],['calibration-data-aggregator','merit-cycle-calculator','self-review-reminder']],
+pip:[['pip-tracker'],[]], course:[[],['training-assignment-engine']],
+training_assignment:[['training-assignment-engine','completion-tracker','overdue-escalator'],[]],
+certification:[[],['certification-expiry-monitor']],
+expense:[['expense-policy-checker','expense-approval-router'],['gl-poster']],
+corporate_card:[['corporate-card-controller'],[]], vendor_bill:[['vendor-bill-processor'],['bank-reconciler']],
+gl_journal_entry:[['gl-poster','period-close-runner'],['bank-reconciler','cost-center-report-builder']],
+er_case:[['case-intake-router','investigation-tracker'],[]],
+termination:[['rehire-eligibility-flagger','exit-interview-scheduler'],['termination-checklist-builder','deprovisioning-agent','cobra-trigger-detector','final-pay-calculator']],
+final_settlement:[['final-pay-calculator','direct-deposit-disburser'],[]]
+};
+
+/* =========================================================
+   Approval gates (agent graph + design doc)
+   ========================================================= */
+const GATES = [
+ {id:'g_offer_band',label:'Offer or comp change outside band',tables:['offer','compensation_event'],ap:['F'],src:'graph'},
+ {id:'g_bg_adverse',label:'Adverse background-check finding (FCRA)',tables:['background_check'],ap:['H'],src:'graph'},
+ {id:'g_aedt',label:'AEDT notice and bias-audit currency',tables:['screening_result','aedt_audit'],ap:['H'],src:'graph'},
+ {id:'g_it_offtemplate',label:'Access grant off role template',tables:['app_access_grant'],ap:['I'],src:'graph'},
+ {id:'g_it_deprov',label:'Every deprovisioning action',tables:['identity_account'],ap:['I','H'],src:'graph'},
+ {id:'g_pay_disburse',label:'Disbursement of funds (maker-checker)',tables:['payroll_run','final_settlement','contractor_invoice'],ap:['F'],src:'graph'},
+ {id:'g_pay_anomaly',label:'Anomalous payroll run',tables:['payroll_run'],ap:['P','O'],src:'graph'},
+ {id:'g_pay_newjuris',label:'New-jurisdiction compliance',tables:['legal_entity','contractor_invoice'],ap:['O'],src:'graph'},
+ {id:'g_cobra',label:'COBRA notice content and timing',tables:['cobra_event'],ap:['H'],src:'graph'},
+ {id:'g_aca',label:'ACA affordability breach',tables:['threshold_obligation'],ap:['F'],src:'graph'},
+ {id:'g_fmla',label:'FMLA eligibility determination',tables:['leave_request'],ap:['H'],src:'graph'},
+ {id:'g_409a',label:'409A trigger or stale grant',tables:['equity_grant','valuation_409a','option_exercise'],ap:['F'],src:'graph'},
+ {id:'g_close',label:'Period close and GL posting',tables:['gl_journal_entry'],ap:['P','F'],src:'graph'},
+ {id:'g_ap',label:'AP payment above materiality',tables:['vendor_bill'],ap:['F'],src:'graph'},
+ {id:'g_er_adjud',label:'ER case adjudication outcome',tables:['er_case'],ap:['H'],src:'graph'},
+ {id:'g_finalpay',label:'Final pay before disbursement',tables:['final_settlement'],ap:['F'],src:'graph'},
+ {id:'g_legalhold',label:'Action during legal hold or audit',tables:['legal_hold'],ap:['F','H'],src:'graph'},
+ {id:'dpdp_consent',label:'DPDP consent (never escalates)',tables:['consent_record'],ap:['E'],src:'doc'},
+ {id:'threshold_crossing',label:'Threshold crossing confirmation',tables:['threshold_obligation'],ap:['F'],src:'doc'},
+ {id:'wage_structure_change',label:'Wage structure change',tables:['employment_record'],ap:['F'],src:'doc'}
+];
+const GATE = Object.fromEntries(GATES.map(g=>[g.id,g]));
+
+/* =========================================================
+   Flows
+   ========================================================= */
+const FLOWS = [
+ {id:'hire',name:'Requisition to first payslip',sum:'Seat, req, screening, offer, record, consent, access, pay.',steps:[
+  ['position','R','headcount-planner','Confirms a budgeted vacant seat exists before a req can open.'],
+  ['job_requisition','W','requisition-drafter','Drafted from the hiring manager\u2019s input.'],
+  ['approval_request','W','requisition-approval-router','Budget sign-off.'],
+  ['job_posting','W','job-posting-publisher','Pay-range check must pass before it goes live.'],
+  ['application','W','candidate-screener',''],
+  ['screening_result','W','candidate-screener','Tool version, audit in force, notice sent, human review recorded.','g_aedt'],
+  ['interview','W','interview-scheduler',''],
+  ['offer','W','offer-letter-generator','Out of band routes to the founder.','g_offer_band'],
+  ['background_check','W','background-check-initiator','','g_bg_adverse'],
+  ['employee','W','employee-record-writer','hire_event_id is the idempotency key, not the name.'],
+  ['employment_record','W','employee-record-writer','First effective-dated version.'],
+  ['consent_record','W','Employee','Only the employee can grant. Blocks PAN, bank and Aadhaar collection.','dpdp_consent'],
+  ['document','W','new-hire-doc-collector','ID proofs and signed offer.'],
+  ['work_authorization','W','i9-e-verify-initiator','US only. The 3-business-day clock runs from the first day worked.'],
+  ['checklist_task','W','onboarding-checklist-builder',''],
+  ['identity_account','W','sso-identity-provisioner',''],
+  ['app_access_grant','W','app-access-granter','Anything off the role template is gated.','g_it_offtemplate'],
+  ['payroll_profile','W','employee-record-writer','Tax residency, UAN or W-4.'],
+  ['payslip','W','payslip-issuer','First cycle.']]},
+ {id:'payroll',name:'Monthly payroll cycle',sum:'Hours and rules in, gated disbursal out, filings and GL after.',steps:[
+  ['timecard','R','timecard-aggregator','Approved hours only.'],
+  ['leave_balance','R','pto-accrual-calculator','Unpaid leave and proration.'],
+  ['employment_record','R','gross-pay-calculator','The version effective in the period, not today\u2019s.'],
+  ['statutory_rate_rule','R','tax-withholding-calculator','EPF, ESI, FICA, SUI rows effective in the period.'],
+  ['pt_slab_rule','R','tax-withholding-calculator','India only.'],
+  ['garnishment_order','R','garnishment-processor',''],
+  ['benefit_election','R','deduction-reconciler','Deductions matched to elections.'],
+  ['payroll_run','W','payroll-run-builder','Assembled for review.'],
+  ['payroll_run','R','payroll-anomaly-detector','Deviation from history holds the run.','g_pay_anomaly'],
+  ['approval_request','A','Founder','The party that computed pay cannot release it.','g_pay_disburse'],
+  ['payroll_run','W','direct-deposit-disburser','Decrypts bank details via decrypt_pii(\u2026, salary_disbursement) after checking consent_record.'],
+  ['payslip','W','payslip-issuer',''],
+  ['payslip_line','W','gross-pay-calculator','Each line points at the rule row that produced it.'],
+  ['gratuity_accrual_balance','W','payroll-run-builder','India only. Running balance, updated every period.'],
+  ['filing_record','W','tax-filing-submitter','ECR, ESI, 24Q, 941.'],
+  ['gl_journal_entry','W','gl-poster','Cost-centre grain only.','g_close'],
+  ['audit_log','W','every worker','Same transaction as each mutation.']]},
+ {id:'exit',name:'Termination to full and final',sum:'Holds checked, access cut, settlement gated, retention clocks start.',steps:[
+  ['termination','W','HR admin','The event every domain reacts to.'],
+  ['legal_hold','R','root orchestrator','An active hold freezes irreversible steps.','g_legalhold'],
+  ['checklist','W','termination-checklist-builder',''],
+  ['identity_account','W','deprovisioning-agent','','g_it_deprov'],
+  ['device_assignment','W','equipment-return-tracker',''],
+  ['leave_balance','R','final-pay-calculator','Encashment.'],
+  ['gratuity_accrual_balance','R','final-pay-calculator','Reads the running balance; never recomputes at exit.'],
+  ['final_settlement','W','final-pay-calculator','','g_finalpay'],
+  ['approval_request','A','Founder','F&F sign-off.','g_pay_disburse'],
+  ['final_settlement','W','direct-deposit-disburser','Same gated worker as routine payroll.'],
+  ['cobra_event','W','cobra-trigger-detector','US only.','g_cobra'],
+  ['vesting_event','R','vesting-schedule-tracker','Post-termination exercise window.'],
+  ['termination','W','rehire-eligibility-flagger',''],
+  ['employee','W','employee-record-writer','date_of_exit set. This is the Gratuity Act retention anchor.']]},
+ {id:'erasure',name:'DPDP erasure request',sum:'Anonymise what you can, hold what statute requires, prove it.',steps:[
+  ['data_subject_request','W','HR admin or Daydor ops','The 90-day clock starts at received_at.'],
+  ['legal_hold','R','root orchestrator','A hold suspends erasure.'],
+  ['consent_record','W','Employee','Withdrawn as a new event, not an edit.'],
+  ['employee','W','employee-record-writer','Name, Aadhaar, PAN and bank references anonymised.'],
+  ['document','W','document-vault-manager','id_proof class deleted; statutory_filing class held.'],
+  ['retention_policy','R','document-vault-manager','The anchor field decides what is still inside its floor.'],
+  ['payslip','R','document-vault-manager','Held inside the TDS and PF floor, now under an unlinkable id.'],
+  ['filing_record','R','document-vault-manager','Held.'],
+  ['audit_log','W','every worker','Append-only record of what was anonymised and what was held.'],
+  ['data_subject_request','W','HR admin','Closed as partially_fulfilled_retention_held, with notes.']]},
+ {id:'merit',name:'Merit cycle to new pay',sum:'Ratings to proposals to bands to a new effective-dated record.',steps:[
+  ['review_cycle','W','review-cycle-launcher',''],
+  ['performance_review','W','Manager','Within the manager\u2019s subtree only.'],
+  ['performance_review','R','calibration-data-aggregator','Ratings distribution.'],
+  ['compensation_event','W','merit-cycle-calculator','Proposal from rating and budget.'],
+  ['comp_band','R','comp-band-validator','Out of band is flagged.','g_offer_band'],
+  ['job_profile','R','comp-band-validator',''],
+  ['employment_record','W','employee-record-writer','A new version; the wage-floor check reruns in India.','wage_structure_change'],
+  ['equity_grant','W','grant-drafter','Refresh grants, priced against the current valuation.','g_409a']]},
+ {id:'threshold',name:'Headcount crosses a statutory threshold',sum:'Count per scheme, confirm, register before the deadline.',steps:[
+  ['employee','R','headcount-planner','Counts per scheme using employment_type, not raw rows.'],
+  ['threshold_obligation','W','headcount-planner','Applicable flips true; deadline set.'],
+  ['approval_request','A','Founder','Founder confirms the crossing.','threshold_crossing'],
+  ['checklist_task','W','onboarding-checklist-builder','Registration tasks with due dates.'],
+  ['filing_record','W','tax-filing-submitter','Registration filed and acknowledged.'],
+  ['self_identification','R','eeo-report-builder','US EEO-1 at 100 employees. Aggregate view only.']]}
+];
+
+const DECISIONS = [
+ ['Which market is v1?','The agent graph is US-led (FMLA, COBRA, W-2, 401k) while the design doc is India-led (DPDP, PF, ESI, PT). I kept a shared core with India and US columns and tables tagged as packs. Use the jurisdiction switch to see each pack on its own.'],
+ ['Names: employee or employee_core, document or document_vault?','I used the design doc\u2019s names because they are the Postgres schema. The 32-table ERD names are noted in each description.'],
+ ['Can managers see team pay?','Default here is yes for direct and indirect reports, behind tenant_compliance_config.manager_can_view_comp, because merit cycles need it. Many startups will want it off.'],
+ ['Founder access to ER cases','Masked by default: the founder sees a case exists and its status, not the category, outcome or notes, since in a small company the founder can be the subject.'],
+ ['Daydor ops and restricted PII','Ops sees PAN, bank and Aadhaar masked even though they operate payroll. Raw values exist only inside workers via app.decrypt_pii(column, purpose), which checks consent and writes audit_log. Confirm ops never needs raw values on screen.'],
+ ['EEO self-ID officer','HR admin sees self_identification as aggregates only. Row-level access needs a role_assignment with purpose = eeo_officer. Decide who holds that in a 50-person company.'],
+ ['statutory_rate_rule','I folded the doc\u2019s epf_rate_rule and esi_rate_rule into one table keyed by scheme so US rates fit. Split back if you prefer one table per scheme.']
+];
+
+/* =========================================================
+   Access engine
+   ========================================================= */
+const state = {lens:'', j:'', q:'', sel:null, hover:null, hideEmp:true, flow:null, tab:'schema', flowSel:'hire'};
+function tblLevel(tb,r){
+  if(r==='G' && WK[tb.id]){ if(WK[tb.id][0].length) return 4; if(WK[tb.id][1].length) return Math.max(3, Math.min(3,+tb.acl[9]||3)); }
+  if(r==='G' && !WK[tb.id]) return +tb.acl[9];
+  return +tb.acl[RID.indexOf(r)];
+}
+function capOf(tb,r,cl){ return (tb.cap && tb.cap[r] && tb.cap[r][cl]!=null) ? tb.cap[r][cl] : CAPS[r][cl]; }
+function colLevel(tb,c,r){ return Math.min(tblLevel(tb,r), capOf(tb,r,c.cl)); }
+function visCols(tb){ return tb.cols.filter(c=>!state.j || !c.j || c.j===state.j); }
+function effLevel(tb,r){ return Math.max(0,...visCols(tb).map(c=>colLevel(tb,c,r))); }
+function visTables(){ return T.filter(tb=>!state.j || !tb.j || tb.j===state.j); }
+function maxClass(tb){ let m='S'; visCols(tb).forEach(c=>{ if(CLASS_ORDER.indexOf(c.cl)>CLASS_ORDER.indexOf(m)) m=c.cl; }); return m; }
+function empLinked(tb){ return tb.id==='employee' || tb.cols.some(c=>c.fk==='employee'); }
+function scopeOf(r,tb){
+  if(r==='A') return 'All tenants, metadata';
+  if(r==='O') return 'Assigned tenants';
+  if(r==='G') return 'Own domain workers';
+  if(r==='U') return 'Tenant, time-boxed';
+  if(r==='M') return empLinked(tb)?'Reporting subtree':'Tenant';
+  if(r==='E') return empLinked(tb)?'Self only':'Tenant';
+  return 'Tenant';
+}
+function lvStyle(l){
+  if(l===0) return 'background:var(--paper);color:var(--faint)';
+  if(l===1) return 'background:var(--lv1);color:var(--ink)';
+  if(l===2) return 'background:var(--lv2);color:var(--ink)';
+  if(l===3) return 'background:var(--lv3);color:var(--ink)';
+  return 'background:var(--lv4);color:var(--lvtext)';
+}
+const esc = s => String(s).replace(/[&<>"]/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+function gatesFor(id){ return GATES.filter(g=>g.tables.includes(id)); }
+function inbound(id){ const out=[]; T.forEach(tb=>tb.cols.forEach(c=>{ if(c.fk===id) out.push({t:tb.id,c:c.n}); })); return out; }
+
+/* =========================================================
+   DDL generator
+   ========================================================= */
+function sqlType(c){
+  return ({uuid:'uuid',text:'text',enum:'text',jsonb:'jsonb',numeric:'numeric(14,2)',date:'date',ts:'timestamptz',bool:'boolean',int:'integer',bytea:'bytea',citext:'citext'})[c.ty]||c.ty;
+}
+function ddl(tb){
+  const cols=visCols(tb), L=[];
+  L.push(`-- ${tb.id}: ${DOM[tb.d].label}. Draft generated from this model.`);
+  L.push(`CREATE TABLE ${tb.id} (`);
+  const defs=cols.map(c=>{
+    let s='  '+c.n.padEnd(30)+sqlType(c);
+    if(c.pk) s+=' PRIMARY KEY DEFAULT gen_random_uuid()';
+    else if(!c.null) s+=' NOT NULL';
+    if(c.fk) s+=` REFERENCES ${c.fk}(id)`;
+    if(c.uniq && c.n!=='hire_event_id') s+=' UNIQUE';
+    if(c.n==='created_at'||c.n==='updated_at') s+=' DEFAULT now()';
+    if(c.ty==='enum') s+='  -- enum';
+    return s;
+  });
+  if(cols.some(c=>c.n==='hire_event_id')) defs.push('  UNIQUE (tenant_id, hire_event_id)');
+  L.push(defs.join(',\n')); L.push(');');
+  cols.forEach(c=>{ L.push(`COMMENT ON COLUMN ${tb.id}.${c.n} IS 'class=${c.cl}${c.enc?';enc=pgcrypto':''}${c.mask?';masked':''}${c.j?';pack='+c.j:''}';`); });
+  if(!tb.global){
+    L.push('', `ALTER TABLE ${tb.id} ENABLE ROW LEVEL SECURITY;`, `ALTER TABLE ${tb.id} FORCE ROW LEVEL SECURITY;`);
+    L.push(`CREATE POLICY tenant_isolation ON ${tb.id}`, `  USING (tenant_id = current_setting('app.tenant_id')::uuid${tb.nullTenant?" OR app.is_daydor_staff()":''});`);
+    const ec=cols.find(c=>c.fk==='employee' && c.n!=='current_employee_id' && c.n!=='head_employee_id');
+    if(ec) L.push(`CREATE POLICY person_scope ON ${tb.id} AS RESTRICTIVE FOR SELECT`, `  USING (app.can_see_employee(${ec.n}));  -- self, reporting_closure, or tenant-wide role`);
+    L.push(`CREATE INDEX ON ${tb.id} (tenant_id${ec?', '+ec.n:''});`);
+  }
+  if(tb.appendOnly) L.push(`REVOKE UPDATE, DELETE ON ${tb.id} FROM PUBLIC;  -- append-only for every app role`);
+  L.push('');
+  ['O','F','H','P','I','M','E','U'].forEach(r=>{
+    const full=cols.filter(c=>colLevel(tb,c,r)>=3).map(c=>c.n);
+    const masked=cols.filter(c=>colLevel(tb,c,r)===2).map(c=>c.n);
+    const agg=cols.filter(c=>colLevel(tb,c,r)===1).map(c=>c.n);
+    const writable=cols.filter(c=>colLevel(tb,c,r)===4 && !['id','tenant_id','created_at','updated_at'].includes(c.n)).map(c=>c.n);
+    if(full.length) L.push(`GRANT SELECT (${full.join(', ')}) ON ${tb.id} TO ${ROLE[r].db};`);
+    if(writable.length && !tb.appendOnly) L.push(`GRANT INSERT, UPDATE (${writable.join(', ')}) ON ${tb.id} TO ${ROLE[r].db};`);
+    if(masked.length) L.push(`-- ${ROLE[r].db}: ${masked.join(', ')} via ${tb.id}_masked view`);
+    if(agg.length && !full.length) L.push(`-- ${ROLE[r].db}: aggregate view ${tb.id}_agg only (k>=5 suppression)`);
+  });
+  cols.filter(c=>c.enc).forEach(c=>L.push(`-- ${c.n}: never granted directly. Read via app.decrypt_pii('${tb.id}.${c.n}', purpose), which checks consent_record and writes audit_log.`));
+  return L.join('\n');
+}
+
+/* =========================================================
+   Header + controls
+   ========================================================= */
+function updateLead(){
+  const vt=visTables(); const nc=vt.reduce((s,tb)=>s+visCols(tb).length,0);
+  document.getElementById('lead').textContent = `${vt.length} tables and ${nc} columns across ${DOM_ORDER.length} domains, ${ROLES.length} access roles and ${GATES.length} approval gates. Built from the Data Model Design doc, the agent graph and the enterprise gap analysis.`;
+}
+const lensSel=document.getElementById('lens');
+lensSel.innerHTML = '<option value="">No lens: show sensitivity</option>' + ROLES.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('');
+lensSel.onchange=()=>{ state.lens=lensSel.value; refreshAll(); };
+document.getElementById('juris').onchange=e=>{ state.j=e.target.value; if(state.sel && !visTables().includes(TB[state.sel])) state.sel=null; drawGraph(); refreshAll(); };
+document.getElementById('q').oninput=e=>{ state.q=e.target.value.trim().toLowerCase(); paintGraph(); };
+document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+function setTab(tab){
+  state.tab=tab;
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-selected', b.dataset.tab===tab?'true':'false'));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on', p.id==='pane-'+tab));
+  if(tab==='schema'){ requestAnimationFrame(()=>{ if(!state.fitted){ fit(); state.fitted=true; } }); }
+}
+function setLens(r){ state.lens=r; lensSel.value=r; refreshAll(); }
+function select(id){ state.sel=id; renderInspector(); paintGraph(); markMatrix(); }
+
+/* =========================================================
+   Schema graph
+   ========================================================= */
+const svg=d3.select('#graph'); const root=svg.append('g');
+const zoom=d3.zoom().scaleExtent([.2,2.6]).on('zoom',e=>root.attr('transform',e.transform));
+svg.call(zoom).on('dblclick.zoom',null);
+svg.on('click',e=>{ if(e.target===svg.node()){ state.sel=null; renderInspector(); paintGraph(); markMatrix(); } });
+const LAYOUT_COLS=[['ta','ob','it','perf','learn'],['ro','hr','priv','ref'],['pay','time','ben','comp','fin','er']];
+const CW=206, CH=30, NW=196, NH=22, PADX=12, HEAD=40, GAPY=26, GAPX=56;
+let L={nodes:new Map(),clusters:[]};
+function computeLayout(){
+  const nodes=new Map(), clusters=[]; let x=0;
+  const vt=visTables();
+  LAYOUT_COLS.forEach(col=>{
+    let y=0, maxW=0;
+    col.forEach(d=>{
+      const items=vt.filter(tb=>tb.d===d); if(!items.length) return;
+      const k=items.length>4?2:1, rows=Math.ceil(items.length/k);
+      const w=k*CW+PADX*2-(CW-NW), h=HEAD+rows*CH+10;
+      clusters.push({d,x,y,w,h,n:items.length});
+      items.forEach((tb,i)=>{ const cx=i%k, ry=Math.floor(i/k); nodes.set(tb.id,{x:x+PADX+cx*CW, y:y+HEAD+ry*CH, w:NW, h:NH, tb}); });
+      y+=h+GAPY; maxW=Math.max(maxW,w);
+    });
+    x+=maxW+GAPX;
+  });
+  return {nodes,clusters};
+}
+let edges=[];
+function edgePath(s,t){
+  const sx=s.x+s.w/2, sy=s.y+s.h/2, tx=t.x+t.w/2, ty=t.y+t.h/2;
+  if(Math.abs(sx-tx)<CW*1.6 && Math.abs(s.x-t.x)<CW*1.6 && Math.abs(sx-tx)<10){
+    const lx=s.x-4, off=24+Math.min(60,Math.abs(sy-ty)*.25);
+    return `M${lx},${sy} C${lx-off},${sy} ${lx-off},${ty} ${lx},${ty}`;
+  }
+  const right = tx>sx;
+  const x1 = right? s.x+s.w : s.x, x2 = right? t.x : t.x+t.w;
+  const mx=(x1+x2)/2;
+  return `M${x1},${sy} C${mx},${sy} ${mx},${ty} ${x2},${ty}`;
+}
+function drawGraph(){
+  root.selectAll('*').remove();
+  L=computeLayout();
+  const cg=root.append('g');
+  L.clusters.forEach(c=>{
+    const g=cg.append('g').attr('class','cluster');
+    g.append('rect').attr('x',c.x).attr('y',c.y).attr('width',c.w).attr('height',c.h).attr('rx',10)
+      .style('fill',`color-mix(in srgb, var(--d-${c.d}) 7%, transparent)`).style('stroke',`color-mix(in srgb, var(--d-${c.d}) 38%, transparent)`);
+    g.append('text').attr('class','cl-label').attr('x',c.x+PADX).attr('y',c.y+24).style('fill',`var(--d-${c.d})`).text(DOM[c.d].label);
+    g.append('text').attr('class','cl-count').attr('x',c.x+c.w-PADX).attr('y',c.y+24).attr('text-anchor','end').text(c.n);
+  });
+  edges=[];
+  visTables().forEach(tb=>visCols(tb).forEach(c=>{
+    if(!c.fk || c.fk==='tenant' || c.fk===tb.id) return;
+    if(!L.nodes.has(c.fk)) return;
+    edges.push({s:tb.id,t:c.fk,c:c.n});
+  }));
+  root.append('g').attr('class','edges').selectAll('path').data(edges).join('path').attr('class','edge')
+    .attr('d',e=>edgePath(L.nodes.get(e.s),L.nodes.get(e.t)));
+  root.append('g').attr('class','flowlayer');
+  const ng=root.append('g').selectAll('g').data([...L.nodes.values()]).join('g')
+    .attr('class','node').attr('transform',n=>`translate(${n.x},${n.y})`).attr('tabindex',0).attr('role','button')
+    .attr('aria-label',n=>n.tb.id)
+    .on('click',(e,n)=>{ e.stopPropagation(); select(n.tb.id); })
+    .on('keydown',(e,n)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); select(n.tb.id); } })
+    .on('mouseenter',(e,n)=>{ state.hover=n.tb.id; paintGraph(); })
+    .on('mouseleave',()=>{ state.hover=null; paintGraph(); });
+  ng.append('rect').attr('class','box').attr('width',NW).attr('height',NH).attr('rx',4);
+  ng.append('rect').attr('width',3).attr('height',NH).attr('rx',1.5).style('fill',n=>`var(--d-${n.tb.d})`);
+  ng.append('text').attr('class','nm').attr('x',10).attr('y',NH/2+4).text(n=>n.tb.id);
+  ng.append('text').attr('class','gl').attr('x',NW-8).attr('y',NH/2+4).attr('text-anchor','end');
+  ng.append('circle').attr('class','sens').attr('cx',NW-11).attr('cy',NH/2).attr('r',4);
+  const b=ng.append('g').attr('class','badge').style('display','none').attr('transform',`translate(-4,-4)`);
+  b.append('circle').attr('r',8); b.append('text');
+  paintGraph();
+}
+function neighbors(id){ const s=new Set([id]); edges.forEach(e=>{ if(e.s===id) s.add(e.t); if(e.t===id) s.add(e.s); }); return s; }
+function paintGraph(){
+  const focus=state.hover||state.sel; const nb=focus?neighbors(focus):null;
+  const flow=state.flow?FLOWS.find(f=>f.id===state.flow):null;
+  const flowIdx=new Map(); if(flow) flow.steps.forEach((s,i)=>{ if(!flowIdx.has(s[0])) flowIdx.set(s[0],i+1); });
+  const q=state.q;
+  root.selectAll('.node').each(function(n){
+    const g=d3.select(this), tb=n.tb;
+    let op=1;
+    if(state.lens){ const l=effLevel(tb,state.lens); op=[.16,.45,.72,1,1][l]; }
+    if(flow) op = flowIdx.has(tb.id)?1:.12;
+    else if(nb && !nb.has(tb.id)) op=Math.min(op,.3);
+    g.style('opacity',op);
+    g.classed('sel',state.sel===tb.id);
+    const m = q && (tb.id.includes(q) || visCols(tb).some(c=>c.n.includes(q)));
+    g.classed('match',!!m);
+    const gl=g.select('text.gl'), dot=g.select('circle.sens');
+    if(state.lens){ const l=effLevel(tb,state.lens); gl.text(LV[l].g).style('fill', l>=3?'var(--accent)':'var(--faint)'); dot.style('display','none'); }
+    else { gl.text(''); dot.style('display',null).style('fill',`var(--c-${maxClass(tb)})`); }
+    const bd=g.select('.badge');
+    if(flow && flowIdx.has(tb.id)){ bd.style('display',null); bd.select('text').text(flowIdx.get(tb.id)); } else bd.style('display','none');
+  });
+  root.selectAll('.edge').attr('class',e=>{
+    let c='edge';
+    if(flow) return c+' dim';
+    if(focus){ if(e.s===focus||e.t===focus) c+=' hot'; else c+=' dim'; }
+    return c;
+  }).style('display',e=>state.hideEmp && e.t==='employee' && !(focus && (e.s===focus||e.t===focus)) ? 'none':null);
+  const fl=root.select('.flowlayer'); fl.selectAll('*').remove();
+  if(flow){
+    const seq=[]; flow.steps.forEach(s=>{ if(L.nodes.has(s[0]) && seq[seq.length-1]!==s[0]) seq.push(s[0]); });
+    for(let i=0;i<seq.length-1;i++){ const a=L.nodes.get(seq[i]), b=L.nodes.get(seq[i+1]); fl.append('path').attr('class','flowpath').attr('d',edgePath(a,b)); }
+  }
+  const chip=document.getElementById('traceChip');
+  chip.innerHTML = flow ? `<button class="chip-trace" id="clearTrace">Tracing: ${esc(flow.name)} (clear)</button>` : '';
+  if(flow) document.getElementById('clearTrace').onclick=()=>{ state.flow=null; paintGraph(); };
+}
+function fit(pad=24){
+  const el=svg.node(); const W=el.clientWidth||900, H=el.clientHeight||600;
+  const bb=root.node().getBBox(); if(!bb.width) return;
+  const top=(document.querySelector('.overlay.tl').offsetHeight||40)+22;
+  const k=Math.min(2,(W-pad*2)/bb.width,(H-top-pad)/bb.height);
+  const tx=(W-bb.width*k)/2-bb.x*k, ty=top+(H-top-pad-bb.height*k)/2-bb.y*k;
+  svg.transition().duration(350).call(zoom.transform,d3.zoomIdentity.translate(tx,ty).scale(k));
+}
+function zoomToCluster(d){
+  const c=L.clusters.find(x=>x.d===d); if(!c) return;
+  const el=svg.node(); const W=el.clientWidth, H=el.clientHeight;
+  const k=Math.min(1.6,(W-80)/c.w,(H-80)/c.h);
+  svg.transition().duration(400).call(zoom.transform,d3.zoomIdentity.translate(W/2-(c.x+c.w/2)*k,H/2-(c.y+c.h/2)*k).scale(k));
+}
+document.getElementById('fit').onclick=()=>fit();
+const hb=document.getElementById('hideEmp');
+hb.onclick=()=>{ state.hideEmp=!state.hideEmp; hb.classList.toggle('on',state.hideEmp); hb.setAttribute('aria-pressed',state.hideEmp); paintGraph(); };
+function renderLegend(){
+  const el=document.getElementById('legend');
+  if(state.lens){
+    el.innerHTML = `<b style="color:var(--ink);font-weight:500">${esc(ROLE[state.lens].name)}:</b>`+
+      LV.map((l,i)=>`<span><span class="mono" style="color:${i>=3?'var(--accent)':'var(--faint)'}">${l.g}</span> ${l.label}</span>`).join('')+
+      `<span>Faded tables are out of reach.</span>`;
+  } else {
+    el.innerHTML = `<b style="color:var(--ink);font-weight:500">Most sensitive column:</b>`+
+      CLASS_ORDER.map(c=>`<span><span class="dot" style="background:var(--c-${c})"></span>${CLASSES[c].label}</span>`).join('')+
+      `<span>Lines are foreign keys; tenant_id links are implied.</span>`;
+  }
+}
+
+/* =========================================================
+   Inspector
+   ========================================================= */
+function renderInspector(){
+  const el=document.getElementById('insp');
+  if(!state.sel){
+    const r=state.lens?ROLE[state.lens]:null;
+    el.innerHTML = `<h2 style="font-family:inherit;font-weight:600">${r?esc(r.name):'Pick a table'}</h2>
+      <p class="desc">${r?esc(r.desc):'Select any table on the map, in the access matrix, or in a flow to see its columns, keys, which agents read and write it, which gates guard it, and exactly what each role can see column by column.'}</p>
+      ${r?`<div class="rolecard"><b>Column ceilings for this role</b><div class="legend-row" style="margin-top:.4rem">${CLASS_ORDER.map(c=>`<span><span class="cl" style="background:var(--c-${c})">${c}</span> <span class="lvcell" style="${lvStyle(CAPS[r.id][c])}">${LV[CAPS[r.id][c]].g}</span></span>`).join('')}</div>
+        <p class="desc" style="margin:.5rem 0 0">A column\u2019s access is the lower of the table grant and this ceiling. Database role: <span class="mono">${esc(r.db)}</span>.</p></div>`:''}
+      <h3>How access is decided</h3>
+      <ul class="list">
+        <li><b>Rows</b>: tenant_isolation RLS on every table, then a restrictive person_scope policy (self, reporting subtree, or tenant-wide).</li>
+        <li><b>Tables</b>: each role gets none, aggregate, masked, read, or write per table.</li>
+        <li><b>Columns</b>: every column carries a sensitivity class; each role has a ceiling per class.</li>
+        <li><b>Approvals</b>: irreversible actions also need an approval_request resolved by the gate\u2019s approver role.</li>
+      </ul>
+      <h3>Sensitivity classes</h3>
+      <ul class="list">${CLASS_ORDER.map(c=>`<li><span class="cl" style="background:var(--c-${c})">${c}</span> <b>${CLASSES[c].label}</b>: ${esc(CLASSES[c].desc)}</li>`).join('')}</ul>`;
+    return;
+  }
+  const tb=TB[state.sel]; const cols=visCols(tb);
+  const wr=WK[tb.id]||[[],[]];
+  const outFk=cols.filter(c=>c.fk && c.fk!==tb.id);
+  const inFk=inbound(tb.id).filter(x=>visTables().includes(TB[x.t]));
+  const gs=gatesFor(tb.id);
+  const lens=state.lens;
+  el.innerHTML = `
+    <h2>${esc(tb.id)}</h2>
+    <div class="meta">
+      <span class="tag dom" style="background:var(--d-${tb.d})">${esc(DOM[tb.d].label)}</span>
+      <span class="tag">${esc(SRC[tb.src])}</span>
+      ${tb.j?`<span class="tag">${tb.j==='IN'?'India pack':'US pack'}</span>`:''}
+      ${tb.global?'<span class="tag">Shared, not tenant-scoped</span>':''}
+      ${tb.appendOnly?'<span class="tag">Append-only</span>':''}
+    </div>
+    <p class="desc">${esc(tb.desc)}</p>
+    ${lens?`<div class="rolecard"><b>${esc(ROLE[lens].name)}</b>: ${LV[effLevel(tb,lens)].label.toLowerCase()} on this table, scope ${esc(scopeOf(lens,tb).toLowerCase())}.</div>`:''}
+    <h3>Columns and who can see them</h3>
+    <table class="coltbl"><thead><tr><th>Column</th><th>Type</th><th>Class</th>${RID.map(r=>`<th class="r${r===lens?' lensc':''}" title="${esc(ROLE[r].name)}">${r}</th>`).join('')}</tr></thead>
+    <tbody>${cols.map(c=>`<tr>
+      <td class="cn">${esc(c.n)}${c.pk?'<span class="flag">pk</span>':''}${c.fk?`<span class="flag">\u2192 ${esc(c.fk)}</span>`:''}${c.enc?'<span class="flag">enc</span>':''}${c.mask?'<span class="flag">masked</span>':''}${c.der?'<span class="flag">derived</span>':''}${c.j?`<span class="flag">${c.j}</span>`:''}</td>
+      <td class="ct">${esc(c.ty)}${c.null?'?':''}</td>
+      <td><span class="cl" style="background:var(--c-${c.cl})" title="${esc(CLASSES[c.cl].label)}">${c.cl}</span></td>
+      ${RID.map(r=>{const l=colLevel(tb,c,r); return `<td class="r"><span class="cell${l===2?' lv2pat':''}" style="${l===2?'':lvStyle(l)}${r===lens?';outline:2px solid var(--accent)':''}" title="${esc(ROLE[r].name)}: ${LV[l].label}"></span></td>`;}).join('')}
+    </tr>`).join('')}</tbody></table>
+    <p class="desc" style="font-size:.72rem;margin-top:.35rem">${RID.map(r=>`${r} ${esc(ROLE[r].name)}`).join(', ')}.</p>
+    ${gs.length?`<h3>Approval gates on this table</h3>${gs.map(g=>`<div class="gate"><b>${esc(g.label)}</b><br><span style="color:var(--soft)">Approver: ${g.ap.map(a=>esc(ROLE[a].name)).join(' or ')}. Source: ${g.src==='doc'?'design doc':'agent graph'}.</span></div>`).join('')}`:''}
+    <h3>Agent workers</h3>
+    ${wr[0].length||wr[1].length?`<div>${wr[0].map(w=>`<span class="wk w" title="writes">${esc(w)}</span>`).join('')}${wr[1].map(w=>`<span class="wk" title="reads">${esc(w)}</span>`).join('')}</div><p class="desc" style="font-size:.72rem;margin-top:.3rem">Outlined in teal: writes. Plain: reads.</p>`:'<p class="desc">No agent touches this table; humans only.</p>'}
+    <h3>References (${outFk.length})</h3>
+    <ul class="list">${outFk.map(c=>`<li><span class="mono">${esc(c.n)}</span> \u2192 <button class="link" data-go="${c.fk}">${esc(c.fk)}</button></li>`).join('')||'<li>None</li>'}</ul>
+    <h3>Referenced by (${inFk.length})</h3>
+    <ul class="list">${inFk.map(x=>`<li><button class="link" data-go="${x.t}">${esc(x.t)}</button>.<span class="mono">${esc(x.c)}</span></li>`).join('')||'<li>None</li>'}</ul>
+    <details><summary>Postgres DDL, RLS and column grants (draft)</summary><pre class="ddl">${esc(ddl(tb))}</pre></details>`;
+  el.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>select(b.dataset.go));
+  el.scrollTop=0;
+}
+
+/* =========================================================
+   Access pane
+   ========================================================= */
+function renderAccess(){
+  const el=document.getElementById('pane-access');
+  const tiers=[
+    ['Platform (Daydor)',['A','O'],'Admin builds the platform; ops runs tenants it is assigned to.'],
+    ['Tenant (client company)',['F'],'Approver of record for the whole company.'],
+    ['Tenant specialists',['H','P','I'],'Peers, not a chain: each is deep in its own domain and shallow elsewhere.'],
+    ['Scoped people',['M','E'],'Manager sees a reporting subtree; employee sees self.'],
+    ['Lateral',['U','G'],'Auditor is read-only and time-boxed. Agents follow the worker map.']
+  ];
+  el.innerHTML = `<div class="access-wrap">
+    <h2 class="section-h">Who sits where</h2>
+    <p class="section-p">Access narrows as you go down, but it is not a strict superset: the founder outranks HR yet sees less restricted PII, and Daydor admin outranks everyone yet sees no people data. Pick a role to view the map, matrix and inspector through it.</p>
+    <div class="ladder">${tiers.map(([n,rs,d])=>`<div class="tier">${esc(n)}</div><div class="roles">${rs.map((r,i)=>`${i&&n.startsWith('Platform')?'<span class="arrow">then</span>':''}<button class="rchip${state.lens===r?' on':''}" data-r="${r}">${esc(ROLE[r].name)}<small>${esc(scopeOf(r,TB.payslip))}</small></button>`).join('')}<span class="section-p" style="margin:0;font-size:.76rem">${esc(d)}</span></div>`).join('')}</div>
+    <h2 class="section-h">Column ceilings by sensitivity class</h2>
+    <p class="section-p">Every column is tagged with a class. A role\u2019s access to a column is the lower of its table grant and this ceiling, so a manager with read on employee still cannot see pan_encrypted.</p>
+    <div style="overflow-x:auto"><table class="caps"><thead><tr><th>Role</th>${CLASS_ORDER.map(c=>`<th><span class="cl" style="background:var(--c-${c})">${c}</span> ${CLASSES[c].label}</th>`).join('')}</tr></thead>
+    <tbody>${ROLES.map(r=>`<tr${state.lens===r.id?' style="background:var(--accent-soft)"':''}><td class="rl">${esc(r.name)}</td>${CLASS_ORDER.map(c=>`<td><span class="lvcell${CAPS[r.id][c]===2?' lv2pat':''}" style="${CAPS[r.id][c]===2?'':lvStyle(CAPS[r.id][c])}" title="${LV[CAPS[r.id][c]].label}">${LV[CAPS[r.id][c]].g}</span></td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    <h2 class="section-h">Table grants</h2>
+    <p class="section-p">Each cell is the best access that role has to any column in the table. Select a cell to open the column-level breakdown for that role.</p>
+    <div class="legend-row" style="font-size:.76rem;color:var(--soft);margin-bottom:.5rem">${LV.map((l,i)=>`<span><span class="lvcell${i===2?' lv2pat':''}" style="${i===2?'':lvStyle(i)}">${l.g}</span> ${l.label}</span>`).join('')}</div>
+    <div class="matrix-scroll"><table class="matrix" id="matrix"><thead><tr><th class="tn">Table</th>${ROLES.map(r=>`<th data-col="${r.id}">${esc(r.short).replace('\n','<br>')}</th>`).join('')}</tr></thead><tbody>
+    ${DOM_ORDER.map(d=>{ const rows=visTables().filter(tb=>tb.d===d); if(!rows.length) return '';
+      return `<tr class="grp"><td colspan="${ROLES.length+1}" style="color:var(--d-${d})">${esc(DOM[d].label)}</td></tr>`+
+      rows.map(tb=>`<tr data-t="${tb.id}"><td class="tn">${esc(tb.id)}</td>${RID.map(r=>{const l=effLevel(tb,r); return `<td class="c" data-col="${r}"><button data-t="${tb.id}" data-r="${r}" class="${l===2?'lv2pat':''}" style="${l===2?'':lvStyle(l)}" title="${esc(ROLE[r].name)} on ${tb.id}: ${LV[l].label}, ${esc(scopeOf(r,tb))}">${LV[l].g}</button></td>`;}).join('')}</tr>`).join('');
+    }).join('')}</tbody></table></div></div>`;
+  el.querySelectorAll('.rchip').forEach(b=>b.onclick=()=>setLens(state.lens===b.dataset.r?'':b.dataset.r));
+  el.querySelectorAll('#matrix button').forEach(b=>b.onclick=()=>{ state.lens=b.dataset.r; lensSel.value=b.dataset.r; state.sel=b.dataset.t; refreshAll(); });
+  markMatrix();
+}
+function markMatrix(){
+  document.querySelectorAll('#matrix tr[data-t]').forEach(tr=>tr.classList.toggle('selrow',tr.dataset.t===state.sel));
+  document.querySelectorAll('#matrix [data-col]').forEach(c=>c.classList.toggle('lenscol',c.dataset.col===state.lens));
+}
+
+/* =========================================================
+   Flows pane
+   ========================================================= */
+function renderFlows(){
+  const el=document.getElementById('pane-flows');
+  const f=FLOWS.find(x=>x.id===state.flowSel);
+  el.innerHTML = `<div class="flows">
+    <div class="flowlist">${FLOWS.map(x=>`<button data-f="${x.id}" class="${x.id===f.id?'on':''}"><b>${esc(x.name)}</b><span>${esc(x.sum)}</span></button>`).join('')}</div>
+    <div>
+      <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:.6rem">
+        <h2 class="section-h" style="margin:0">${esc(f.name)}</h2>
+        <button class="btn on" id="trace">Trace on schema map</button>
+      </div>
+      <ol class="steps">${f.steps.map(s=>{ const tb=TB[s[0]]; const hidden=!visTables().includes(tb); const g=s[4]?GATE[s[4]]:null;
+        const lvl=state.lens?effLevel(tb,state.lens):null;
+        return `<li style="${hidden?'opacity:.4':''}"><div><div class="top">
+          <button class="tchip" data-t="${s[0]}" style="border-color:var(--d-${tb.d})">${esc(s[0])}</button>
+          <span class="op ${s[1]}">${s[1]==='W'?'Writes':s[1]==='R'?'Reads':'Approves'}</span>
+          <span class="mono" style="font-size:.74rem;color:var(--soft)">${esc(s[2])}</span>
+          ${g?`<span class="tag" style="border-color:var(--c-C3)">Gate: ${esc(g.label)}</span>`:''}
+          ${lvl!==null?`<span class="tag">${esc(ROLE[state.lens].name)}: ${LV[lvl].label.toLowerCase()}</span>`:''}
+          ${hidden?'<span class="tag">Not in this jurisdiction pack</span>':''}
+        </div>${s[3]?`<div class="note">${esc(s[3])}</div>`:''}</div></li>`; }).join('')}</ol>
+    </div></div>`;
+  el.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{ state.flowSel=b.dataset.f; if(state.flow) state.flow=b.dataset.f; renderFlows(); paintGraph(); });
+  el.querySelectorAll('.tchip').forEach(b=>b.onclick=()=>select(b.dataset.t));
+  el.querySelector('#trace').onclick=()=>{ state.flow=f.id; setTab('schema'); paintGraph(); fit(); };
+}
+
+/* =========================================================
+   Coverage pane
+   ========================================================= */
+function bars(rows,legend){
+  const max=Math.max(...rows.map(r=>r.segs.reduce((s,x)=>s+x.v,0)),1);
+  return `<div class="bars">${rows.map((r,i)=>{ const tot=r.segs.reduce((s,x)=>s+x.v,0);
+    return `<div class="bar" data-i="${i}" role="button" tabindex="0"><span>${esc(r.label)}</span><div class="track" style="width:${Math.max(4,tot/max*100)}%">${r.segs.filter(s=>s.v).map(s=>`<span class="${s.cls||''}" style="width:${s.v/tot*100}%;background:${s.color}" title="${esc(s.k)}: ${s.v}"></span>`).join('')}</div><span class="n">${tot}</span></div>`; }).join('')}</div>
+    <div class="legend-row">${legend.map(l=>`<span><span class="sw ${l.cls||''}" style="background:${l.color}"></span>${esc(l.k)}</span>`).join('')}</div>`;
+}
+function renderCoverage(){
+  const el=document.getElementById('pane-coverage');
+  const vt=visTables();
+  const domRows=DOM_ORDER.filter(d=>vt.some(tb=>tb.d===d)).map(d=>({label:DOM[d].label,d,segs:CLASS_ORDER.map(c=>({k:CLASSES[c].label,v:vt.filter(tb=>tb.d===d&&maxClass(tb)===c).length,color:`var(--c-${c})`}))}));
+  const roleRows=ROLES.map(r=>({label:r.name,r:r.id,segs:[4,3,2,1].map(l=>({k:LV[l].label,v:vt.filter(tb=>effLevel(tb,r.id)===l).length,color:l===2?'var(--lv3)':`var(--lv${l})`,cls:l===2?'lv2pat':''}))}));
+  const srcRows=Object.keys(SRC).map(s=>({label:SRC[s],segs:DOM_ORDER.map(d=>({k:DOM[d].label,v:vt.filter(tb=>tb.src===s&&tb.d===d).length,color:`var(--d-${d})`}))}));
+  const colRows=CLASS_ORDER.map(c=>({label:CLASSES[c].label,segs:[{k:'Shared core',v:vt.reduce((s,tb)=>s+visCols(tb).filter(x=>x.cl===c&&!x.j&&!tb.j).length,0),color:'var(--accent)'},{k:'India pack',v:vt.reduce((s,tb)=>s+visCols(tb).filter(x=>x.cl===c&&(x.j==='IN'||tb.j==='IN')).length,0),color:'var(--d-pay)'},{k:'US pack',v:vt.reduce((s,tb)=>s+visCols(tb).filter(x=>x.cl===c&&(x.j==='US'||tb.j==='US')).length,0),color:'var(--d-it)'}]}));
+  el.innerHTML = `<div class="cov">
+    <div class="chart"><h2 class="section-h">Tables per domain, by most sensitive column</h2><p class="section-p">Select a domain to zoom to it on the map.</p><div id="ch1">${bars(domRows,CLASS_ORDER.map(c=>({k:CLASSES[c].label,color:`var(--c-${c})`})))}</div></div>
+    <div class="chart"><h2 class="section-h">How far each role reaches</h2><p class="section-p">Tables each role can touch at all, split by its best access. Select a role to open the matrix through its lens.</p><div id="ch2">${bars(roleRows,[4,3,2,1].map(l=>({k:LV[l].label,color:l===2?'var(--lv3)':`var(--lv${l})`,cls:l===2?'lv2pat':''})))}</div></div>
+    <div class="chart"><h2 class="section-h">Columns by class and jurisdiction pack</h2><p class="section-p">Where the restricted and special-category columns live, and how much of the model is market-specific.</p><div id="ch4">${bars(colRows,[{k:'Shared core',color:'var(--accent)'},{k:'India pack',color:'var(--d-pay)'},{k:'US pack',color:'var(--d-it)'}])}</div></div>
+    <div class="chart"><h2 class="section-h">Where each table came from</h2><p class="section-p">Coloured by domain. All seven gap-analysis additions (position, skill, employee_skill, work_authorization, self_identification, emergency_contact, tax residency on payroll_profile) plus job_profile and comp_band are in.</p><div id="ch3">${bars(srcRows,[])}</div></div>
+    <div class="chart"><h2 class="section-h">Decisions I made that you should confirm</h2>
+      <ol class="decisions">${DECISIONS.map(([h,p])=>`<li><b>${esc(h)}</b><p>${esc(p)}</p></li>`).join('')}</ol></div>
+  </div>`;
+  const wire=(id,rows,fn)=>el.querySelectorAll(`#${id} .bar`).forEach(b=>{ const go=()=>fn(rows[+b.dataset.i]); b.onclick=go; b.onkeydown=e=>{ if(e.key==='Enter') go(); }; });
+  wire('ch1',domRows,r=>{ setTab('schema'); requestAnimationFrame(()=>zoomToCluster(r.d)); });
+  wire('ch2',roleRows,r=>{ setLens(r.r); setTab('access'); });
+}
+
+/* =========================================================
+   Boot
+   ========================================================= */
+function refreshAll(){ updateLead(); renderLegend(); paintGraph(); renderInspector(); renderAccess(); renderFlows(); renderCoverage(); }
+drawGraph(); refreshAll();
+requestAnimationFrame(()=>{ fit(); state.fitted=true; });
+window.addEventListener('resize',()=>{ if(state.tab==='schema') fit(); });
+</script>
+</body>
+</html>
