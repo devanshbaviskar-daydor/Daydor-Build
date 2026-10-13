@@ -111,3 +111,13 @@ model never opens gates; `review` blocks the next workflow step until acknowledg
 them); tiers map to Haiku, Sonnet and Opus by environment, prices are configuration, never assumed; no per-tenant cost cap yet (Phase C).
 Not done: running against the real API, wiring a worker into a flow, per-tenant caps, rollout states, evals (Phase C).
 
+
+## 8. What Phase C changed (built Oct 14, migration 0043)
+G5, G6 and G11 are closed for the reference worker. **Rollout:** an LLM worker is `shadow` in every tenant until Daydor promotes it; the database
+requires a passing eval on the prompt in force for canary, and a live eval, a canary on the same prompt, 5 committed runs and none rejected for
+general availability; a new prompt drops it back to shadow; a tenant can step back, never forward. **Evals:** golden set per worker
+(`registry/evals/`), replay in CI (`python -m daydor.agents.evals`, also a stale-set tripwire), live runs on purpose, append-only results.
+**Cost:** per-tenant monthly caps (dollars and/or tokens, set by ops), enforced before and during a run; usage view. **Circuit breaker:**
+`model_provider`, deferring jobs without spending attempts. Decisions taken: canary needs 5 runs; no cap row means no cap; the first cap values
+are Daydor's to set per tenant, none is built in. Not done: a live eval has never been run against the real API (so nothing can reach ga yet),
+per-integration breakers for vendor adapters (none is wired), alerts when a circuit opens or a tenant nears its cap (Phase D).

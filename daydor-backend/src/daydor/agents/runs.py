@@ -57,6 +57,7 @@ class AgentRun:
     released: bool                  # an approved hold, now running
     effective_autonomy: str
     default_autonomy: str
+    stage: str = "ga"               # rollout stage of an LLM worker in this tenant (daydor.agents.rollout)
 
     @property
     def tightened(self) -> str | None:
@@ -71,8 +72,11 @@ class AgentRun:
         return (self.status == "running" and not self.released and self.tightened == "approve" and not is_llm(worker))
 
     def needs_review_after(self, worker: str) -> bool:
-        """Leave the run for a person to acknowledge: a tenant asked for review, or the worker is an LLM acting at review."""
-        return self.tightened == "review" or (is_llm(worker) and self.effective_autonomy == "review")
+        """Leave the run for a person to acknowledge: a tenant asked for review, or the worker is an LLM acting at review or on canary.
+        A shadow run applies nothing, so there is nothing to acknowledge."""
+        if is_llm(worker):
+            return self.stage != "shadow" and (self.effective_autonomy == "review" or self.stage == "canary")
+        return self.tightened == "review"
 
 
 def idempotency_key(job: Job) -> str:

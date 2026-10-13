@@ -142,6 +142,9 @@ class Worker:
                         runs.hold_for_approval(conn, run, handler.worker)
                     self._complete(job, {"held": str(run.id), "proposal": result["_agent_hold"]})
                     return "held"
+                if result.get("_agent_defer") is not None:                 # a circuit is open: not the job's fault, no attempt spent
+                    self._defer(job, int(result["_agent_defer"]), str(result.get("reason", "deferred")))
+                    return "deferred"
                 if result.get("_agent_fail"):                              # the agent side failed; the records of why are committed
                     self._finish(handler, job, run, "failed", str(result["_agent_fail"]))
                     return self._fail(job, f"{result['_agent_fail']}: {result.get('error', '')}")
@@ -155,6 +158,11 @@ class Worker:
         self._complete(job, result)
         return "succeeded"
 
+    def _defer(self, job: Job, seconds: int, reason: str) -> None:
+        with self._dispatcher() as conn:
+            conn.execute(text("SELECT app.defer_job(:j, :w, now() + make_interval(secs => :s), :r)"),
+                         {"j": job.id, "w": self.worker_id, "s": max(seconds, 1), "r": reason})
+
     @staticmethod
     def _tracked(worker: str) -> bool:
         from daydor.agents import runs
@@ -166,7 +174,12 @@ class Worker:
         from daydor.agents import runs
         with tenant_session(self.engine, handler.role, job.tenant_id) as conn:
             conn.execute(text("SELECT app.assert_worker_enabled(:w)"), {"w": handler.worker})
-            return runs.begin_run(conn, handler.worker, job)
+            run = runs.begin_run(conn, handler.worker, job)
+            if run.status == "running" and runs.is_llm(handler.worker):
+                from dataclasses import replace
+                from daydor.agents import rollout
+                run = replace(run, stage=rollout.stage_for(conn, handler.worker))
+            return run
 
     def _finish(self, handler: Handler, job: Job, run, status: str, error: str | None = None) -> None:
         from daydor.agents import runs

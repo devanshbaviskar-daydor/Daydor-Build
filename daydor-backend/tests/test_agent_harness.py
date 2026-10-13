@@ -22,6 +22,7 @@ from daydor.agents.workers import requisition_drafter as RD
 from daydor.db.session import tenant_session
 from daydor.queue import Worker, enqueue
 from tests.factories import insert
+from tests.rollout_helpers import place
 
 GOOD = {"title": "Backend Engineer", "summary": "You will build and run the services that our customers' payroll and HR data depend on.",
         "responsibilities": ["Design and build backend services", "Review teammates' changes", "Run services in production"],
@@ -262,6 +263,7 @@ def req(engine, hire_org):
     with engine.begin() as conn:
         requisition = insert(conn, "job_requisition", tenant_id=hire_org["tenant"], position_id=hire_org["position"],
                              hiring_manager_id=hire_org["hiring_manager"], status="draft", target_start_date="2026-09-01")
+    place(engine, hire_org["tenant"], "requisition-drafter", "ga")      # rollout is tested in test_agent_safety_ops.py
     return {**hire_org, "requisition": requisition}
 
 

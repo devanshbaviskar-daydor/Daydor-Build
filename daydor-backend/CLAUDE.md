@@ -68,6 +68,8 @@ Context for Claude Code. Read `docs/backend-plan.md`, `docs/model-findings.md` a
 - Agentic worker harness (placeholder, not wired in yet): `src/daydor/agents/base.py`
 - LLM harness (`0041`): `src/daydor/agents/harness/` and `src/daydor/agents/workers/`, `docs/agent-harness.md`. A model proposes, never decides or writes;
   prompts and output schemas are registry data pinned by hash; CI never calls the network (`ScriptedClient`)
+- Phase C (`0043`): rollout shadow/canary/ga per tenant (`agents/rollout.py`), golden sets and evals (`agents/evals.py`, `registry/evals/`, run by CI),
+  tenant AI budgets, circuit breaker (`circuit.py`). A changed prompt needs its golden set reviewed (`check_current`); LLM workers start in shadow
 - Agent runs and autonomy (`0040`): `src/daydor/agents/runs.py`; every job of a real worker opens an `agent_task_run`, a tenant that
   raises autonomy holds (`g_agent_action`) or flags it. The plan for the rest of the agentic infrastructure is `docs/agentic-infra-plan.md`
 - Worker registry and per-worker roles (ADR-004): `registry/`, `src/daydor/agents/registry.py` (classification,

@@ -25,6 +25,28 @@ How a worker that uses a model is built and run (Phase B of `docs/agentic-infra-
    `app.agent_model_call`, and an agent-side failure returns `_agent_fail` so the records commit and the run is failed with a code
    (`BudgetExceeded`, `ProtocolError`, `ProposalInvalid`, `ModelError`, `ProviderNotConfigured`).
 
+## Phase C: safety and operations (migration 0043)
+8. **Rollout, per tenant.** An LLM worker starts in `shadow`: the proposal is stored (status `shadow`) and never applied; nothing it would
+   have set in motion starts. Daydor ops promotes it (`daydor.agents.rollout.promote`, `app.set_worker_rollout`): `canary` applies the
+   proposal but the run always waits for a person to acknowledge it; `ga` acts at the worker's own autonomy. The database enforces the
+   evidence (`app.worker_rollout_guard`): canary needs a passing eval on the exact prompt in force; ga needs a passing *live* eval, a
+   canary on that same prompt, 5 committed canary runs and none rejected. Python adds that the live eval was on the model now in force.
+   A new prompt version has no promotion, so the worker is back in shadow. A tenant can always step back (`app.demote_worker_rollout`),
+   never forward. Shadow outcomes are in `app.agent_proposal_stats`. Workers without a built LLM have no rollout (`ga`).
+9. **Evals.** `registry/evals/<worker>/golden.json`, pinned to the prompt. *Replay* cases are fixed model outputs with what the guardrails
+   (schema and rules) must do with them: deterministic, run by CI (`python -m daydor.agents.evals`), which also fails when the prompt
+   changed and the set did not. *Live* cases run the real loop against the real model with hostile notes; run on purpose
+   (`--live --tenant T --record`), they cost money. Results are append-only in `app.worker_eval_result`. Replay tests the guardrails, not
+   the model: only a live pass lets a worker reach ga.
+10. **Tenant AI budgets.** `app.tenant_ai_budget` holds a monthly cap in dollars and/or tokens, set by Daydor ops only (a tenant cannot raise
+   its own). Before a model call the handler reads `app.tenant_ai_headroom()`: nothing left fails the run as `TenantBudgetExceeded` without a
+   call; otherwise the run's own limits are tightened to what is left. No cap row means no cap. Dollars count only priced calls, so tokens are
+   the cap that always holds. Spend is in `app.ai_usage_daily`.
+11. **Circuit breaker.** `app.integration_circuit` (`daydor.circuit`): 5 failures in a row open it for 60 s, then calls are let through as
+   probes and the first result decides. A model error counts as a failure; a model that answered badly does not. While open, a job is
+   *deferred* (`app.defer_job`: back on its queue, no attempt spent, run left open) rather than failed. Integrations are registered by
+   migration; `model_provider` is the first.
+
 ## Building a new LLM worker
 1. In `registry/worker_classification.json` give the worker a `contract` (`built: true`, `prompt_version`, `prompt_sha256`, `context`,
    `max_data_class`, `tools`, `budgets`, `output_schema`, `idempotency`, `gates_may_request: []`) and any reviewed `extra_scope` its
@@ -33,6 +55,8 @@ How a worker that uses a model is built and run (Phase B of `docs/agentic-infra-
 2. Add `registry/prompts/<worker>/<version>.md` and `registry/schemas/<name>.v1.json`.
 3. Write the spec: `build_context`, `rules`, `tools`, `commit`. Commit only through domain functions the worker's role can run.
 4. Test it with `ScriptedClient`; never with the network.
+5. Write its golden set (`registry/evals/<worker>/golden.json`), add the worker to `evals.WORKER_MODULES`, run the evals, and record them. It stays
+   in shadow for every tenant until Daydor promotes it.
 
 ## Running it for real
 The default client fails closed. To call Claude: `DAYDOR_MODEL_PROVIDER=claude`, `ANTHROPIC_API_KEY`, optionally

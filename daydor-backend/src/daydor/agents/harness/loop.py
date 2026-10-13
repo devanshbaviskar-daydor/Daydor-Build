@@ -41,6 +41,7 @@ class Budgets:
     max_output_tokens: int
     timeout_s: float
     max_cost_usd: float | None = None
+    max_total_tokens: int | None = None       # input plus output; set from a tenant's monthly cap, not by a contract
 
     @classmethod
     def from_contract(cls, b: Mapping[str, Any]) -> "Budgets":
@@ -87,6 +88,8 @@ def _check_budgets(b: Budgets, spent: Spent, started: float) -> None:
         raise BudgetExceeded(f"output token limit {b.max_output_tokens} reached")
     if time.monotonic() - started >= b.timeout_s:
         raise BudgetExceeded(f"time limit {b.timeout_s}s reached")
+    if b.max_total_tokens is not None and spent.input_tokens + spent.output_tokens >= b.max_total_tokens:
+        raise BudgetExceeded(f"token limit {b.max_total_tokens} reached (the tenant's monthly budget)")
     if b.max_cost_usd is not None and spent.cost_usd >= b.max_cost_usd:
         raise BudgetExceeded(f"cost limit ${b.max_cost_usd} reached")
 
