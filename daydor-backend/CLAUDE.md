@@ -1,6 +1,6 @@
 # Working on daydor-backend
 
-Context for Claude Code. Read `docs/backend-plan.md`, `docs/model-findings.md` and `docs/adr/` first.
+Context for Claude Code. Read `docs/backend-plan.md`, `docs/model-findings.md` and `docs/adr/` first (ADR-006 records the delegated policy defaults).
 
 ## Setup
 - Postgres 16 with a superuser `daydor_owner` (password `dev`) and databases `daydor_dev`, `daydor_test`.

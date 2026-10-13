@@ -41,7 +41,7 @@ def test_worker_definition_matches_the_registry_fields(engine, org):
             want["home_domain"], want["kind"], want["effect"], want["autonomy"], want["owner"], want["wave"])
         assert sorted(r.writes) == sorted(want["writes"]) and sorted(r.reads) == sorted(want["reads"])
         assert sorted(r.flags) == sorted(want.get("flags", []))
-        assert r.enabled is True
+        assert r.enabled is (want.get("enabled_by_default") is not False)
 
 
 def test_soft_gate_column_only_holds_registered_gates(engine, org):
@@ -539,3 +539,19 @@ def test_mutation_encrypted_and_derived_columns_never_appear_in_generated_grants
             der = {c.name for c in t.columns if c.derived}
             assert not enc & {c for cols in g.values() for c in cols}, (rec["worker"], tid)
             assert not der & set(g.get("insert", []) + g.get("update", [])), (rec["worker"], tid)
+
+
+# ---------------------------------------------------------------- ADR-006 defaults (0032)
+def test_committed_defaults_sql_matches_the_registry():
+    assert W.DEFAULTS_SQL.read_text() == W.generate_defaults_sql()
+
+
+def test_unbuilt_irreversible_workers_start_disabled_and_fail_closed(engine, org):
+    with engine.connect() as conn:
+        off = {r.worker for r in conn.execute(text("SELECT worker FROM app.worker_definition WHERE NOT enabled"))}
+    assert off == {"device-purchase-initiator", "in-country-tax-remitter"}
+    with pytest.raises(DBAPIError, match="device-purchase-initiator is disabled"):
+        with worker_session(engine, "device-purchase-initiator", org.tenant_a):
+            pass
+    with worker_session(engine, "gl-poster", org.tenant_a):      # an enabled worker is unaffected
+        pass

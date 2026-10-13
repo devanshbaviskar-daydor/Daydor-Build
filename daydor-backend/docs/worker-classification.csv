@@ -9,7 +9,7 @@ onboarding-checklist-builder,ob,rule,,internal_write,auto,1,,,employee
 payslip-issuer,pay,rule,,external_notify,auto,1,,,document
 requisition-approval-router,ro,rule,,internal_write,auto,1,,,
 background-check-initiator,ta,integration,,external_reversible,review,1,fcra-consent,g_bg_adverse,"background_check,candidate"
-candidate-screener,ta,decider,llm,internal_write,approve,1,"regulated-aedt,needs-policy-decision",g_aedt,candidate
+candidate-screener,ta,decider,,internal_write,approve,1,"c3-inputs-excluded,regulated-aedt,shadow-only",g_aedt,candidate
 interview-scheduler,ta,llm,,external_notify,review,1,"untrusted-input,outbound-allowlist",,
 job-posting-publisher,ta,integration,,external_reversible,review,1,pay-transparency,,
 offer-letter-generator,ta,rule,,internal_write,approve,1,,g_offer_band,document

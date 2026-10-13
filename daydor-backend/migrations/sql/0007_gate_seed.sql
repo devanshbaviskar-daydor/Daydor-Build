@@ -34,13 +34,17 @@ INSERT INTO app.gate_guard VALUES ('gl_journal_entry', 'posted_at', ARRAY['g_clo
 INSERT INTO app.gate_guard VALUES ('identity_account', 'deprovisioned_at', ARRAY['g_it_deprov']::text[]);
 INSERT INTO app.gate_guard VALUES ('cobra_event', 'notice_sent_at', ARRAY['g_cobra']::text[]);
 INSERT INTO app.gate_guard VALUES ('er_case', 'outcome', ARRAY['g_er_adjud']::text[]);
+INSERT INTO app.gate_guard VALUES ('expense', 'reimbursed_at', ARRAY['g_expense']::text[]);
+INSERT INTO app.gate_guard VALUES ('leave_request', 'fmla_designation', ARRAY['g_fmla']::text[]);
 
 CREATE TRIGGER cobra_event_gate_guard BEFORE INSERT OR UPDATE ON public.cobra_event FOR EACH ROW EXECUTE FUNCTION app.enforce_gate_guard();
 CREATE TRIGGER contractor_invoice_gate_guard BEFORE INSERT OR UPDATE ON public.contractor_invoice FOR EACH ROW EXECUTE FUNCTION app.enforce_gate_guard();
 CREATE TRIGGER er_case_gate_guard BEFORE INSERT OR UPDATE ON public.er_case FOR EACH ROW EXECUTE FUNCTION app.enforce_gate_guard();
+CREATE TRIGGER expense_gate_guard BEFORE INSERT OR UPDATE ON public.expense FOR EACH ROW EXECUTE FUNCTION app.enforce_gate_guard();
 CREATE TRIGGER final_settlement_gate_guard BEFORE INSERT OR UPDATE ON public.final_settlement FOR EACH ROW EXECUTE FUNCTION app.enforce_gate_guard();
 CREATE TRIGGER gl_journal_entry_gate_guard BEFORE INSERT OR UPDATE ON public.gl_journal_entry FOR EACH ROW EXECUTE FUNCTION app.enforce_gate_guard();
 CREATE TRIGGER identity_account_gate_guard BEFORE INSERT OR UPDATE ON public.identity_account FOR EACH ROW EXECUTE FUNCTION app.enforce_gate_guard();
+CREATE TRIGGER leave_request_gate_guard BEFORE INSERT OR UPDATE ON public.leave_request FOR EACH ROW EXECUTE FUNCTION app.enforce_gate_guard();
 CREATE TRIGGER payroll_run_gate_guard BEFORE INSERT OR UPDATE ON public.payroll_run FOR EACH ROW EXECUTE FUNCTION app.enforce_gate_guard();
 
 RESET ROLE;

@@ -154,17 +154,10 @@ CONSTRAINTS (from CLAUDE.md, restated because they matter most)
 - Commit after each step with a message saying what changed and why. Keep tests green. Do not revert
   or reformat files you did not change.
 
-OPEN DECISIONS: do NOT decide these. Leave the stub or flag that exists, and list them for me:
-- Workers whose effect is irreversible or external but that have no hard gate yet (check the registry's
-  flags and `docs/worker-classification.md`; do not add gates).
-- Whether candidate-screener may receive resume text (C3), and whether it may ever enforce (ADR-005).
-- Restricted-data policy for models (C3 per gate, C4 never), and whether one tenant's decisions may train
-  a model serving other tenants (docs/backend-plan.md, "Soft gates with Laya").
-- Manager approval for expenses (`g_expense` exists in the registry but no service writes the guarded
-  columns), and the missing guards on `expense.reimbursed_at` and `leave_request.status` (finding 23).
-- The Laya adoption itself: renaming Jev to DeciderClient, the `calibration_version` migration, and a
-  smoke test against a pinned checkpoint. `LayaClient` has never run against a real checkpoint; do not
-  wire it into a flow until that test passes (see "Planned sessions").
+OPEN DECISIONS: Phase 1 is done and the policy items were decided as conservative defaults in
+docs/adr/ADR-006-delegated-policy-defaults.md (irreversible workers, candidate-screener, restricted data and
+training, expense and FMLA guards). Do not reverse them. Still open: who writes leave_request.fmla_designation
+(finding 29), and the real-checkpoint smoke test of LayaClient (docs/laya-runbook.md).
 
 WHEN DONE
 Update docs/backend-plan.md (status and next steps), docs/sprint-plan.md and CLAUDE.md if rules changed.
@@ -176,7 +169,7 @@ review, and the open decisions still waiting on me. Do not start the next sessio
 
 | Session | Scope |
 |---|---|
-| A | Laya adoption: rename Jev to `DeciderClient` in `soft.py`, `anomaly.py`, `engine.py` and tests; add the `calibration_version` migration (next free number; the Downloads 0011 must be renumbered); install, pin and vendor a checkpoint; smoke-test `LayaClient`; run the soft gates in shadow mode (ADR-005) |
+| A | **Mostly done Oct 13:** `DeciderClient` in `soft.py`, `anomaly.py`, `engine.py` and tests, and the `calibration_version` migration (`0030`). Left: install, pin and vendor a checkpoint, smoke-test `LayaClient` (`docs/laya-runbook.md`), run the soft gates in shadow mode (ADR-005) |
 | B | Shadow-versus-human report, the labelled-example store and the calibration pipeline (Sprint 13) |
 | C | Hardening still open in the sprint plan: enum CHECK constraints (finding 5), ops tenant scoping (finding 6), aggregate views (finding 7), CI |
 | D | Timers for statutory clocks beyond I-9 (COBRA follow-ups, 409A, expiries, thresholds) and the human approvals inbox |

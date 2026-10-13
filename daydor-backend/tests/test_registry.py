@@ -61,9 +61,10 @@ def test_model_workers_have_no_restricted_tables_except_flagged(recs):
     for r in recs:
         uses_model = r["kind"] in ("decider", "llm") or r.get("assist")
         if uses_model and r["restricted_tables"]:
-            assert "needs-policy-decision" in r["flags"], r["worker"]
-    flagged = [r["worker"] for r in recs if "needs-policy-decision" in r.get("flags", [])]
+            assert set(r["flags"]) & R.POLICY_FLAGS, r["worker"]
+    flagged = [r["worker"] for r in recs if set(r.get("flags", [])) & R.POLICY_FLAGS]
     assert flagged == ["candidate-screener"]
+    assert "needs-policy-decision" not in {f for r in recs for f in r.get("flags", [])}     # decided: ADR-006
 
 
 def test_giving_a_model_to_a_c4_worker_is_rejected(recs):
@@ -157,7 +158,7 @@ def test_tables_with_two_writers_across_a_guard_need_per_worker_grants(recs):
     for r in recs:
         for t in r["guarded_tables_written"]:
             shared.setdefault(t, []).append(r["worker"])
-    assert all(len(ws) == 2 for ws in shared.values()) and len(shared) == 7   # 7 here: this repo's 0022 also guards cobra_event.notice_sent_at (g_cobra)
+    assert all(len(ws) == 2 for ws in shared.values()) and len(shared) == 9   # 9 here: this repo also guards cobra_event.notice_sent_at (0022), expense.reimbursed_at and leave_request.fmla_designation (0031)
 
 
 def test_wave_one_is_the_hire_flow(recs):
@@ -212,7 +213,7 @@ def test_mutation_extra_scope_cannot_smuggle_restricted_data_to_a_model():
     # An LLM worker given a restricted table through extra_scope must still fail the model rule.
     restricted = next(t.id for t in load_model().tables if any(c.encrypted for c in t.columns))
     recs = copy.deepcopy(R.build())
-    w = next(r for r in recs if r["kind"] == "llm" and "needs-policy-decision" not in r.get("flags", []))
+    w = next(r for r in recs if r["kind"] == "llm" and not set(r.get("flags", [])) & R.POLICY_FLAGS)
     w["restricted_tables"] = sorted(set(w["restricted_tables"]) | {restricted})
     assert any("uses a model but scope has restricted tables" in e for e in R.validate(recs))
 
@@ -220,3 +221,43 @@ def test_mutation_extra_scope_cannot_smuggle_restricted_data_to_a_model():
 def test_mutation_platform_actor_cannot_shadow_a_worker():
     actors = R.platform_actors() + [{"actor": "gl-poster", "reads": [], "writes": []}]
     assert any("collides" in e for e in R.validate_extra_scope(actors=actors))
+
+
+# ---- ADR-006 decisions
+def test_candidate_screener_gets_no_resume_text_and_no_model_assist(recs):
+    r = by_name(recs, "candidate-screener")
+    assert "c3-inputs-excluded" in r["flags"] and "shadow-only" in r["flags"]
+    assert r.get("assist", []) == [] and r["autonomy"] == "approve"
+
+
+def test_mutation_c3_inputs_excluded_forbids_a_model_assist(recs):
+    r = by_name(recs, "candidate-screener")
+    r["assist"] = [{"type": "llm", "use": "resume field extraction"}]
+    assert any("c3-inputs-excluded but has model assists" in e for e in errors_with(recs, r))
+
+
+def test_mutation_c3_inputs_excluded_needs_a_human_and_shadow_only(recs):
+    r = by_name(recs, "candidate-screener")
+    r["autonomy"] = "review"
+    assert any("needs autonomy=approve" in e for e in errors_with(recs, r))
+    r = by_name(recs, "candidate-screener")
+    r["flags"] = [f for f in r["flags"] if f != "shadow-only"]
+    assert any("shadow-only" in e for e in errors_with(recs, r))
+
+
+def test_unbuilt_irreversible_workers_without_a_gate_are_disabled_by_default(recs):
+    off = sorted(r["worker"] for r in recs if r.get("enabled_by_default") is False)
+    assert off == ["device-purchase-initiator", "in-country-tax-remitter"]
+    for r in recs:
+        if (r["effect"] == "external_irreversible" and "no-gate-on-irreversible" in r.get("flags", [])
+                and r["wave"] >= 4):
+            assert r.get("enabled_by_default") is False, r["worker"]
+
+
+def test_mutation_an_enabled_unbuilt_irreversible_worker_is_rejected(recs):
+    r = by_name(recs, "device-purchase-initiator")
+    r["enabled_by_default"] = True
+    assert any("must be enabled_by_default=false" in e for e in errors_with(recs, r))
+    r = by_name(recs, "device-purchase-initiator")
+    r["disabled_why"] = ""
+    assert any("needs a disabled_why" in e for e in errors_with(recs, r))

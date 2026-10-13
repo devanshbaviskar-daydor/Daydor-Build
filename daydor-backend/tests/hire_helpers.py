@@ -113,7 +113,12 @@ def resolve_and_relay(engine, wf, tenant, role, user_id, approval_id, worker_suf
         assert resolve(conn, approval_id, "approved") == "approved"
     workflow_worker = Worker(engine, "workflow", f"w-workflow-{worker_suffix}")
     workflow_worker.register("workflow.gate_resolved", role="agent_ro", fn=gate_resolved_handler(wf))
-    workflow_worker.tick()
+    # Every test in the suite resolves gates onto this shared queue, so the backlog can exceed one tick's
+    # batch. Keep ticking until a tick runs no job, rather than relying on one batch reaching ours.
+    for _ in range(50):
+        outcome = workflow_worker.tick()
+        if not set(outcome) - {"relayed", "timers_fired"}:
+            break
 
 
 def ta_worker(engine, wf, name="w-ta", bg_outcome="clear"):

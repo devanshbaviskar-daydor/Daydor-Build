@@ -18,7 +18,7 @@ Autonomy defaults: auto 42, review 26, approve 21. Build waves: 1 (hire) 15, 2 (
 
 ## Rules enforced by tests
 
-1. **Restricted data never reaches a model.** A decider or LLM worker (or model assist) whose scope includes a table with C3, C4 or encrypted columns fails validation, unless it carries `needs-policy-decision`.
+1. **Restricted data never reaches a model.** A decider or LLM worker (or model assist) whose scope includes a table with C3, C4 or encrypted columns fails validation, unless it carries `needs-policy-decision` or `c3-inputs-excluded` (ADR-006: the model is never given restricted inputs; no model assist, autonomy `approve`, shadow only).
 2. **No-model flags are checked both ways.** `C3-no-models` / `C4-no-models` must be true: the worker really touches restricted tables and really uses no model.
 3. **Irreversible external effects need a human.** `external_irreversible` requires `autonomy=approve`, and a hard gate must cover a table the worker writes, otherwise it must carry `no-gate-on-irreversible`.
 4. **LLM workers are boxed in.** They may only read, write internally, or send messages that are never `auto`; they need a model tier.
@@ -66,14 +66,15 @@ Model assists on rule workers: bank-reconciler (decider: ambiguous bank-line mat
 | fcra-consent | 2 |
 | legal-hold-check | 2 |
 | aggregate-only | 1 |
+| c3-inputs-excluded | 1 |
 | changes-visibility-scope | 1 |
 | combined-scope-until-split | 1 |
 | legal-limits | 1 |
-| needs-policy-decision | 1 |
 | needs-reference-data-owner | 1 |
 | outbound-allowlist | 1 |
 | pay-transparency | 1 |
 | secrets | 1 |
+| shadow-only | 1 |
 | single-writer | 1 |
 | untrusted-input | 1 |
 
@@ -93,7 +94,7 @@ Sorted by build wave, then domain. `hard_gates_on_tables` are the model's gates 
 | payslip-issuer | pay | rule | - | external_notify | auto | 1 | - | - | document |
 | requisition-approval-router | ro | rule | - | internal_write | auto | 1 | - | - | - |
 | background-check-initiator | ta | integration | - | external_reversible | review | 1 | fcra-consent | g_bg_adverse | background_check,candidate |
-| candidate-screener | ta | decider | llm | internal_write | approve | 1 | regulated-aedt,needs-policy-decision | g_aedt | candidate |
+| candidate-screener | ta | decider | - | internal_write | approve | 1 | c3-inputs-excluded,regulated-aedt,shadow-only | g_aedt | candidate |
 | interview-scheduler | ta | llm | - | external_notify | review | 1 | untrusted-input,outbound-allowlist | - | - |
 | job-posting-publisher | ta | integration | - | external_reversible | review | 1 | pay-transparency | - | - |
 | offer-letter-generator | ta | rule | - | internal_write | approve | 1 | - | g_offer_band | document |

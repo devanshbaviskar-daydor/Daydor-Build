@@ -75,6 +75,9 @@ GUARDS = (
     ("identity_account", "deprovisioned_at", ("g_it_deprov",)),
     ("cobra_event", "notice_sent_at", ("g_cobra",)),
     ("er_case", "outcome", ("g_er_adjud",)),
+    # Finding 23 follow-up (ADR-006): the DB refuses these without an approved gate, even though no service writes them yet.
+    ("expense", "reimbursed_at", ("g_expense",)),
+    ("leave_request", "fmla_designation", ("g_fmla",)),
 )
 
 

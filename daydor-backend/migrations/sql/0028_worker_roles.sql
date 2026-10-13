@@ -360,14 +360,14 @@ GRANT SELECT (id, tenant_id, gate_type, subject_table, subject_id, required_appr
 GRANT INSERT (gate_type, subject_table, subject_id, required_approver_role, status, resolved_by_user_id, resolved_at, escalated_at, deadline_at, idempotency_key, requested_by_user_id, requested_by_agent_run_id, decision_note) ON public.approval_request TO worker_expense_approval_router;
 GRANT UPDATE (gate_type, subject_table, subject_id, required_approver_role, status, resolved_by_user_id, resolved_at, escalated_at, deadline_at, idempotency_key, requested_by_user_id, requested_by_agent_run_id, decision_note) ON public.approval_request TO worker_expense_approval_router;
 GRANT SELECT (id, tenant_id, employee_id, amount, category, receipt_document_id, policy_flags, approval_request_id, reimbursed_at, gl_journal_entry_id, created_at, updated_at) ON public.expense TO worker_expense_approval_router;
-GRANT INSERT (employee_id, amount, category, receipt_document_id, policy_flags, approval_request_id, reimbursed_at, gl_journal_entry_id) ON public.expense TO worker_expense_approval_router;
-GRANT UPDATE (employee_id, amount, category, receipt_document_id, policy_flags, approval_request_id, reimbursed_at, gl_journal_entry_id) ON public.expense TO worker_expense_approval_router;
+GRANT INSERT (employee_id, amount, category, receipt_document_id, policy_flags, approval_request_id, gl_journal_entry_id) ON public.expense TO worker_expense_approval_router;
+GRANT UPDATE (employee_id, amount, category, receipt_document_id, policy_flags, approval_request_id, gl_journal_entry_id) ON public.expense TO worker_expense_approval_router;
 GRANT SELECT (id, tenant_id, employee_id, manager_employee_id, relation, effective_from, effective_to, created_at, updated_at) ON public.reporting_line TO worker_expense_approval_router;
 
 -- expense-policy-checker (decider, default autonomy review)
 GRANT SELECT (id, tenant_id, employee_id, amount, category, receipt_document_id, policy_flags, approval_request_id, reimbursed_at, gl_journal_entry_id, created_at, updated_at) ON public.expense TO worker_expense_policy_checker;
-GRANT INSERT (employee_id, amount, category, receipt_document_id, policy_flags, approval_request_id, reimbursed_at, gl_journal_entry_id) ON public.expense TO worker_expense_policy_checker;
-GRANT UPDATE (employee_id, amount, category, receipt_document_id, policy_flags, approval_request_id, reimbursed_at, gl_journal_entry_id) ON public.expense TO worker_expense_policy_checker;
+GRANT INSERT (employee_id, amount, category, receipt_document_id, policy_flags, approval_request_id, gl_journal_entry_id) ON public.expense TO worker_expense_policy_checker;
+GRANT UPDATE (employee_id, amount, category, receipt_document_id, policy_flags, approval_request_id, gl_journal_entry_id) ON public.expense TO worker_expense_policy_checker;
 
 -- final-pay-calculator (rule, default autonomy approve)
 GRANT SELECT (id, tenant_id, employee_id, effective_from, effective_to, job_profile_id, comp_band_id, fte, ctc_annual, basic_da_monthly, other_allowances_json, wage_floor_compliant, tax_regime_election, flsa_status, created_at, updated_at) ON public.employment_record TO worker_final_pay_calculator;

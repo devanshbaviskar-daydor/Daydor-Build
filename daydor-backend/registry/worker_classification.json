@@ -49,16 +49,12 @@
    "step"
   ],
   "owner": "hr",
-  "note": "Recommendation only, never auto-reject. Resume content is C3, so no model may read it until the policy decision is made.",
-  "assist": [
-   {
-    "type": "llm",
-    "use": "resume field extraction"
-   }
-  ],
+  "note": "Recommendation only, never auto-reject. Policy (ADR-006): resume text and every other C3 field are never model inputs; the model sees structured, non-restricted features only; shadow only, g_aedt stays human.",
+  "assist": [],
   "flags": [
+   "c3-inputs-excluded",
    "regulated-aedt",
-   "needs-policy-decision"
+   "shadow-only"
   ],
   "decision": {
    "role_fit": [
@@ -475,7 +471,9 @@
   "note": "Creates purchase orders. Spend has no hard gate in the model.",
   "flags": [
    "no-gate-on-irreversible"
-  ]
+  ],
+  "enabled_by_default": false,
+  "disabled_why": "Irreversible external effect with no hard gate covering its tables, and no flow or code yet (ADR-006). Stays disabled until a gate exists and the worker is built; enabling is a reviewed change."
  },
  {
   "worker": "device-shipment-tracker",
@@ -739,7 +737,9 @@
    "no-gate-on-irreversible",
    "statutory-deadline",
    "jurisdiction-packs"
-  ]
+  ],
+  "enabled_by_default": false,
+  "disabled_why": "Irreversible external effect with no hard gate covering its tables, and no flow or code yet (ADR-006). Stays disabled until a gate exists and the worker is built; enabling is a reviewed change."
  },
  {
   "worker": "tax-filing-submitter",

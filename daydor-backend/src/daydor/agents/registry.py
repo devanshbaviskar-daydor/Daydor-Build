@@ -37,6 +37,8 @@ HUMAN_ACTORS = {"Employee", "Founder", "HR admin", "HR admin or Daydor ops", "Ma
 PSEUDO = {"every gated worker", "every worker", "every worker (insert only)", "root orchestrator"}
 WAVE_BY_FLOW = {"hire": 1, "payroll": 2, "exit": 2, "erasure": 3, "merit": 3, "threshold": 3}
 RESTRICTED = ("C3", "C4")
+# A model-using worker may have restricted tables in scope only with one of these (ADR-006).
+POLICY_FLAGS = {"needs-policy-decision", "c3-inputs-excluded"}
 
 
 def norm(name: str) -> str:
@@ -177,8 +179,24 @@ def validate(recs: list[dict] | None = None) -> list[str]:
         if not set(r["triggers"]) <= set(TRIGGERS) or not r["triggers"]:
             errs.append(f"{w}: bad triggers {r['triggers']}")
         # Data-class rules: restricted data never reaches a model.
-        if uses_model and r["restricted_tables"] and "needs-policy-decision" not in flags:
+        if uses_model and r["restricted_tables"] and not flags & POLICY_FLAGS:
             errs.append(f"{w}: uses a model but scope has restricted tables {r['restricted_tables']}")
+        # c3-inputs-excluded (ADR-006): the scope is restricted but the model is never given restricted
+        # inputs. It must therefore have no model assist (an LLM extracting from a resume is exactly the
+        # case the policy forbids), stay behind a human (autonomy=approve), and be shadow-only.
+        if "c3-inputs-excluded" in flags:
+            if assists:
+                errs.append(f"{w}: c3-inputs-excluded but has model assists {assists}")
+            if r["autonomy"] != "approve":
+                errs.append(f"{w}: c3-inputs-excluded needs autonomy=approve")
+            if "shadow-only" not in flags or r.get("soft_gate"):
+                errs.append(f"{w}: c3-inputs-excluded needs the shadow-only flag and no soft gate")
+        # An irreversible worker with no hard gate that is not in any modelled flow yet stays disabled.
+        if (r["effect"] == "external_irreversible" and "no-gate-on-irreversible" in flags and r["wave"] >= 4
+                and r.get("enabled_by_default", True)):
+            errs.append(f"{w}: irreversible with no hard gate and no flow yet; it must be enabled_by_default=false")
+        if r.get("enabled_by_default") is False and not r.get("disabled_why", "").strip():
+            errs.append(f"{w}: enabled_by_default=false needs a disabled_why")
         if flags & {"C3-no-models", "C4-no-models"}:
             if uses_model:
                 errs.append(f"{w}: flagged no-models but uses a model")
@@ -259,7 +277,7 @@ def to_markdown(recs: list[dict]) -> str:
          f"3 (merit, threshold, erasure) {by_wave[3]}, 4 (not in a modelled flow) {by_wave[4]}.", "",
          "## Rules enforced by tests", "",
          "1. **Restricted data never reaches a model.** A decider or LLM worker (or model assist) whose scope includes a table "
-         "with C3, C4 or encrypted columns fails validation, unless it carries `needs-policy-decision`.",
+         "with C3, C4 or encrypted columns fails validation, unless it carries `needs-policy-decision` or `c3-inputs-excluded` (ADR-006: the model is never given restricted inputs; no model assist, autonomy `approve`, shadow only).",
          "2. **No-model flags are checked both ways.** `C3-no-models` / `C4-no-models` must be true: the worker really touches "
          "restricted tables and really uses no model.",
          "3. **Irreversible external effects need a human.** `external_irreversible` requires `autonomy=approve`, and a hard "
