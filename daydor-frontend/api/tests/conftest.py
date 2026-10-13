@@ -78,3 +78,22 @@ def people(client):
 def run_workers(rounds: int = 4) -> dict:
     from daydor_api import worker
     return worker.tick_all(worker.build_workers(name="test"), rounds=rounds)
+
+
+def hire_start_fields(client: TestClient, hr_headers: dict, manager_employee_id: str,
+                      proposed_base: int = 2400000) -> dict:
+    """Every field `POST /hire/start` requires beyond position/manager/dates/pay range: the interview
+    and offer inputs plus the new-hire details later steps read. For tests that exercise only the
+    early steps and just need the request to be accepted, not to drive a hire to completion."""
+    loc = client.get("/api/tables/location", headers=hr_headers).json()["rows"][0]
+    band = client.get("/api/tables/comp_band", headers=hr_headers).json()["rows"][0]["id"]
+    retention = client.get("/api/tables/retention_policy", headers=hr_headers).json()["rows"][0]["id"]
+    return {
+        "interviewer_employee_id": manager_employee_id, "scheduled_at": "2026-11-10T10:00:00",
+        "comp_band_id": band, "proposed_base": proposed_base,
+        "legal_entity_id": loc["legal_entity_id"], "location_id": loc["id"],
+        "state_code": loc["state_code"] or "KA", "employment_type": "full_time",
+        "date_of_birth": "1995-04-12", "personal_address": "1 MG Road, Bengaluru", "aadhaar_last4": "1234",
+        "basic_da_monthly": 50000, "tax_regime_election": "new", "retention_class_id": retention,
+        "pay_frequency": "monthly", "payment_method": "bank_transfer", "work_state": "KA", "tax_state": "KA",
+    }

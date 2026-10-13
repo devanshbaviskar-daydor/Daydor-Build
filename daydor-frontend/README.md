@@ -21,7 +21,7 @@ After placing them, one command syncs everything from the backend and runs every
 cd daydor-frontend && bash scripts/sync-from-backend.sh
 ```
 
-Status: **FE-0 to FE-6 are complete, and the Hire flow runs live end to end.** A hire goes from a new requisition through offer, background check, consent (resolved by the new hire's own sign-in), documents, work authorization or identity documents, onboarding, access and payroll profile -- the backend's real queue workers doing the work, not sample data. A Payroll run (build, anomaly check, disbursal, payslip issuance) can take that employee through to a real first payslip via `/payroll/runs*`, though Payroll and Exit have no frontend screens of their own yet. See `docs/fe-0-notes.md`, `docs/fe-1-notes.md`, `docs/fe-2-to-6-notes.md` and `docs/integration-notes.md` (the last is the current source of truth for what's live versus still sample data, and why).
+Status: **FE-0 to FE-6 are complete, and the Hire flow runs live end to end.** A hire goes from a new requisition through offer, background check, consent (resolved by the new hire's own sign-in), documents, work authorization or identity documents, onboarding, access and payroll profile -- the backend's real queue workers doing the work, not sample data. A Payroll run (build, anomaly check, disbursal, payslip issuance) can take that employee through to a real first payslip via `/payroll/runs*`, though Payroll, Exit, Time and leave and Reference data each have their own screens too (FE-7 to FE-13). See `docs/fe-0-notes.md`, `docs/fe-1-notes.md`, `docs/fe-2-to-6-notes.md` and `docs/integration-notes.md` (the last is the current source of truth for what's live versus still sample data, and why).
 
 ## Run it with sample data (no setup beyond Node)
 
@@ -63,9 +63,9 @@ The queue worker matters: the backend ships handlers but no process that runs th
 ## Tests
 
 ```bash
-cd frontend && npm test            # 99 tests, includes accessibility checks
+cd frontend && npm test            # 111 tests (+7 live-only), includes accessibility checks
 cd frontend && npm run typecheck && npm run lint
-cd api && pytest                   # 49 tests against real Postgres and the backend's migrations
+cd api && pytest                   # 59 tests against real Postgres and the backend's migrations
 # Live end-to-end check (API and worker running, database seeded) -- drives a hire from start
 # through a real first payslip, with the new hire resolving their own consent gate:
 cd frontend && DAYDOR_LIVE_API=http://localhost:8000 npx vitest run src/api/live.test.ts

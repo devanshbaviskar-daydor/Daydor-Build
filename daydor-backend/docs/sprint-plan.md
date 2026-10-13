@@ -1,6 +1,6 @@
 # Sprint plan
 
-Status: **approved 2026-10-08; Sprints 1-11 done, Hire, Payroll and Exit flows complete** (125
+Status: **approved 2026-10-08; Sprints 1-11, 12a and 12b done, Hire, Payroll and Exit flows complete** (178
 tests passing). v2: revised after re-reading
 `docs/backend-plan.md` and `docs/model-findings.md` against the actual table `writers`/grants in
 `model/daydor_model.json` — this surfaced real prerequisite work the first draft missed (see
@@ -391,12 +391,48 @@ tracker`) — treat an employee with no equity as a normal case, not a bug.
 
 ## Cross-cutting hardening (Sprints 12-13)
 
+### Sprint 12a — Employee write scope, finding 2 (Done)
+- **Problem (verified, not assumed):** the model gives the employee role W on every `employee` column,
+  and the generated grants matched it. A signed-in employee could `UPDATE` their own `is_active`,
+  `date_of_exit`, `legal_entity_id` (payroll derives the tax jurisdiction from it), `department_id`,
+  `position_id`, `date_of_joining`, `work_email`. The new tests failed against the old grants.
+- **Decision (default, easy to change):** an employee self-edits `personal_address` only. Everything
+  else on `employee` is HR-owned -- `full_name`, `date_of_birth` and `aadhaar_last4` included, since they
+  feed identity verification and KYC. Corrections go through `tenant_hr` or `employee-record-writer`.
+  To widen it, add the column to `except` in `grant_caps` and regenerate.
+- **Mechanism:** a new `grant_caps` section in `model/extensions.json` (`table`, `role`, `cap`,
+  `except`, `reason`). `daydor.model.loader` applies it (the model, the grant-matrix test and the
+  frontend contract all see the capped access). Because applied migrations are never edited and
+  `0003` is pinned to the model by the drift test, the baseline grants are still generated from the
+  *uncapped* model and the cap lands as a separate generated migration, `0024_model_grant_caps.sql`
+  (the same generated-baseline-plus-incremental shape as gates `0007` + `0013`). `0002`/`0003` are
+  byte-identical.
+- The frontend's `gen-contract.mjs` applies the same rule, so the UI shows employees as read-only on
+  those fields and CI's contract-drift job stays green.
+- **Exit criteria (met):** `tests/test_employee_self_service.py` -- an employee is refused on each of the
+  14 HR-owned columns (self-assignment is enough, Postgres checks the privilege per column in `SET`),
+  cannot deactivate themselves or change legal entity, cannot insert an `employee` row or edit a
+  colleague's address, can still edit their own address; HR and agents are unaffected.
+
+### Sprint 12b — Employee over-grants on workflow-owned columns, finding 23 (Done)
+- Same hole as 12a on seven more tables, verified against live grants first. Per-table calls: an
+  employee keeps only what they author. `timecard`, `checklist`, `training_assignment`: read-only
+  (agents/managers own them). `expense`, `leave_request`, `benefit_election`, `life_event`: only the
+  system-owned and approval/payout columns are capped (the loader's new `columns` form of `grant_caps`
+  caps just those columns). Regenerated into the still-unreleased `0024` (never applied outside the
+  throwaway test DB; dev DBs were at 0023), so no `0025` was needed.
+- **Exit criteria (met):** `tests/test_employee_self_service.py` checks 17 capped columns (UPDATE and
+  INSERT privilege, plus Postgres' own parse-time permission error), 13 authored columns that must stay
+  writable, and that agents and HR keep the access the flows need. 178 backend tests pass; the
+  grant-matrix and drift tests cover the generated SQL.
+- **Not done, on purpose:** gate guards on `expense.reimbursed_at` (`g_expense`) and
+  `leave_request.status`/`fmla_designation` (`g_fmla`). No service writes those columns yet, so a guard
+  would be untestable; add it with the expense and leave services.
+
 ### Sprint 12 — Grants, constraints, CI
 - Narrow `agent_runtime` into per-domain agent roles (finding 3), using the worker → domain map
   that now actually exists from Sprints 1-11
-- **Decide finding 2** (employee self-write scope — should HR-owned fields like
-  `department_id`/`position_id`/`date_of_exit` stay employee-writable?): this is a product/security
-  call, not mine to make silently; bring it to you here with a concrete recommendation
+- ~~Decide finding 2~~ -- done as Sprint 12a below
 - Enum value lists in the model → generated CHECK constraints (finding 5)
 - CI: `alembic upgrade head` + `pytest` against Postgres 16 on every push
 

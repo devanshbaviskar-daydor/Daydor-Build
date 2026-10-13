@@ -7,5 +7,23 @@
      "reason": "Maker-checker for agent-raised requests; links the gate to the agent run that computed the subject."},
     {"table": "approval_request", "name": "decision_note", "type": "text", "cls": "C1", "nullable": true,
      "reason": "Approver's reason, needed for audit of rejections and overrides."}
+  ],
+  "grant_caps": [
+    {"table": "employee", "role": "E", "cap": 3, "except": ["personal_address"],
+     "reason": "Finding 2: the artifact gives the employee role W on every employee column, so an employee could set their own is_active, date_of_exit, legal_entity_id (payroll derives the tax jurisdiction from it), department_id, position_id or date_of_joining. Employees keep self-service on personal_address only; every other column is HR-owned and changes through employee-record-writer or tenant_hr."},
+    {"table": "timecard", "role": "E", "cap": 3, "except": [],
+     "reason": "Finding 23: timecards are built by punch-validator and approved by the manager through g_timecard; an employee could set their own status and approved_by_user_id."},
+    {"table": "expense", "role": "E", "cap": 3, "columns": ["policy_flags", "approval_request_id", "reimbursed_at", "gl_journal_entry_id"],
+     "reason": "Finding 23: an employee submits the claim (category, receipt) but must not set policy flags, link their own approval, or mark it reimbursed / posted."},
+    {"table": "leave_request", "role": "E", "cap": 3, "columns": ["status", "fmla_designation", "approval_request_id"],
+     "reason": "Finding 23: an employee asks for leave (policy, dates, reason) but must not approve it, set the FMLA designation (g_fmla) or link their own approval."},
+    {"table": "benefit_election", "role": "E", "cap": 3, "columns": ["carrier_sent_at"],
+     "reason": "Finding 23: carrier transmission is system state, written by carrier-file-transmitter."},
+    {"table": "checklist", "role": "E", "cap": 3, "except": [],
+     "reason": "Finding 23: checklists are built by onboarding/termination builders; an employee could mark their own offboarding checklist complete."},
+    {"table": "life_event", "role": "E", "cap": 3, "columns": ["status", "window_closes_at"],
+     "reason": "Finding 23: an employee reports the event and evidence; qle-validator owns the status and enrollment window."},
+    {"table": "training_assignment", "role": "E", "cap": 3, "except": [],
+     "reason": "Finding 23: assignments and completion are written by the training agents; an employee could assign or complete their own mandatory training."}
   ]
 }

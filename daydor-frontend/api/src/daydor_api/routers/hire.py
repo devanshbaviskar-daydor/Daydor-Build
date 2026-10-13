@@ -29,8 +29,11 @@ class StartHire(BaseModel):
     employment_record writers (steps 10-11) and the payroll-profile writer (step 18). A real system
     would collect these at offer acceptance, not at the start of the hire; this prototype has no
     such step, so -- same simplification, pushed one step further -- they ride in context from the
-    start too (see docs/integration-notes.md). Optional here: a hire can still run up through the
-    offer without them, it will just fail at employee creation if they're missing by then."""
+    start too (see docs/integration-notes.md). They are declared optional so the 403 for a role that
+    cannot open a requisition is decided before field validation, but `start` rejects a request
+    missing any of `REQUIRED_AT_START` with a 422: the interview, offer, employee and payroll-profile
+    handlers read them with bare `ctx[...]` lookups, so a missing one used to surface only later, as
+    a worker KeyError that retried and dead-lettered while the hire sat at that step."""
     position_id: UUID
     hiring_manager_id: UUID
     target_start_date: date
@@ -64,6 +67,17 @@ class StartHire(BaseModel):
     esic_ip_number: str | None = None
 
 
+# Every key a later step reads with a bare `ctx[...]` (backend: interview.py, offer.py,
+# employee_record.py's three handlers, documents.py). `uan_number`, `esic_ip_number` and
+# `proposed_equity` are read with `.get`, so they stay optional.
+REQUIRED_AT_START = (
+    "interviewer_employee_id", "scheduled_at", "comp_band_id", "proposed_base",
+    "legal_entity_id", "location_id", "state_code", "employment_type", "date_of_birth",
+    "personal_address", "aadhaar_last4", "basic_da_monthly", "tax_regime_election",
+    "retention_class_id", "pay_frequency", "payment_method", "work_state", "tax_state",
+)
+
+
 @router.post("/start", status_code=201)
 def start(body: StartHire, ident: Identity = Depends(get_identity), key: str | None = Depends(idempotency_key)):
     t = access.table_or_404("job_requisition")
@@ -71,6 +85,9 @@ def start(body: StartHire, ident: Identity = Depends(get_identity), key: str | N
         raise ApiError(403, "forbidden", "Your role cannot open a requisition.")
     if body.pay_range_min > body.pay_range_max:
         raise ApiError(422, "check_violation", "The pay range minimum cannot be above the maximum.")
+    missing = [f for f in REQUIRED_AT_START if getattr(body, f) in (None, "")]
+    if missing:
+        raise ApiError(422, "invalid_request", "Check these fields: " + ", ".join(sorted(missing)))
 
     def run() -> dict:
         extra = {"channel": body.channel, "pay_range_min": str(body.pay_range_min),

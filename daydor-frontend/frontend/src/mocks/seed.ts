@@ -73,6 +73,7 @@ export function seedTables(): Record<string, Row[]> {
       r('cr-1', { employee_id: 'e-isha', data_category: 'pan', purpose: 'identity_verification', status: 'granted', granted_at: ago(18 * 24 * H), withdrawn_at: null, consent_artifact_ref: 'web-form-1' }),
       r('cr-2', { employee_id: 'e-isha', data_category: 'aadhaar', purpose: 'identity_verification', status: 'granted', granted_at: ago(18 * 24 * H), withdrawn_at: null, consent_artifact_ref: 'web-form-1' }),
       r('cr-3', { employee_id: 'e-john', data_category: 'ssn', purpose: 'identity_verification', status: 'granted', granted_at: ago(50 * 24 * H), withdrawn_at: null, consent_artifact_ref: 'web-form-2' })],
+    retention_policy: [r('rp-1', { retention_class: 'new_hire_docs', record_type: 'document', duration_months: 84, anchor_field: 'created_at', legal_basis: 'contract', jurisdiction: 'IN' })],
     document: [
       r('doc-1', { subject_type: 'employee', subject_id: 'e-isha', document_class: 'offer_letter', storage_ref: 'vault://doc-1', retention_class: 'rp-1', consent_record_id: null, signed_at: ago(20 * 24 * H) }),
       r('doc-2', { subject_type: 'employee', subject_id: 'e-isha', document_class: 'identity_proof', storage_ref: 'vault://doc-2', retention_class: 'rp-1', consent_record_id: 'cr-2', signed_at: null })],

@@ -356,6 +356,13 @@ and are they accessible.
 
 ## Asks for the backend (non-blocking; logged, not acted on)
 
+- **Changed since this was written:** `POST /hire/start` now returns 422 (`invalid_request`, naming the
+  fields) unless every field in `REQUIRED_AT_START` is present, because the interview, offer, employee
+  and payroll-profile steps need them; the Start-hiring dialog already sent them. Employees are now
+  read-only on every `employee` column except `personal_address` (backend finding 2 / `0024`), and the
+  generated contract reflects it. The mock seed gained a `retention_policy` row so the sample build
+  can still start a hire.
+
 - Finding 3: hiring managers cannot see the candidate they're interviewing until that candidate
   becomes an employee. Looks unintended for the person doing the interview -- worth a product
   decision on whether `candidate`'s person-scope policy should allow the assigned interviewer to
@@ -363,7 +370,7 @@ and are they accessible.
 - Finding 7: `document` and `checklist_task` have no person-scope row policy. Not exploitable
   through the API today (callers only ever query their own subject), but worth a security review
   before any screen queries these tables more broadly.
-- Finding 9: a second `start_hire()` call for an already-hired-for position raises `WorkflowError`
+- ~~Finding 9~~ **Fixed in the backend (finding 22):** a second `start_hire()` call for an already-hired-for position raised `WorkflowError`
   instead of returning the existing instance, because `start_hire()` unconditionally fires three
   `"advance"` transitions after `open_requisition`/`engine.start()` already no-op idempotently.
   Low-risk, API-side 409 mapping already covers it, but a backend-side fix (check instance state
@@ -395,7 +402,7 @@ and are they accessible.
   currently no practically-reachable way to maintain these rates day to day (`daydor_admin` is
   described as break-glass, two-approver platform access, not a routine jurisdiction-pack editor).
   Worth checking whether `daydor_ops` should have the column grant the sprint plan says it does.
-- New, found in FE-11/FE-12, same shape as finding 9 but worse: `start_exit()` is not safely
+- ~~New, found in FE-11/FE-12~~ **Fixed in the backend (finding 22; the API's 409 check is now just defence in depth):** `start_exit()` was not safely
   idempotent either. `initiate_termination()` is idempotent on `employee_id` (returns the existing
   row rather than raising), but `start_exit()` then unconditionally fires two `"advance"` events
   with no `event_id` after `engine.start()` -- and because `engine.fire()`'s duplicate check is

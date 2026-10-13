@@ -29,6 +29,21 @@ async function freshSeat() {
   return { positionId: seat.id, managerId: manager.id }
 }
 
+/** Everything `POST /hire/start` requires beyond position, manager, dates and pay range: the interview
+ *  and offer inputs plus the new-hire details later steps read. The API rejects a start without them. */
+async function startFields(managerId: string, proposedBase = 2400000) {
+  const loc = (await api.get<{ rows: { id: string; legal_entity_id: string; state_code: string | null }[] }>('/tables/location')).rows[0]!
+  const band = (await api.get<{ rows: { id: string }[] }>('/tables/comp_band')).rows[0]!
+  const retention = (await api.get<{ rows: { id: string }[] }>('/tables/retention_policy')).rows[0]!
+  const state = loc.state_code ?? 'KA'
+  return {
+    interviewer_employee_id: managerId, scheduled_at: '2026-11-10T10:00:00Z', comp_band_id: band.id, proposed_base: proposedBase,
+    legal_entity_id: loc.legal_entity_id, location_id: loc.id, state_code: state, employment_type: 'full_time', date_of_birth: '1995-04-12',
+    personal_address: '1 MG Road, Bengaluru', aadhaar_last4: '1234', basic_da_monthly: 50000, tax_regime_election: 'new',
+    retention_class_id: retention.id, pay_frequency: 'monthly', payment_method: 'bank_transfer', work_state: state, tax_state: state,
+  }
+}
+
 describe.skipIf(!base)('live API through the same client the screens use', () => {
   // The global setup resets to mock before every test, so switch to live after it, per test.
   beforeEach(() => configureTransport({ defaultMode: 'live', overrides: {}, base: base ?? '' }))
@@ -46,6 +61,7 @@ describe.skipIf(!base)('live API through the same client the screens use', () =>
     const { positionId, managerId } = await freshSeat()
     const started = await api.post<{ instance_id: string; requisition_id: string }>('/hire/start', {
       position_id: positionId, hiring_manager_id: managerId, target_start_date: '2026-12-01', pay_range_min: 1800000, pay_range_max: 2600000,
+      ...(await startFields(managerId)),
     })
 
     await signIn('rohan.mehta@acme.test')
@@ -69,13 +85,15 @@ describe.skipIf(!base)('live API through the same client the screens use', () =>
     await expect(api.get('/tables/position')).rejects.toMatchObject({ status: 403, code: 'forbidden' })
     await expect(api.get('/workflows/instances')).rejects.toMatchObject({ status: 403, code: 'workflow_not_visible' })
     await signIn('kavya.menon@acme.test')
-    await expect(api.post('/hire/start', { position_id: '00000000-0000-0000-0000-000000000000', hiring_manager_id: '00000000-0000-0000-0000-000000000000', target_start_date: '2026-12-01', pay_range_min: 1, pay_range_max: 2 })).rejects.toMatchObject({ status: 409, code: 'no_open_seat' })
+    const nobody = '00000000-0000-0000-0000-000000000000'
+    await expect(api.post('/hire/start', { position_id: nobody, hiring_manager_id: nobody, target_start_date: '2026-12-01', pay_range_min: 1, pay_range_max: 2, ...(await startFields(nobody)) })).rejects.toMatchObject({ status: 409, code: 'no_open_seat' })
+    await expect(api.post('/hire/start', { position_id: nobody, hiring_manager_id: nobody, target_start_date: '2026-12-01', pay_range_min: 1, pay_range_max: 2 })).rejects.toMatchObject({ status: 422, code: 'invalid_request' })
   })
 
   it('FE-1: links an approval to its workflow, shows the trail, and limits what other roles see', { timeout: 40_000 }, async () => {
     await signIn('kavya.menon@acme.test')
     const { positionId, managerId } = await freshSeat()
-    const body = { position_id: positionId, hiring_manager_id: managerId, target_start_date: '2026-12-01', pay_range_min: 1800000, pay_range_max: 2600000 }
+    const body = { position_id: positionId, hiring_manager_id: managerId, target_start_date: '2026-12-01', pay_range_min: 1800000, pay_range_max: 2600000, ...(await startFields(managerId)) }
     const started = await api.post<{ instance_id: string; requisition_id: string }>('/hire/start', body)
     const again = await api.post<{ instance_id: string; existing?: boolean }>('/hire/start', body)
     expect(again).toMatchObject({ instance_id: started.instance_id, existing: true })
@@ -114,10 +132,9 @@ describe.skipIf(!base)('live API through the same client the screens use', () =>
   async function startFullHire(proposedBase: number, extra: Record<string, unknown> = {}) {
     await signIn('kavya.menon@acme.test')
     const { positionId, managerId } = await freshSeat()
-    const band = (await api.get<{ rows: { id: string }[] }>('/tables/comp_band')).rows[0]!
     const started = await api.post<{ instance_id: string; requisition_id: string }>('/hire/start', {
       position_id: positionId, hiring_manager_id: managerId, target_start_date: '2026-12-01', channel: 'company_site', pay_range_min: 1800000, pay_range_max: 2600000,
-      interviewer_employee_id: managerId, scheduled_at: '2026-11-10T10:00:00Z', comp_band_id: band.id, proposed_base: proposedBase, ...extra,
+      ...(await startFields(managerId, proposedBase)), ...extra,
     })
     const list = await api.get<{ requisitions: { id: string; stage: string; job_title: string }[] }>('/hire/requisitions')
     // Until the queue worker raises the budget approval the requisition is briefly just a draft.

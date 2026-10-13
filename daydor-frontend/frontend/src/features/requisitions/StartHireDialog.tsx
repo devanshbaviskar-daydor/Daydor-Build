@@ -48,7 +48,8 @@ export function StartHireDialog({ position, title, onClose }: { position: Row; t
     if (!v.address) bad.address = 'Enter a personal address'
     if (!v.aadhaarLast4) bad.aadhaarLast4 = 'Required by the backend for every hire, not only in India (a known gap)'
     if (!v.basicDa || Number(v.basicDa) <= 0) bad.basicDa = 'Enter the monthly basic plus dearness allowance'
-    if (retentionPolicies.length && !retentionPolicies[0]) bad.retention = 'No document retention policy exists yet'
+    if (location && (!location.state_code || !location.legal_entity_id)) bad.location = 'This location has no state or legal entity set up yet'
+    if (!retentionPolicies[0]) bad.retention = 'No document retention policy exists yet'
     setErrs(bad)
     if (Object.keys(bad).length) return
     const body: StartHireBody = {

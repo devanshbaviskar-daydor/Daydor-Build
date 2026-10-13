@@ -4,7 +4,7 @@ from datetime import datetime
 
 import pytest
 
-from conftest import run_workers
+from conftest import hire_start_fields, run_workers
 
 BAND_BASE_OK, BAND_BASE_HIGH = 2400000, 4500000   # the seeded band is 18 lakh to 30 lakh
 
@@ -28,7 +28,9 @@ def _start(client, people, proposed_base=BAND_BASE_OK):
     r = client.post("/api/hire/start", headers=_hdr(people["hr"]), json={
         "position_id": _fresh_seat(client, people), "hiring_manager_id": manager, "target_start_date": "2026-12-01",
         "pay_range_min": 1800000, "pay_range_max": 2600000, "interviewer_employee_id": manager,
-        "scheduled_at": datetime(2026, 11, 10, 10, 0).isoformat(), "comp_band_id": band, "proposed_base": proposed_base})
+        "scheduled_at": datetime(2026, 11, 10, 10, 0).isoformat(), "comp_band_id": band, "proposed_base": proposed_base,
+        **{k: v for k, v in hire_start_fields(client, people["hr"], manager, proposed_base).items()
+           if k not in ("interviewer_employee_id", "scheduled_at", "comp_band_id", "proposed_base")}})
     assert r.status_code == 201, r.text
     return r.json()
 

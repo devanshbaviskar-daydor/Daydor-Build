@@ -59,6 +59,23 @@ def test_termination_under_active_legal_hold_is_blocked_from_it_deprovisioning(e
     assert instance_state(engine, tenant, instance_id).state == "s03_checklist"
 
 
+def test_start_exit_replay_returns_existing_instance_without_advancing_it(engine, exit_org, wf):
+    tenant, employee = exit_org["tenant"], exit_org["employee"]
+    kwargs = dict(employee_id=employee, termination_type="voluntary", reason_code="resignation",
+                  notice_date=date(2026, 6, 1), last_working_day=date(2026, 6, 15),
+                  initiated_by_user_id=exit_org["hr_user"])
+    with tenant_session(engine, "agent_hr", tenant) as conn:
+        instance_id = start_exit(conn, wf, **kwargs)
+    hr_worker(engine, wf).tick()   # moves the instance on from s02_legal_hold_check
+    before = instance_state(engine, tenant, instance_id)
+
+    with tenant_session(engine, "agent_hr", tenant) as conn:
+        assert start_exit(conn, wf, **kwargs) == instance_id
+    after = instance_state(engine, tenant, instance_id)
+    assert (after.state, after.status) == (before.state, before.status)
+    assert before.state != "s02_legal_hold_check"  # a replay used to skip ahead from here
+
+
 def test_exit_flow_end_to_end_settlement_disbursal_and_closeout(engine, exit_org, wf):
     tenant = exit_org["tenant"]
     employee = exit_org["employee"]

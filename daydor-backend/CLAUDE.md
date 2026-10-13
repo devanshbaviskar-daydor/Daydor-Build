@@ -11,6 +11,8 @@ Context for Claude Code. Read `docs/backend-plan.md`, `docs/model-findings.md` a
    `0007_*` or `0010_*`: they are generated. Change `model/` (or the generators), regenerate, and add a
    new migration. `tests/test_model_drift.py` fails on any mismatch.
    - Tables, RLS, grants: `python -m daydor.model.ddl migrations/sql`
+   - Grant caps (`grant_caps` in `model/extensions.json`, e.g. finding 2) are generated into
+     `0024_model_grant_caps.sql` by the same `python -m daydor.model.ddl` run; `0003` stays the uncapped baseline
    - Gates: `python -m daydor.gates.registry`
    - Workflows: `python -m daydor.workflow.definitions`
 2. **Migrations are forward-only.** Never edit an applied migration; add a new one (see 0008).

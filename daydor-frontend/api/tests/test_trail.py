@@ -3,7 +3,7 @@ import uuid
 
 from sqlalchemy import text
 
-from conftest import run_workers
+from conftest import hire_start_fields, run_workers
 
 
 def _start_and_raise(client, people):
@@ -17,7 +17,8 @@ def _start_and_raise(client, people):
     seat = {"id": made["id"]}
     started = client.post("/api/hire/start", headers={**people["hr"], "Idempotency-Key": str(uuid.uuid4())}, json={
         "position_id": seat["id"], "hiring_manager_id": manager_emp, "target_start_date": "2026-12-01",
-        "pay_range_min": 1800000, "pay_range_max": 2600000}).json()
+        "pay_range_min": 1800000, "pay_range_max": 2600000,
+        **hire_start_fields(client, people["hr"], manager_emp)}).json()
     run_workers()
     pending = client.get("/api/approvals", headers=people["founder"],
                          params={"status": "pending", "subject_id": started["requisition_id"]}).json()["approvals"]

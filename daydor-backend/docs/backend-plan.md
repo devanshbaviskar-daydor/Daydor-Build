@@ -1,7 +1,7 @@
 # Backend plan
 
 Status: v1.4, Oct 11 2026. Build steps 1-7 done; Hire flow complete (Sprints 1-5); Payroll flow
-complete (Sprints 6-9); Exit flow complete (Sprints 10-11, 125 tests passing). Validated against
+complete (Sprints 6-9); Exit flow complete (Sprints 10-11), findings 2 and 23 closed (Sprints 12a-12b), 178 tests passing. Validated against
 the 82-table model in `model/daydor_model.json`. Sprint-by-sprint plan and status:
 `docs/sprint-plan.md`.
 
@@ -59,7 +59,7 @@ human-only service): `job_profile`, `comp_band`, `skill`, `benefit_plan`, `leave
 | 3. Queue, outbox, timers | Done |
 | 4. Gate service: hard gates, write guards, Jev soft gates | Done (Jev HTTP client is a stub) |
 | 5. State-machine runner | Done (flow definitions are generated skeletons) |
-| 6. Tests | 125 passing |
+| 6. Tests | 178 passing |
 | 7. Privacy services | Done for the 4 encrypted `employee` columns (`0011_privacy.sql`) |
 | 8. Hire flow, Sprints 1-5 of docs/sprint-plan.md (complete) | Done: position check → requisition → `g_requisition_budget` approval → job posting → application → screening (`g_aedt`) → interview → offer (`g_offer_band`) → background check (`g_bg_adverse`) → employee/employment_record creation → consent (`dpdp_consent`) → new-hire documents → work authorization (US-only, I-9/E-Verify timer) → onboarding checklist → SSO identity → access grant (`g_it_offtemplate`) → payroll profile, driven end to end through `WorkflowEngine` (`src/daydor/hire/`, `0012`-`0018`). Step 19 (payslip) is permanently out of the hire flow's scope -- see finding 15. |
 | 9. Payroll flow, Sprint 6 of docs/sprint-plan.md | Done: leave accrual, timecard capture + manager approval (`g_timecard`, resolving finding 9), benefit elections (`src/daydor/timekeeping/`, `src/daydor/benefits/`, `0019_timecard_gates.sql`) |
@@ -76,7 +76,7 @@ Miscellaneous items below aren't yet scheduled to a specific sprint:
 1. **Push model deviations back into the artifact**: `approval_request.requested_by_*`/
    `decision_note` (finding 1), `employee`'s nullable PII columns (finding 10),
    `g_requisition_budget` (finding 11) — consolidated into sprint-plan.md Sprint 13.
-2. **Decide finding 2** (employee self-write scope) and **finding 9** (manager-approval gates,
+2. ~~Finding 2~~ closed in Sprint 12a (`grant_caps`, `0024`); finding 23 (the same over-grant on other tables' workflow-owned columns) closed in Sprint 12b. **Finding 9** (manager-approval gates,
    partly resolved for timecards in sprint-plan.md Sprint 6; `g_expense` still open) — both in
    Sprint 12.
 3. **Wire Jev** in `src/daydor/gates/jev.py` from TypeSafe's API docs once real API access

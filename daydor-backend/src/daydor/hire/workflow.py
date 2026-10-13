@@ -192,15 +192,18 @@ def start_hire(conn: Connection, engine: WorkflowEngine, *, position_id: UUID, h
     advancing synchronously through the two already-done steps so the transition log records
     them. Returns the workflow_instance id. `extra_context` (channel, pay_range_min/max, ...) is
     whatever later steps need; it rides in the instance's context alongside position_id/
-    hiring_manager_id/target_start_date, which are added automatically."""
+    hiring_manager_id/target_start_date, which are added automatically. Idempotent per position:
+    calling it again returns the existing instance without advancing it."""
     requisition_id = open_requisition(conn, position_id=position_id, hiring_manager_id=hiring_manager_id,
                                       target_start_date=target_start_date)
     context = {"position_id": str(position_id), "hiring_manager_id": str(hiring_manager_id),
               "target_start_date": target_start_date.isoformat(), **extra_context}
     instance_id = engine.start(conn, "hire", "job_requisition", requisition_id, context)
-    engine.fire(conn, instance_id, "advance")  # start -> s01_position
-    engine.fire(conn, instance_id, "advance")  # s01_position -> s02_job_requisition
-    engine.fire(conn, instance_id, "advance")  # s02_job_requisition -> s03_approval_request (enqueues the router)
+    # Fixed event ids make a replayed start a no-op: engine.fire() only skips duplicates when it is
+    # given an event_id, and without one a second call would advance the live instance's current state.
+    engine.fire(conn, instance_id, "advance", event_id=f"start:{instance_id}:1")  # start -> s01_position
+    engine.fire(conn, instance_id, "advance", event_id=f"start:{instance_id}:2")  # -> s02_job_requisition
+    engine.fire(conn, instance_id, "advance", event_id=f"start:{instance_id}:3")  # -> s03_approval_request (enqueues the router)
     return instance_id
 
 

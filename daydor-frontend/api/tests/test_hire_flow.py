@@ -2,7 +2,7 @@
 the real workflow move. This is the FE-0 exit path: session, approvals list and one flow action."""
 import uuid
 
-from conftest import run_workers
+from conftest import hire_start_fields, run_workers
 
 
 def _open_position(client, headers):
@@ -22,11 +22,11 @@ def _open_position(client, headers):
     return {"id": made["id"], "department_id": base["department_id"], "job_profile_id": base["job_profile_id"]}
 
 
-def _start(client, headers, position_id, manager_employee_id, key=None):
+def _start(client, headers, position_id, manager_employee_id, key=None, lookup_headers=None):
     h = {**headers, "Idempotency-Key": key or str(uuid.uuid4())}
     return client.post("/api/hire/start", headers=h, json={
         "position_id": position_id, "hiring_manager_id": manager_employee_id, "target_start_date": "2026-12-01",
-        "pay_range_min": 1800000, "pay_range_max": 2600000})
+        "pay_range_min": 1800000, "pay_range_max": 2600000, **hire_start_fields(client, lookup_headers or headers, manager_employee_id)})
 
 
 def test_full_path_from_start_to_posting(client, people):
@@ -83,8 +83,21 @@ def test_a_seat_that_is_not_open_is_refused(client, people):
 
 
 def test_roles_that_cannot_open_requisitions_are_refused(client, people):
-    r = _start(client, people["employee"], str(uuid.uuid4()), str(uuid.uuid4()))
+    r = _start(client, people["employee"], str(uuid.uuid4()), str(uuid.uuid4()), lookup_headers=people["hr"])
     assert r.status_code == 403
+
+
+def test_a_hire_missing_later_step_fields_is_refused_up_front(client, people):
+    """Interview, offer, employee and payroll-profile steps read these with bare lookups; leaving them
+    out used to start the hire and then dead-letter a worker job at employee creation."""
+    manager_emp = client.get("/api/auth/me", headers=people["manager"]).json()["employee_id"]
+    r = client.post("/api/hire/start", headers={**people["hr"], "Idempotency-Key": str(uuid.uuid4())}, json={
+        "position_id": str(uuid.uuid4()), "hiring_manager_id": manager_emp, "target_start_date": "2026-12-01",
+        "pay_range_min": 1800000, "pay_range_max": 2600000})
+    assert r.status_code == 422
+    assert r.json()["error"]["code"] == "invalid_request"
+    for field in ("employment_type", "legal_entity_id", "pay_frequency", "proposed_base"):
+        assert field in r.json()["error"]["message"]
 
 
 def test_bad_pay_range_is_a_clear_error(client, people):

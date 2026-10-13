@@ -1,0 +1,76 @@
+# One repo, three parts: daydor-backend (library + migrations), daydor-frontend/api (HTTP layer) and
+# daydor-frontend/frontend (React app). The api and the frontend's contract both read the backend from
+# the sibling folder, so everything runs from this single checkout.
+name: ci
+on: [push, pull_request]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_USER: daydor_owner, POSTGRES_PASSWORD: dev }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U daydor_owner" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DAYDOR_DATABASE_URL: postgresql+psycopg://daydor_owner:dev@localhost:5432/daydor_dev
+      DAYDOR_TEST_DATABASE_URL: postgresql+psycopg://daydor_owner:dev@localhost:5432/daydor_test
+    defaults: { run: { working-directory: daydor-backend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: pip, cache-dependency-path: daydor-backend/pyproject.toml }
+      - run: pip install -e ".[dev]"
+      # A fresh database must migrate cleanly from nothing to head; the tests then recreate their own.
+      - run: python -c "import psycopg; c = psycopg.connect('postgresql://daydor_owner:dev@localhost:5432/postgres', autocommit=True); c.execute('CREATE DATABASE daydor_dev')"
+      - run: alembic upgrade head
+      - run: pytest -q
+
+  api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_USER: daydor_owner, POSTGRES_PASSWORD: dev }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U daydor_owner" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DAYDOR_API_TEST_DATABASE_URL: postgresql+psycopg://daydor_owner:dev@localhost:5432/daydor_api_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: pip }
+      - run: pip install -e daydor-backend -e "daydor-frontend/api[dev]"
+      - run: cd daydor-frontend/api && pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: daydor-frontend/frontend } }
+    steps:
+      - uses: actions/checkout@v4
+      # .nvmrc pins Node 20: newer Node fails every test on a jsdom/undici AbortSignal incompatibility.
+      - uses: actions/setup-node@v4
+        with: { node-version-file: daydor-frontend/frontend/.nvmrc, cache: npm, cache-dependency-path: daydor-frontend/frontend/package-lock.json }
+      - run: npm ci
+      - run: npm run contract
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  contract-drift:
+    # Fails when the backend's model or enum values changed and the frontend's copies were not refreshed.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: daydor-frontend/frontend/.nvmrc }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -e daydor-backend -e daydor-frontend/api
+      - run: cd daydor-frontend/api && python scripts/gen_enums.py ../../daydor-backend
+      - run: cd daydor-frontend/frontend && npm ci && DAYDOR_BACKEND_ROOT=../../daydor-backend npm run contract:sync
+      - run: git diff --exit-code

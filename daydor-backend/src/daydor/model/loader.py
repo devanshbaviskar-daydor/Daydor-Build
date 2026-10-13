@@ -126,8 +126,23 @@ def _apply_extensions(tables: dict[str, Table], ext: dict) -> None:
         t.columns.insert(idx, col)
 
 
-@lru_cache(maxsize=1)
-def load_model(path: str | None = None, extensions_path: str | None = None) -> Model:
+def _apply_grant_caps(tables: dict[str, Table], ext: dict) -> None:
+    """Lower a role's access on a table's columns to at most `cap`: every column except those in
+    `except`, or, when `columns` is given, only those columns.
+
+    The artifact's access matrix is too generous in places (finding 2: the employee role has W on
+    every `employee` column). A cap narrows it without editing the artifact's own JSON; it reaches
+    the database through a generated, forward-only migration (see ddl.generate_grant_caps_sql)."""
+    for e in ext.get("grant_caps", []):
+        only = e.get("columns")
+        for c in tables[e["table"]].columns:
+            in_scope = c.name in only if only is not None else c.name not in e.get("except", [])
+            if in_scope and c.access.get(e["role"], NO_ACCESS) > e["cap"]:
+                c.access[e["role"]] = e["cap"]
+
+
+@lru_cache(maxsize=2)
+def load_model(path: str | None = None, extensions_path: str | None = None, apply_caps: bool = True) -> Model:
     raw = json.loads(Path(path or MODEL_PATH).read_text())
     tables = {}
     for t in raw["tables"]:
@@ -139,6 +154,9 @@ def load_model(path: str | None = None, extensions_path: str | None = None) -> M
         )
     ext_file = Path(extensions_path or EXTENSIONS_PATH)
     if ext_file.exists():
-        _apply_extensions(tables, json.loads(ext_file.read_text()))
+        ext = json.loads(ext_file.read_text())
+        _apply_extensions(tables, ext)
+        if apply_caps:
+            _apply_grant_caps(tables, ext)
     return Model(tables=list(tables.values()), roles=raw["roles"], gates=raw["gates"], flows=raw["flows"],
                  classes=raw["classes"], domains=raw["domains"], meta=raw["meta"])

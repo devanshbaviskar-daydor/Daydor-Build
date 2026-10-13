@@ -42,6 +42,15 @@ for (const e of ext.columns ?? []) {
   t.columns.splice(at < 0 ? t.columns.length : at, 0, col)
 }
 
+// Same rule as the backend loader's grant caps (finding 2): lower a role's access on a table's
+// columns to at most `cap`, except the listed ones (or only the `columns` listed). The database enforces it; this keeps the UI honest.
+for (const e of ext.grant_caps ?? []) {
+  for (const c of model.tables.find((x) => x.id === e.table).columns) {
+    const inScope = e.columns ? e.columns.includes(c.name) : !(e.except ?? []).includes(c.name)
+    if (inScope && (c.access[e.role] ?? 0) > e.cap) c.access[e.role] = e.cap
+  }
+}
+
 const accessString = (a) => LETTERS.map((l) => String(a[l] ?? 0)).join('')
 
 const tables = {}

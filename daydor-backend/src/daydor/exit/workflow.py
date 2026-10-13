@@ -115,15 +115,17 @@ def start_exit(conn: Connection, engine: WorkflowEngine, *, employee_id: UUID, t
               initiated_by_user_id: UUID) -> UUID:
     """Creates the termination row and starts the exit workflow instance against it, advancing
     synchronously through the one already-done step so the transition log records it. Returns the
-    workflow_instance id."""
+    workflow_instance id. Idempotent per employee: a replay returns the existing instance
+    without advancing it."""
     termination_id = initiate_termination(
         conn, employee_id=employee_id, termination_type=termination_type, reason_code=reason_code,
         notice_date=notice_date, last_working_day=last_working_day,
         initiated_by_user_id=initiated_by_user_id)
     context = {"employee_id": str(employee_id), "termination_id": str(termination_id)}
     instance_id = engine.start(conn, "exit", "termination", termination_id, context)
-    engine.fire(conn, instance_id, "advance")  # start -> s01_termination
-    engine.fire(conn, instance_id, "advance")  # s01_termination -> s02_legal_hold_check (enqueues the checker)
+    # Fixed event ids make a replayed start a no-op (see daydor.hire.workflow.start_hire).
+    engine.fire(conn, instance_id, "advance", event_id=f"start:{instance_id}:1")  # start -> s01_termination
+    engine.fire(conn, instance_id, "advance", event_id=f"start:{instance_id}:2")  # -> s02_legal_hold_check (enqueues the checker)
     return instance_id
 
 

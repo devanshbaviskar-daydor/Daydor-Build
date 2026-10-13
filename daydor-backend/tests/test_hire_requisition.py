@@ -12,6 +12,7 @@ from daydor.db.session import tenant_session
 from daydor.gates.hard import resolve
 from daydor.hire.posting import handle_job_posting_publisher
 from daydor.hire.requisition import NoVacantPosition, confirm_budgeted_seat, open_requisition
+from daydor.hire.workflow import start_hire
 from daydor.queue import Worker
 from daydor.workflow.engine import WorkflowEngine, gate_resolved_handler
 from tests.factories import insert
@@ -49,6 +50,26 @@ def test_open_requisition_is_idempotent_per_position(engine, hire_org):
                              hiring_manager_id=hire_org["hiring_manager"],
                              target_start_date=date(2026, 3, 1))
     assert a == b
+
+
+def test_start_hire_replay_returns_existing_instance_without_advancing_it(engine, hire_org):
+    tenant = hire_org["tenant"]
+    wf = WorkflowEngine()
+    instance_id, _, approval_id = drive_to_job_posting(engine, hire_org, wf)  # parked on g_requisition_budget
+
+    with tenant_session(engine, "agent_ta", tenant) as conn:
+        again = start_hire(conn, wf, position_id=hire_org["position"],
+                           hiring_manager_id=hire_org["hiring_manager"],
+                           target_start_date=date(2026, 3, 1), channel="company_site",
+                           pay_range_min="1000000", pay_range_max="1500000")
+        inst = conn.execute(text("SELECT state, status, waiting_on_approval FROM app.workflow_instance "
+                                 "WHERE id = :i"), {"i": instance_id}).one()
+        moves = conn.execute(text("SELECT count(*) FROM app.workflow_transition WHERE instance_id = :i"),
+                             {"i": instance_id}).scalar_one()
+    assert again == instance_id
+    assert (inst.state, inst.status, inst.waiting_on_approval) == ("s03_approval_request", "waiting_gate",
+                                                                    approval_id)
+    assert moves == 4  # three startup advances + the router's park; the replay added none
 
 
 def test_hire_requisition_flow_to_job_posting(engine, hire_org):
