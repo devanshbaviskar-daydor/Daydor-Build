@@ -48,6 +48,11 @@ PLATFORM_HARD_GATES = (
                approver_roles=("tenant_manager",), tables=("timecard",)),
     HardGateDef("g_expense", "Expense report approval",
                approver_roles=("tenant_manager",), tables=("expense",)),
+    # Phase A of the agentic infrastructure (0040): a tenant that raised a worker's caution to `approve` holds each of its
+    # jobs behind this gate. The subject is the agent_task_run, and the worker's owner role is named on the request.
+    HardGateDef("g_agent_action", "Agent action held by tenant policy",
+               approver_roles=("tenant_founder", "tenant_hr", "tenant_payroll", "tenant_it", "daydor_ops"),
+               tables=("agent_task_run",)),
 )
 
 SOFT_GATES = (

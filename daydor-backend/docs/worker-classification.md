@@ -81,94 +81,94 @@ Model assists on rule workers: bank-reconciler (decider: ambiguous bank-line mat
 
 Sorted by build wave, then domain. `hard_gates_on_tables` are the model's gates covering tables the worker writes.
 
-| worker | domain | kind | model_assist | effect | autonomy | wave | flags | hard_gates_on_tables | restricted_tables_in_scope |
-|---|---|---|---|---|---|---|---|---|---|
-| employee-record-writer | hr | rule | - | internal_write | review | 1 | single-writer | wage_structure_change | emergency_contact,employee,payroll_profile |
-| headcount-planner | hr | monitor | - | internal_write | auto | 1 | - | g_aca,threshold_crossing | employee |
-| i9-e-verify-initiator | hr | integration | - | external_irreversible | approve | 1 | us-pack,statutory-deadline,no-gate-on-irreversible | - | employee,work_authorization |
-| app-access-granter | it | rule | - | external_reversible | review | 1 | - | g_it_offtemplate | employee |
-| sso-identity-provisioner | it | integration | - | external_reversible | review | 1 | - | g_it_deprov | employee |
-| new-hire-doc-collector | ob | rule | - | internal_write | review | 1 | C3-no-models | - | document,work_authorization |
-| onboarding-checklist-builder | ob | rule | - | internal_write | auto | 1 | - | - | employee |
-| payslip-issuer | pay | rule | - | external_notify | auto | 1 | - | - | document |
-| requisition-approval-router | ro | rule | - | internal_write | auto | 1 | - | - | - |
-| background-check-initiator | ta | integration | - | external_reversible | review | 1 | fcra-consent | g_bg_adverse | background_check,candidate |
-| candidate-screener | ta | decider | - | internal_write | approve | 1 | c3-inputs-excluded,regulated-aedt,shadow-only | g_aedt | candidate |
-| interview-scheduler | ta | llm | - | external_notify | review | 1 | untrusted-input,outbound-allowlist | - | - |
-| job-posting-publisher | ta | integration | - | external_reversible | review | 1 | pay-transparency | - | - |
-| offer-letter-generator | ta | rule | - | internal_write | approve | 1 | - | g_offer_band | document |
-| requisition-drafter | ta | llm | - | internal_write | review | 1 | - | - | - |
-| cobra-trigger-detector | ben | monitor | - | internal_write | auto | 2 | us-pack,statutory-deadline | g_cobra | employee |
-| vesting-schedule-tracker | comp | rule | - | internal_write | auto | 2 | - | - | - |
-| final-pay-calculator | er | rule | - | internal_write | approve | 2 | jurisdiction-packs | g_finalpay,g_pay_disburse | - |
-| rehire-eligibility-flagger | er | rule | - | internal_write | review | 2 | employment-decision | - | - |
-| gl-poster | fin | rule | - | internal_write | approve | 2 | guarded-write | g_close | - |
-| deprovisioning-agent | it | integration | - | external_irreversible | approve | 2 | legal-hold-check | g_it_deprov,g_it_offtemplate | - |
-| equipment-return-tracker | it | rule | - | internal_write | auto | 2 | - | - | device_assignment |
-| termination-checklist-builder | ob | rule | - | internal_write | auto | 2 | - | - | - |
-| deduction-reconciler | pay | monitor | - | read_only | auto | 2 | - | - | - |
-| direct-deposit-disburser | pay | integration | - | external_irreversible | approve | 2 | guarded-write,legal-hold-check | g_finalpay,g_pay_anomaly,g_pay_disburse | - |
-| garnishment-processor | pay | rule | - | internal_write | review | 2 | legal-limits | - | garnishment_order |
-| gross-pay-calculator | pay | rule | - | internal_write | auto | 2 | jurisdiction-packs | - | - |
-| payroll-anomaly-detector | pay | decider | - | read_only | auto | 2 | - | - | - |
-| payroll-run-builder | pay | rule | - | internal_write | review | 2 | jurisdiction-packs | g_pay_anomaly,g_pay_disburse | employee |
-| tax-filing-submitter | pay | integration | - | external_irreversible | approve | 2 | no-gate-on-irreversible,statutory-deadline,jurisdiction-packs | - | document |
-| tax-withholding-calculator | pay | rule | - | internal_write | auto | 2 | jurisdiction-packs | - | employee,payroll_profile |
-| pto-accrual-calculator | time | rule | - | internal_write | auto | 2 | jurisdiction-packs | - | employee |
-| timecard-aggregator | time | rule | - | read_only | auto | 2 | - | - | - |
-| comp-band-validator | comp | rule | - | read_only | auto | 3 | needs-reference-data-owner | - | - |
-| grant-drafter | comp | rule | - | internal_write | approve | 3 | - | g_409a | - |
-| merit-cycle-calculator | comp | rule | - | internal_write | approve | 3 | - | g_offer_band | - |
-| eeo-report-builder | hr | rule | - | read_only | auto | 3 | aggregate-only,C4-no-models | - | self_identification |
-| calibration-data-aggregator | perf | rule | - | read_only | auto | 3 | - | - | - |
-| review-cycle-launcher | perf | rule | - | internal_write | auto | 3 | - | - | - |
-| document-vault-manager | priv | rule | - | internal_write | auto | 3 | - | - | document |
-| carrier-file-transmitter | ben | integration | - | external_reversible | review | 4 | - | - | dependent |
-| cobra-notice-generator | ben | rule | - | external_notify | approve | 4 | us-pack,statutory-deadline | g_cobra | - |
-| election-processor | ben | rule | - | internal_write | review | 4 | C3-no-models | - | dependent |
-| eligibility-calculator | ben | rule | - | read_only | auto | 4 | - | - | employee |
-| enrollment-window-notifier | ben | rule | - | external_notify | auto | 4 | - | - | life_event |
-| qle-validator | ben | rule | - | internal_write | review | 4 | C4-no-models | - | life_event |
-| 409a-trigger-monitor | comp | monitor | - | read_only | auto | 4 | - | - | - |
-| bonus-calculator | comp | rule | - | internal_write | approve | 4 | - | g_offer_band | - |
-| exercise-processor | comp | rule | - | internal_write | approve | 4 | - | g_409a | - |
-| case-intake-router | er | rule | - | internal_write | review | 4 | C4-no-models | g_er_adjud | er_case |
-| exit-interview-scheduler | er | integration | - | external_reversible | review | 4 | - | - | - |
-| investigation-tracker | er | rule | - | internal_write | review | 4 | C4-no-models | g_er_adjud | er_case |
-| bank-reconciler | fin | rule | decider | read_only | auto | 4 | - | - | - |
-| corporate-card-controller | fin | integration | - | external_reversible | approve | 4 | - | - | corporate_card |
-| cost-center-report-builder | fin | rule | - | read_only | auto | 4 | - | - | - |
-| expense-approval-router | fin | rule | - | internal_write | auto | 4 | needs-manager-gate | - | - |
-| expense-policy-checker | fin | decider | llm | internal_write | review | 4 | needs-manager-gate,untrusted-documents | - | - |
-| period-close-runner | fin | rule | - | internal_write | approve | 4 | guarded-write | g_close | - |
-| vendor-bill-processor | fin | llm | decider | internal_write | review | 4 | untrusted-documents | g_ap | - |
-| aca-affordability-monitor | hr | monitor | - | internal_write | auto | 4 | us-pack | g_aca,threshold_crossing | - |
-| org-chart-updater | hr | rule | - | internal_write | review | 4 | changes-visibility-scope | - | - |
-| access-compliance-auditor | it | monitor | - | read_only | auto | 4 | - | - | - |
-| app-access-exception-flagger | it | decider | - | read_only | auto | 4 | - | - | - |
-| device-inventory-allocator | it | rule | - | internal_write | auto | 4 | - | - | device_assignment |
-| device-purchase-initiator | it | integration | - | external_irreversible | approve | 4 | no-gate-on-irreversible | - | - |
-| device-shipment-tracker | it | integration | - | internal_write | auto | 4 | - | - | device_assignment |
-| password-vault-sharer | it | integration | - | external_reversible | approve | 4 | secrets | g_it_offtemplate | - |
-| certification-expiry-monitor | learn | monitor | - | read_only | auto | 4 | - | - | - |
-| completion-tracker | learn | rule | - | internal_write | auto | 4 | - | - | - |
-| overdue-escalator | learn | monitor | - | internal_write | auto | 4 | - | - | - |
-| training-assignment-engine | learn | rule | - | internal_write | auto | 4 | - | - | - |
-| first-day-notifier | ob | rule | - | external_notify | auto | 4 | - | - | - |
-| knowledge-transfer-coordinator | ob | llm | - | internal_write | review | 4 | - | - | - |
-| contractor-invoice-processor | pay | llm | decider | internal_write | review | 4 | untrusted-documents | g_pay_disburse,g_pay_newjuris | - |
-| in-country-tax-remitter | pay | integration | - | external_irreversible | approve | 4 | no-gate-on-irreversible,statutory-deadline,jurisdiction-packs | - | - |
-| jurisdiction-classifier | pay | rule | - | read_only | auto | 4 | jurisdiction-packs | - | employee,payroll_profile |
-| multi-currency-payment-router | pay | integration | - | external_irreversible | approve | 4 | guarded-write,jurisdiction-packs | g_pay_disburse,g_pay_newjuris | - |
-| w2-1099-generator | pay | rule | - | internal_write | review | 4 | jurisdiction-packs | - | - |
-| pip-tracker | perf | rule | - | internal_write | review | 4 | employment-decision | - | - |
-| self-review-reminder | perf | monitor | - | external_notify | auto | 4 | - | - | - |
-| offer-approval-router | ro | rule | - | internal_write | auto | 4 | - | - | - |
-| timecard-approval-router | ro | rule | - | internal_write | auto | 4 | needs-manager-gate | - | time_punch |
-| aedt-audit-monitor | ta | monitor | - | internal_write | auto | 4 | regulated-aedt | g_aedt | - |
-| aedt-candidate-notifier | ta | rule | - | external_notify | review | 4 | regulated-aedt | g_aedt | - |
-| background-check-flagger | ta | rule | - | internal_write | approve | 4 | C4-no-models,fcra-consent | g_bg_adverse | background_check |
-| fmla-eligibility-checker | time | rule | - | read_only | auto | 4 | us-pack,C4-no-models | - | leave_request |
-| leave-request-processor | time | rule | - | internal_write | approve | 4 | C4-no-models,us-pack | g_fmla | leave_request |
-| leave-return-coordinator | time | rule | - | internal_write | review | 4 | C4-no-models | g_fmla | leave_request |
-| punch-validator | time | rule | - | internal_write | auto | 4 | C3-no-models | - | time_punch |
+| worker | domain | kind | uses_model | model_assist | effect | autonomy_default | owner | triggers | wave | flags | db_reads | db_writes | requests_approvals | hard_gates_on_tables | gates_in_flows | restricted_tables_in_scope |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| employee-record-writer | hr | rule | no | - | internal_write | review | hr | step,event | 1 | single-writer | consent_record,job_profile,job_requisition,termination | emergency_contact,employee,employment_record,job_requisition,payroll_profile,position | no | wage_structure_change | wage_structure_change | emergency_contact,employee,payroll_profile |
+| headcount-planner | hr | monitor | no | - | internal_write | auto | hr | step,event | 1 | - | employee,job_requisition,position | threshold_obligation | no | g_aca,threshold_crossing | - | employee |
+| i9-e-verify-initiator | hr | integration | no | - | external_irreversible | approve | hr | step,timer | 1 | us-pack,statutory-deadline,no-gate-on-irreversible | employee,legal_entity | work_authorization | no | - | - | employee,work_authorization |
+| app-access-granter | it | rule | no | - | external_reversible | review | it | step | 1 | - | access_role_template,employee,identity_account,job_profile,job_requisition,position | app_access_grant | no | g_it_offtemplate | g_it_offtemplate | employee |
+| sso-identity-provisioner | it | integration | no | - | external_reversible | review | it | step | 1 | - | employee | identity_account | no | g_it_deprov | - | employee |
+| new-hire-doc-collector | ob | rule | no | - | internal_write | review | hr | step | 1 | C3-no-models | work_authorization | checklist_task,document | no | - | - | document,work_authorization |
+| onboarding-checklist-builder | ob | rule | no | - | internal_write | auto | hr | step | 1 | - | employee | checklist,checklist_task | no | - | - | employee |
+| payslip-issuer | pay | rule | no | - | external_notify | auto | payroll | step | 1 | - | payroll_run | document,payslip | no | - | - | document |
+| requisition-approval-router | ro | rule | no | - | internal_write | auto | hr | step | 1 | - | job_requisition | approval_request | yes | - | - | - |
+| background-check-initiator | ta | integration | no | - | external_reversible | review | hr | step | 1 | fcra-consent | candidate | background_check | no | g_bg_adverse | g_bg_adverse | background_check,candidate |
+| candidate-screener | ta | decider | yes | - | internal_write | approve | hr | step | 1 | c3-inputs-excluded,regulated-aedt,shadow-only | aedt_audit | application,candidate,screening_result | no | g_aedt | g_aedt | candidate |
+| interview-scheduler | ta | llm | yes | - | external_notify | review | hr | step | 1 | untrusted-input,outbound-allowlist | - | application,interview | no | - | - | - |
+| job-posting-publisher | ta | integration | no | - | external_reversible | review | hr | step | 1 | pay-transparency | comp_band,job_requisition | job_posting | no | - | - | - |
+| offer-letter-generator | ta | rule | no | - | internal_write | approve | hr | step | 1 | - | comp_band,job_profile | document,offer | no | g_offer_band | g_offer_band | document |
+| requisition-drafter | ta | llm | yes | - | internal_write | review | hr | step | 1 | - | position | job_requisition | no | - | - | - |
+| cobra-trigger-detector | ben | monitor | no | - | internal_write | auto | hr | event | 2 | us-pack,statutory-deadline | employee,legal_entity,termination | cobra_event | no | g_cobra | g_cobra | employee |
+| vesting-schedule-tracker | comp | rule | no | - | internal_write | auto | founder | timer | 2 | - | equity_grant | vesting_event | no | - | - | - |
+| final-pay-calculator | er | rule | no | - | internal_write | approve | payroll | step | 2 | jurisdiction-packs | employment_record,gratuity_accrual_balance,leave_balance,termination | final_settlement | no | g_finalpay,g_pay_disburse | g_finalpay | - |
+| rehire-eligibility-flagger | er | rule | no | - | internal_write | review | hr | step | 2 | employment-decision | - | termination | no | - | - | - |
+| gl-poster | fin | rule | no | - | internal_write | approve | founder | step | 2 | guarded-write | expense,payroll_run | gl_journal_entry | no | g_close | g_close | - |
+| deprovisioning-agent | it | integration | no | - | external_irreversible | approve | it | step | 2 | legal-hold-check | legal_hold,termination | app_access_grant,identity_account | no | g_it_deprov,g_it_offtemplate | g_it_deprov | - |
+| equipment-return-tracker | it | rule | no | - | internal_write | auto | it | event,timer | 2 | - | - | checklist_task,device_assignment | no | - | - | device_assignment |
+| termination-checklist-builder | ob | rule | no | - | internal_write | auto | hr | step | 2 | - | termination | checklist,checklist_task | no | - | - | - |
+| deduction-reconciler | pay | monitor | no | - | read_only | auto | payroll | step | 2 | - | benefit_election,payslip | - | no | - | - | - |
+| direct-deposit-disburser | pay | integration | no | - | external_irreversible | approve | payroll | step | 2 | guarded-write,legal-hold-check | consent_record,legal_hold,termination | final_settlement,payroll_run | no | g_finalpay,g_pay_anomaly,g_pay_disburse | - | - |
+| garnishment-processor | pay | rule | no | - | internal_write | review | payroll | step | 2 | legal-limits | garnishment_order | payslip_line | no | - | - | garnishment_order |
+| gross-pay-calculator | pay | rule | no | - | internal_write | auto | payroll | step | 2 | jurisdiction-packs | employment_record,statutory_rate_rule | payslip,payslip_line | no | - | - | - |
+| payroll-anomaly-detector | pay | decider | yes | - | read_only | auto | payroll | step | 2 | - | payroll_run | - | no | - | g_pay_anomaly | - |
+| payroll-run-builder | pay | rule | no | - | internal_write | review | payroll | step,timer | 2 | jurisdiction-packs | employee,employment_record,legal_entity,payslip | gratuity_accrual_balance,payroll_run,payslip_line | no | g_pay_anomaly,g_pay_disburse | - | employee |
+| tax-filing-submitter | pay | integration | no | - | external_irreversible | approve | payroll | timer | 2 | no-gate-on-irreversible,statutory-deadline,jurisdiction-packs | consent_record,legal_entity,payroll_run | document,filing_record | no | - | - | document |
+| tax-withholding-calculator | pay | rule | no | - | internal_write | auto | payroll | step | 2 | jurisdiction-packs | employee,legal_entity,payroll_profile,pt_slab_rule,statutory_rate_rule | payslip_line | no | - | - | employee,payroll_profile |
+| pto-accrual-calculator | time | rule | no | - | internal_write | auto | hr | timer | 2 | jurisdiction-packs | employee,leave_policy | leave_balance | no | - | - | employee |
+| timecard-aggregator | time | rule | no | - | read_only | auto | payroll | step | 2 | - | timecard | - | no | - | - | - |
+| comp-band-validator | comp | rule | no | - | read_only | auto | founder | step | 3 | needs-reference-data-owner | comp_band,compensation_event,employment_record,job_profile,offer | - | no | - | g_offer_band | - |
+| grant-drafter | comp | rule | no | - | internal_write | approve | founder | step | 3 | - | valuation_409a | equity_grant | no | g_409a | g_409a | - |
+| merit-cycle-calculator | comp | rule | no | - | internal_write | approve | founder | step | 3 | - | comp_band,employment_record,performance_review | compensation_event | no | g_offer_band | - | - |
+| eeo-report-builder | hr | rule | no | - | read_only | auto | hr | timer,step | 3 | aggregate-only,C4-no-models | self_identification | - | no | - | - | self_identification |
+| calibration-data-aggregator | perf | rule | no | - | read_only | auto | hr | step | 3 | - | employee_skill,performance_review | - | no | - | - | - |
+| review-cycle-launcher | perf | rule | no | - | internal_write | auto | hr | timer | 3 | - | - | review_cycle | no | - | - | - |
+| document-vault-manager | priv | rule | no | - | internal_write | auto | hr | event,step | 3 | - | retention_policy | document | no | - | - | document |
+| carrier-file-transmitter | ben | integration | no | - | external_reversible | review | hr | timer | 4 | - | dependent | benefit_election | no | - | - | dependent |
+| cobra-notice-generator | ben | rule | no | - | external_notify | approve | hr | event | 4 | us-pack,statutory-deadline | termination | cobra_event | no | g_cobra | - | - |
+| election-processor | ben | rule | no | - | internal_write | review | hr | event | 4 | C3-no-models | - | benefit_election,dependent | no | - | - | dependent |
+| eligibility-calculator | ben | rule | no | - | read_only | auto | hr | event | 4 | - | benefit_plan,employee,threshold_obligation | - | no | - | - | employee |
+| enrollment-window-notifier | ben | rule | no | - | external_notify | auto | hr | timer | 4 | - | - | life_event | no | - | - | life_event |
+| qle-validator | ben | rule | no | - | internal_write | review | hr | event | 4 | C4-no-models | - | life_event | no | - | - | life_event |
+| 409a-trigger-monitor | comp | monitor | no | - | read_only | auto | founder | timer | 4 | - | equity_grant,valuation_409a | - | no | - | - | - |
+| bonus-calculator | comp | rule | no | - | internal_write | approve | founder | step,event | 4 | - | - | compensation_event | no | g_offer_band | - | - |
+| exercise-processor | comp | rule | no | - | internal_write | approve | founder | event | 4 | - | - | option_exercise | no | g_409a | - | - |
+| case-intake-router | er | rule | no | - | internal_write | review | hr | event | 4 | C4-no-models | - | er_case | no | g_er_adjud | - | er_case |
+| exit-interview-scheduler | er | integration | no | - | external_reversible | review | hr | step | 4 | - | - | termination | no | - | - | - |
+| investigation-tracker | er | rule | no | - | internal_write | review | hr | event,timer | 4 | C4-no-models | - | er_case | no | g_er_adjud | - | er_case |
+| bank-reconciler | fin | rule | assist | decider | read_only | auto | founder | timer | 4 | - | gl_journal_entry,vendor_bill | - | no | - | - | - |
+| corporate-card-controller | fin | integration | no | - | external_reversible | approve | founder | event | 4 | - | - | corporate_card | no | - | - | corporate_card |
+| cost-center-report-builder | fin | rule | no | - | read_only | auto | founder | timer | 4 | - | gl_journal_entry | - | no | - | - | - |
+| expense-approval-router | fin | rule | no | - | internal_write | auto | founder | event | 4 | needs-manager-gate | reporting_line | approval_request,expense | yes | - | - | - |
+| expense-policy-checker | fin | decider | yes | llm | internal_write | review | founder | event | 4 | needs-manager-gate,untrusted-documents | - | expense | no | - | - | - |
+| period-close-runner | fin | rule | no | - | internal_write | approve | founder | timer | 4 | guarded-write | - | gl_journal_entry | no | g_close | - | - |
+| vendor-bill-processor | fin | llm | yes | decider | internal_write | review | founder | event | 4 | untrusted-documents | - | vendor_bill | no | g_ap | - | - |
+| aca-affordability-monitor | hr | monitor | no | - | internal_write | auto | hr | timer,event | 4 | us-pack | - | threshold_obligation | no | g_aca,threshold_crossing | - | - |
+| org-chart-updater | hr | rule | no | - | internal_write | review | hr | event | 4 | changes-visibility-scope | - | reporting_line | no | - | - | - |
+| access-compliance-auditor | it | monitor | no | - | read_only | auto | it | timer | 4 | - | access_role_template,app_access_grant,identity_account | - | no | - | - | - |
+| app-access-exception-flagger | it | decider | yes | - | read_only | auto | it | event | 4 | - | app_access_grant | - | no | - | - | - |
+| device-inventory-allocator | it | rule | no | - | internal_write | auto | it | event | 4 | - | - | device,device_assignment | no | - | - | device_assignment |
+| device-purchase-initiator | it | integration | no | - | external_irreversible | approve | it | event | 4 | no-gate-on-irreversible | - | device | no | - | - | - |
+| device-shipment-tracker | it | integration | no | - | internal_write | auto | it | timer | 4 | - | - | device_assignment | no | - | - | device_assignment |
+| password-vault-sharer | it | integration | no | - | external_reversible | approve | it | step | 4 | secrets | - | app_access_grant | no | g_it_offtemplate | - | - |
+| certification-expiry-monitor | learn | monitor | no | - | read_only | auto | hr | timer | 4 | - | certification | - | no | - | - | - |
+| completion-tracker | learn | rule | no | - | internal_write | auto | hr | event | 4 | - | - | employee_skill,training_assignment | no | - | - | - |
+| overdue-escalator | learn | monitor | no | - | internal_write | auto | hr | timer | 4 | - | - | training_assignment | no | - | - | - |
+| training-assignment-engine | learn | rule | no | - | internal_write | auto | hr | event | 4 | - | course,employee_skill,job_profile,skill | training_assignment | no | - | - | - |
+| first-day-notifier | ob | rule | no | - | external_notify | auto | hr | timer | 4 | - | - | checklist_task | no | - | - | - |
+| knowledge-transfer-coordinator | ob | llm | yes | - | internal_write | review | hr | step | 4 | - | - | checklist_task | no | - | - | - |
+| contractor-invoice-processor | pay | llm | yes | decider | internal_write | review | payroll | event | 4 | untrusted-documents | - | contractor_invoice | no | g_pay_disburse,g_pay_newjuris | - | - |
+| in-country-tax-remitter | pay | integration | no | - | external_irreversible | approve | payroll | timer | 4 | no-gate-on-irreversible,statutory-deadline,jurisdiction-packs | statutory_rate_rule | filing_record | no | - | - | - |
+| jurisdiction-classifier | pay | rule | no | - | read_only | auto | payroll | event | 4 | jurisdiction-packs | employee,payroll_profile | - | no | - | - | employee,payroll_profile |
+| multi-currency-payment-router | pay | integration | no | - | external_irreversible | approve | payroll | step | 4 | guarded-write,jurisdiction-packs | - | contractor_invoice | no | g_pay_disburse,g_pay_newjuris | - | - |
+| w2-1099-generator | pay | rule | no | - | internal_write | review | payroll | timer | 4 | jurisdiction-packs | - | filing_record | no | - | - | - |
+| pip-tracker | perf | rule | no | - | internal_write | review | hr | event,timer | 4 | employment-decision | - | pip | no | - | - | - |
+| self-review-reminder | perf | monitor | no | - | external_notify | auto | hr | timer | 4 | - | performance_review,reporting_line,review_cycle | - | no | - | - | - |
+| offer-approval-router | ro | rule | no | - | internal_write | auto | hr | step | 4 | - | offer | approval_request | yes | - | - | - |
+| timecard-approval-router | ro | rule | no | - | internal_write | auto | hr | event | 4 | needs-manager-gate | approval_request,reporting_line,time_punch | approval_request,timecard | yes | - | - | time_punch |
+| aedt-audit-monitor | ta | monitor | no | - | internal_write | auto | hr | timer | 4 | regulated-aedt | screening_result | aedt_audit | no | g_aedt | - | - |
+| aedt-candidate-notifier | ta | rule | no | - | external_notify | review | hr | event | 4 | regulated-aedt | application | screening_result | no | g_aedt | - | - |
+| background-check-flagger | ta | rule | no | - | internal_write | approve | hr | event | 4 | C4-no-models,fcra-consent | - | background_check | no | g_bg_adverse | - | background_check |
+| fmla-eligibility-checker | time | rule | no | - | read_only | auto | hr | event | 4 | us-pack,C4-no-models | leave_request | - | no | - | - | leave_request |
+| leave-request-processor | time | rule | no | - | internal_write | approve | hr | event | 4 | C4-no-models,us-pack | leave_policy | leave_request | no | g_fmla | - | leave_request |
+| leave-return-coordinator | time | rule | no | - | internal_write | review | hr | timer | 4 | C4-no-models | - | leave_request | no | g_fmla | - | leave_request |
+| punch-validator | time | rule | no | - | internal_write | auto | hr | event | 4 | C3-no-models | time_punch | timecard | no | - | - | time_punch |

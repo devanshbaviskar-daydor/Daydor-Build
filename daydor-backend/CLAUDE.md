@@ -66,6 +66,8 @@ Context for Claude Code. Read `docs/backend-plan.md`, `docs/model-findings.md` a
   same create-the-row-then-gate-the-UPDATE shape as `g_pay_disburse`, for `g_close`.
 - Adapters (external vendors, mocked until wired for real): `src/daydor/adapters/`
 - Agentic worker harness (placeholder, not wired in yet): `src/daydor/agents/base.py`
+- Agent runs and autonomy (`0040`): `src/daydor/agents/runs.py`; every job of a real worker opens an `agent_task_run`, a tenant that
+  raises autonomy holds (`g_agent_action`) or flags it. The plan for the rest of the agentic infrastructure is `docs/agentic-infra-plan.md`
 - Worker registry and per-worker roles (ADR-004): `registry/`, `src/daydor/agents/registry.py` (classification,
   rules, reviewed `extra_scope`), `src/daydor/agents/roles.py` (generates `app.worker_definition` and one NOLOGIN
   `worker_<name>` role per worker with column grants derived from scope and the model's agent access),

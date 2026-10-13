@@ -235,13 +235,16 @@ def validate(recs: list[dict] | None = None) -> list[str]:
 # ---------------------------------------------------------------------------- outputs
 def _row(r: dict) -> list[str]:
     assist = ",".join(x["type"] for x in r.get("assist", []))
-    return [r["worker"], r["home_domain"], r["kind"], assist, r["effect"], r["autonomy"],
-            str(r["wave"]), ",".join(r.get("flags", [])), ",".join(r["gates_on_written_tables"]),
-            ",".join(r["restricted_tables"])]
+    uses_model = "yes" if r["kind"] in ("decider", "llm") else ("assist" if assist else "no")
+    return [r["worker"], r["home_domain"], r["kind"], uses_model, assist, r["effect"], r["autonomy"], r["owner"],
+            ",".join(r["triggers"]), str(r["wave"]), ",".join(r.get("flags", [])), ",".join(r["reads"]),
+            ",".join(r["writes"]), "yes" if r["requests_approvals"] else "no", ",".join(r["gates_on_written_tables"]),
+            ",".join(r["gates_in_flows"]), ",".join(r["restricted_tables"])]
 
 
-COLS = ["worker", "domain", "kind", "model_assist", "effect", "autonomy", "wave", "flags",
-        "hard_gates_on_tables", "restricted_tables_in_scope"]
+COLS = ["worker", "domain", "kind", "uses_model", "model_assist", "effect", "autonomy_default", "owner", "triggers", "wave",
+        "flags", "db_reads", "db_writes", "requests_approvals", "hard_gates_on_tables", "gates_in_flows",
+        "restricted_tables_in_scope"]
 
 
 def to_csv(recs: list[dict]) -> str:

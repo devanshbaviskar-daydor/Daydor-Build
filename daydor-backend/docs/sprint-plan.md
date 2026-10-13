@@ -409,6 +409,14 @@ a test-only switch that ran queue handlers on worker roles (since removed: every
 
 ---
 
+## Agentic infrastructure (plan: `docs/agentic-infra-plan.md`)
+
+- **Phase A, done Oct 13 (`0040`):** the trace spine (`agent_task_run` per worker job, `app.agent_run_trace`) and autonomy that holds
+  (`g_agent_action`) or flags (`review_pending`) a job; `daydor.agents.runs`; the API runner registers the settler queue.
+- Next: Phase B, the LLM runtime (registry contract, model client, propose-validate-commit, bounded tool loop, context builder).
+
+---
+
 ## Cross-cutting hardening (Sprints 12-13)
 
 ### Sprint 12a — Employee write scope, finding 2 (Done)

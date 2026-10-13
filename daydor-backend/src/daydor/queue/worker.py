@@ -10,7 +10,10 @@ tenant as session context, so row security and grants apply to agent work exactl
 people. A handler registered with `worker=` takes its role from the worker registry
 (`daydor.agents.roles`) and first runs `app.assert_worker_enabled`: a worker that is disabled, globally
 or for the job's tenant, fails the job closed (it is recorded, retried and dead-lettered like any
-other failure) instead of being skipped. Completion is recorded in a separate dispatcher transaction, so delivery is at-least-once:
+other failure) instead of being skipped. Handlers for real workers (not platform actors) are also tracked: each job
+opens an `agent_task_run` in its own transaction, and a tenant that raised the worker's autonomy above its default
+holds the job behind a person's approval (`approve`) or flags it for review (`review`); see daydor.agents.runs.
+Completion is recorded in a separate dispatcher transaction, so delivery is at-least-once:
 handlers must be idempotent (use the job id or an idempotency key for any write).
 """
 from __future__ import annotations
@@ -107,16 +110,56 @@ class Worker:
         handler = self.handlers.get(job.kind)
         if handler is None:
             return self._fail(job, f"no handler registered for kind {job.kind!r}")
+        tracked = handler.worker is not None and self._tracked(handler.worker)
+        if tracked:
+            from daydor.agents import runs
+        run = None
         try:
-            with tenant_session(self.engine, handler.role, job.tenant_id, purpose=handler.purpose) as conn:
-                if handler.worker is not None:
+            if tracked:
+                run = self._begin(handler, job)
+                if run.status == "awaiting_approval":                   # held, still waiting for a person
+                    self._complete(job, {"held": str(run.id)})
+                    return "held"
+                if run.status in runs.TERMINAL:                          # a duplicate delivery of finished work
+                    self._complete(job, {"skipped": run.status, "run": str(run.id)})
+                    return "skipped"
+                if run.must_hold:                                        # the tenant wants a person's yes first
+                    with tenant_session(self.engine, handler.role, job.tenant_id) as conn:
+                        runs.hold_for_approval(conn, run, handler.worker)
+                    self._complete(job, {"held": str(run.id)})
+                    return "held"
+            with tenant_session(self.engine, handler.role, job.tenant_id, purpose=handler.purpose,
+                                agent_task_run_id=run.id if run else None) as conn:
+                if handler.worker is not None and not tracked:
                     conn.execute(text("SELECT app.assert_worker_enabled(:w)"), {"w": handler.worker})
                 result = handler.fn(conn, job)
         except Exception as exc:  # noqa: BLE001 - every failure is recorded on the job
             log.warning("job %s (%s) failed: %s", job.id, job.kind, exc)
+            if run is not None:
+                self._finish(handler, job, run, "failed", type(exc).__name__)
             return self._fail(job, f"{type(exc).__name__}: {exc}\n{traceback.format_exc(limit=5)}")
+        if run is not None:
+            self._finish(handler, job, run, "review_pending" if run.needs_review else "succeeded")
         self._complete(job, result)
         return "succeeded"
+
+    @staticmethod
+    def _tracked(worker: str) -> bool:
+        from daydor.agents import runs
+        return runs.is_tracked(worker)
+
+    def _begin(self, handler: Handler, job: Job):
+        """Open the run in its own transaction, as the worker's role. Checks the worker is enabled first, so a
+        disabled worker fails closed and leaves no run behind."""
+        from daydor.agents import runs
+        with tenant_session(self.engine, handler.role, job.tenant_id) as conn:
+            conn.execute(text("SELECT app.assert_worker_enabled(:w)"), {"w": handler.worker})
+            return runs.begin_run(conn, handler.worker, job)
+
+    def _finish(self, handler: Handler, job: Job, run, status: str, error: str | None = None) -> None:
+        from daydor.agents import runs
+        with tenant_session(self.engine, handler.role, job.tenant_id) as conn:
+            runs.finish_run(conn, run.id, status, error)
 
     def tick(self) -> dict[str, int]:
         relayed = self.relay_outbox()

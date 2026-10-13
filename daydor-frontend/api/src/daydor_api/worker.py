@@ -21,6 +21,7 @@ import time
 
 from sqlalchemy import Engine
 
+from daydor.agents.runs import SETTLE_KIND, SETTLE_QUEUE, handle_agent_gate_resolved
 from daydor.clocks import handle_statutory_clock_scan
 from daydor.hire.access_grant import handle_app_access_granter
 from daydor.hire.approvals import handle_requisition_approval_router
@@ -124,7 +125,11 @@ def build_workers(engine: Engine | None = None, name: str = "api") -> list[Worke
     # the workflow engine's own (daydor.timekeeping.timecard's module docstring).
     timekeeping = Worker(engine, "timekeeping", f"{name}-timekeeping")
     timekeeping.register("timekeeping.gate_resolved", worker="timecard-approval-router", fn=handle_timekeeping_gate_resolved)
-    return [workflow, platform, ta, hr, privacy, ob, it, pay, timekeeping]
+    # Agent runs (0040): when a tenant holds a worker behind approval, the person's decision on g_agent_action lands here
+    # and puts the held job back (or stops it).
+    agent_runs = Worker(engine, SETTLE_QUEUE, f"{name}-agent-runs")
+    agent_runs.register(SETTLE_KIND, worker="workflow-engine", fn=handle_agent_gate_resolved)
+    return [workflow, platform, ta, hr, privacy, ob, it, pay, timekeeping, agent_runs]
 
 
 def tick_all(workers: list[Worker], rounds: int = 3) -> dict[str, int]:

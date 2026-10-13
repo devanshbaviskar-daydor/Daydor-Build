@@ -9,7 +9,7 @@ from daydor_api.enums import load  # noqa: F401  (module import check)
 def test_gate_catalog_has_the_models_gates_the_platform_gate_and_soft_gates():
     cat = {g["id"]: g for g in gates.catalog()}
     hard = [g for g in cat.values() if g["kind"] == "hard"]
-    assert len(hard) == 23 and "g_requisition_budget" in cat
+    assert len(hard) == 24 and "g_requisition_budget" in cat and "g_agent_action" in cat       # the model's 20 plus platform gates
     assert cat["g_requisition_budget"]["approver_roles"] == ["tenant_founder"]
     assert cat["g_pay_anomaly"]["approver_roles"] == ["tenant_payroll", "daydor_ops"]
     assert {g["id"] for g in cat.values() if g["kind"] == "soft"} == {
@@ -17,7 +17,7 @@ def test_gate_catalog_has_the_models_gates_the_platform_gate_and_soft_gates():
 
 
 def test_gates_and_enums_are_served(client, people):
-    assert len(client.get("/api/meta/gates", headers=people["hr"]).json()["gates"]) == 25
+    assert len(client.get("/api/meta/gates", headers=people["hr"]).json()["gates"]) == 26
     enums = client.get("/api/meta/enums", headers=people["hr"]).json()
     assert enums["enums"]["approval_request.status"]["values"] == ["approved", "expired", "pending", "rejected"]
 
