@@ -141,8 +141,10 @@ licences in legal review. Known upstream issues on `noul` and `act_probability`.
 | 6. Remove the `agent_<domain>` roles | Done Oct 13 (`0034`): the API (`worker.py`, `sessions.py`, 18 router calls, `seed_dev`) and every backend test moved to worker roles first. `agent_runtime` stays, inert, as the model's agent access level |
 | Exit close-out split into one handler per worker | Done: `0029` inserted version 3 inactive, `0033` activated it once the API registered the handlers (finding 27) |
 
-Still open from the reconciliation (`docs/worker-roles-reconciliation.md`): `payroll/run_builder.py` is split later
-(combined scope until then). The API move is done (steps 1 to 3, Oct 13): handlers register by worker, 18 actions use
+`payroll/run_builder.py` is split across its workers (Oct 13): `gross-pay-calculator`, `tax-withholding-calculator` and
+`garnishment-processor` compute (pure reads, `compute_staged`), then `payroll-run-builder` persists in one transaction;
+`build_payroll_run(engine, tenant, ...)` orchestrates and no longer takes a connection. The combined scope is retired.
+The API move is done (steps 1 to 3, Oct 13): handlers register by worker, 18 actions use
 `worker_session`, exit v3 is active, and the domain roles are dropped.
 
 ## Next steps

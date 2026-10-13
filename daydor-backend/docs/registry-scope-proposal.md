@@ -82,3 +82,7 @@ platform group (migration 0027), not the registry.
 - No additions for the 56 workers without code. Their scope stays the model's until code exists.
 - No broader reads "just in case" and no shared lookup role.
 - No change to guarded-column owners (they match the proposal).
+
+## Update, Oct 13 2026
+The combined `payroll-run-builder` scope above is retired: `payroll/run_builder.py` was split, the three calculators read what they need, and the builder keeps only `employee`, `employment_record`, `legal_entity`, `payslip` reads and `payslip_line` writes (`extra_scope` in the registry).
+

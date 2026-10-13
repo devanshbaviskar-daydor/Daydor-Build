@@ -33,6 +33,7 @@ from ..deps import get_identity, idempotency_key
 from ..errors import ApiError
 from ..identity import Identity
 from ..sessions import worker_session
+from ..state import get_engine
 
 router = APIRouter(prefix="/payroll", tags=["payroll"])
 
@@ -54,9 +55,10 @@ def create_run(body: CreateRun, ident: Identity = Depends(get_identity), key: st
         raise ApiError(403, "forbidden", "Your role cannot run payroll.")
 
     def run() -> dict:
-        with worker_session(ident, "payroll-run-builder") as conn:
-            built = build_payroll_run(conn, legal_entity_id=body.legal_entity_id, period_start=body.period_start,
-                                      period_end=body.period_end, retention_class_id=body.retention_class_id)
+        # build_payroll_run orchestrates the workers itself: the three calculators, then payroll-run-builder.
+        built = build_payroll_run(get_engine(), ident.tenant_id, user_id=ident.user_id,
+                                  legal_entity_id=body.legal_entity_id, period_start=body.period_start,
+                                  period_end=body.period_end, retention_class_id=body.retention_class_id)
         # The anomaly pre-check is its own worker (and its own transaction); build is idempotent on the period.
         with worker_session(ident, "payroll-anomaly-detector") as conn:
             outcome = check_payroll_run(conn, payroll_run_id=built["payroll_run_id"])

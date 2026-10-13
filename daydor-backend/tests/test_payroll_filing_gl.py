@@ -61,9 +61,8 @@ def _build_run_with_one_employee(engine, t, *, legal_entity_id, state_code, rete
         insert(conn, "statutory_rate_rule", scheme="tds", jurisdiction_code="IN",
               effective_from="2026-01-01", employee_rate="0.10", employer_rate="0")
 
-    with worker_session(engine, "payroll-run-builder", tenant) as conn:
-        return build_payroll_run(conn, legal_entity_id=legal_entity_id, period_start=date(2026, 8, 1),
-                                 period_end=date(2026, 8, 31), retention_class_id=retention_class_id)
+    return build_payroll_run(engine, tenant, legal_entity_id=legal_entity_id, period_start=date(2026, 8, 1),
+                             period_end=date(2026, 8, 31), retention_class_id=retention_class_id)
 
 
 def test_filing_submitter_files_every_scheme_for_india_and_is_idempotent(engine, filing_tenant,
@@ -93,9 +92,8 @@ def test_filing_submitter_raises_for_an_unregistered_jurisdiction(engine, filing
                                                                    retention_policy):
     tenant = filing_tenant["tenant"]
     le = _legal_entity(engine, tenant, "FR")
-    with worker_session(engine, "payroll-run-builder", tenant) as conn:
-        built = build_payroll_run(conn, legal_entity_id=le, period_start=date(2026, 8, 1),
-                                  period_end=date(2026, 8, 31), retention_class_id=retention_policy)
+    built = build_payroll_run(engine, tenant, legal_entity_id=le, period_start=date(2026, 8, 1),
+                              period_end=date(2026, 8, 31), retention_class_id=retention_policy)
     with worker_session(engine, "tax-filing-submitter", tenant) as conn:
         with pytest.raises(UnsupportedJurisdiction):
             file_payroll_run(conn, payroll_run_id=built["payroll_run_id"], period="2026-08",

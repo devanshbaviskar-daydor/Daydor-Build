@@ -11,6 +11,7 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import text
 
 from daydor.agents.session import worker_session
 from daydor.db.session import tenant_session
@@ -66,7 +67,7 @@ def test_india_gross_to_net_uses_real_slab_and_rate_rows(engine, payroll_tenant)
         insert(conn, "statutory_rate_rule", scheme="tds", jurisdiction_code="IN",
               effective_from="2026-01-01", employee_rate="0.10", employer_rate="0")
 
-    with worker_session(engine, "payroll-run-builder", tenant) as conn:
+    with tenant_session(engine, "tenant_payroll", tenant) as conn:
         result = compute_gross_to_net(conn, employee_id=employee_id, as_of=date(2026, 3, 1))
 
     assert result.gross == Decimal("100000.00")
@@ -90,7 +91,7 @@ def test_us_gross_to_net_uses_real_rate_rows(engine, payroll_tenant):
         insert(conn, "statutory_rate_rule", scheme="state_wh", jurisdiction_code=f"US-{state_code}",
               effective_from="2026-01-01", employee_rate="0.05", employer_rate="0")
 
-    with worker_session(engine, "payroll-run-builder", tenant) as conn:
+    with tenant_session(engine, "tenant_payroll", tenant) as conn:
         result = compute_gross_to_net(conn, employee_id=employee_id, as_of=date(2026, 3, 1))
 
     assert result.gross == Decimal("10000.00")
@@ -114,7 +115,7 @@ def test_withholding_is_effective_dated(engine, payroll_tenant):
         insert(conn, "statutory_rate_rule", scheme="fed_wh", jurisdiction_code="US",
               effective_from="2026-01-01", employee_rate="0.12", employer_rate="0")
 
-    with worker_session(engine, "payroll-run-builder", tenant) as conn:
+    with worker_session(engine, "tax-withholding-calculator", tenant) as conn:
         old = compute_withholding(conn, employee_id=employee_id, gross=Decimal("10000"),
                                   as_of=date(2024, 6, 1))
         new = compute_withholding(conn, employee_id=employee_id, gross=Decimal("10000"),
@@ -123,10 +124,44 @@ def test_withholding_is_effective_dated(engine, payroll_tenant):
     assert {w.component_code: w.amount for w in new}["federal_wh"] == Decimal("1200.00")
 
 
+def test_staged_computation_across_the_three_workers_equals_the_single_connection_one(engine, payroll_tenant):
+    """A payroll run computes gross, withholding and garnishments as three workers; the arithmetic must be
+    exactly compute_gross_to_net's."""
+    from daydor.payroll.compute import compute_staged
+    tenant = payroll_tenant["tenant"]
+    india = _make_employee(engine, payroll_tenant, country_code="IN", state_code="KA", ctc_annual=Decimal("1200000"))
+    us = _make_employee(engine, payroll_tenant, country_code="US", state_code="TX", ctc_annual=Decimal("120000"))
+    with engine.begin() as conn:
+        insert(conn, "pt_slab_rule", state_code="KA", effective_from="2026-01-01", slab_min="15000", monthly_amount="200")
+        for scheme, jur, rate in (("pf", "IN", "0.12"), ("tds", "IN", "0.10"), ("fica", "US", "0.0765"),
+                                  ("fed_wh", "US", "0.12"), ("state_wh", "US-TX", "0.0")):
+            insert(conn, "statutory_rate_rule", scheme=scheme, jurisdiction_code=jur, effective_from="2026-01-01",
+                   employee_rate=rate, employer_rate="0", **({"wage_ceiling": "15000"} if scheme == "pf" else {}))
+        insert(conn, "garnishment_order", tenant_id=tenant, employee_id=india, issuing_authority="Court A",
+               order_type="fixed_amount", amount_or_pct="1000", priority=1, effective_from="2026-01-01")
+    staged = compute_staged(engine, tenant, [india, us], date(2026, 3, 1))
+    with tenant_session(engine, "tenant_payroll", tenant) as conn:
+        single = {e: compute_gross_to_net(conn, employee_id=e, as_of=date(2026, 3, 1)) for e in (india, us)}
+    assert staged == single and staged[india].garnishments and staged[india].net < staged[india].gross
+
+
+def test_each_stage_runs_under_only_its_own_scope(engine, payroll_tenant):
+    """The calculators read what they need and nothing else; the builder cannot read the rate tables."""
+    from sqlalchemy.exc import DBAPIError
+    tenant = payroll_tenant["tenant"]
+    for sql, worker in (("SELECT 1 FROM garnishment_order", "tax-withholding-calculator"),
+                        ("SELECT 1 FROM statutory_rate_rule", "payroll-run-builder"),
+                        ("SELECT 1 FROM garnishment_order", "payroll-run-builder"),
+                        ("SELECT 1 FROM payroll_profile", "payroll-run-builder")):
+        with pytest.raises(DBAPIError, match="permission denied"):
+            with worker_session(engine, worker, tenant) as conn:
+                conn.execute(text(sql))
+
+
 def test_unsupported_jurisdiction_raises_rather_than_silently_skipping(engine, payroll_tenant):
     employee_id = _make_employee(engine, payroll_tenant, country_code="FR", state_code="IDF",
                                  ctc_annual=Decimal("60000"))
-    with worker_session(engine, "payroll-run-builder", payroll_tenant["tenant"]) as conn:
+    with worker_session(engine, "tax-withholding-calculator", payroll_tenant["tenant"]) as conn:
         with pytest.raises(UnsupportedJurisdiction):
             compute_withholding(conn, employee_id=employee_id, gross=Decimal("5000"), as_of=date(2026, 3, 1))
 
@@ -143,7 +178,7 @@ def test_garnishments_apply_in_priority_order_and_never_exceed_base(engine, payr
                        issuing_authority="Court B", order_type="percentage", amount_or_pct="0.50",
                        priority=2, effective_from="2026-01-01")
 
-    with worker_session(engine, "payroll-run-builder", tenant) as conn:
+    with worker_session(engine, "garnishment-processor", tenant) as conn:
         lines = compute_garnishments(conn, employee_id=employee_id, base=Decimal("4000"),
                                      as_of=date(2026, 3, 1))
 

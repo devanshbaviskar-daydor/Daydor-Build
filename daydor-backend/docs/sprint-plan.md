@@ -402,6 +402,8 @@ a test-only switch that ran queue handlers on worker roles (since removed: every
   `0027` `worker_platform`, worker-aware role functions and the PII role-check fix (finding 24), `0028` one NOLOGIN
   role per worker with derived column grants and the PII registry seeds, `0029` exit workflow version 3 (inactive).
 - `daydor.agents.roles` (generator and rules), `daydor.agents.session.worker_session`, `Worker.register(worker=...)`.
+- **Run builder split (same day):** payroll computation runs as three workers and persistence as `payroll-run-builder`
+  (`payroll/compute.py` `compute_staged`, `payroll/run_builder.py`); the combined scope is retired.
 - **Follow-up done the same day (API move):** the API's worker process and 18 router actions run on worker roles, exit workflow
   version 3 is active (`0033`), and the `agent_<domain>` roles are dropped (`0034`) after every backend test moved off them.
 

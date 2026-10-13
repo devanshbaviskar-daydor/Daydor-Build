@@ -432,10 +432,9 @@ def test_a_disabled_worker_fails_its_job_closed(engine, org):
 
 def test_payroll_chain_on_worker_roles_and_only_the_disburser_may_disburse(engine, seeded_run):
     tenant, founder = seeded_run["tenant"], seeded_run["founder_user"]
-    with worker_session(engine, "payroll-run-builder", tenant) as conn:
-        run_id = build_payroll_run(conn, legal_entity_id=seeded_run["legal_entity"],
-                                   period_start=date(2026, 8, 1), period_end=date(2026, 8, 31),
-                                   retention_class_id=seeded_run["retention_policy"])["payroll_run_id"]
+    run_id = build_payroll_run(engine, tenant, legal_entity_id=seeded_run["legal_entity"],
+                               period_start=date(2026, 8, 1), period_end=date(2026, 8, 31),
+                               retention_class_id=seeded_run["retention_policy"])["payroll_run_id"]
     with worker_session(engine, "direct-deposit-disburser", tenant) as conn:
         approval_id = request_disbursal_approval(conn, payroll_run_id=run_id)
     with tenant_session(engine, "tenant_founder", tenant, user_id=founder) as conn:
@@ -455,10 +454,9 @@ def test_payroll_chain_on_worker_roles_and_only_the_disburser_may_disburse(engin
 def test_the_disburser_still_needs_an_approved_gate(engine, seeded_run):
     """Holding the column grant is not enough: app.enforce_gate_guard still refuses without approval."""
     tenant = seeded_run["tenant"]
-    with worker_session(engine, "payroll-run-builder", tenant) as conn:
-        run_id = build_payroll_run(conn, legal_entity_id=seeded_run["legal_entity"],
-                                   period_start=date(2026, 9, 1), period_end=date(2026, 9, 30),
-                                   retention_class_id=seeded_run["retention_policy"])["payroll_run_id"]
+    run_id = build_payroll_run(engine, tenant, legal_entity_id=seeded_run["legal_entity"],
+                               period_start=date(2026, 9, 1), period_end=date(2026, 9, 30),
+                               retention_class_id=seeded_run["retention_policy"])["payroll_run_id"]
     with worker_session(engine, "direct-deposit-disburser", tenant) as conn:
         approval_id = request_disbursal_approval(conn, payroll_run_id=run_id)     # still pending
     with pytest.raises(DBAPIError, match="approved|approval|gate"):
@@ -605,3 +603,32 @@ def test_dropping_the_roles_is_refused_while_a_version_2_exit_is_running(engine,
     finally:
         conn.rollback()
         conn.close()
+
+
+# ---------------------------------------------------------------- 0035: the run builder's scope narrowed
+def test_the_narrowing_migration_revokes_a_stale_combined_scope(engine, org):
+    """A database that ran the old 0028 still has the combined scope; 0035 takes it back (rolled back here)."""
+    sql = (W.SQL_DIR / "0035_payroll_run_builder_narrowed.sql").read_text()
+    conn = engine.raw_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("GRANT SELECT (id) ON public.garnishment_order TO worker_payroll_run_builder")
+        cur.execute("GRANT SELECT (id) ON public.payroll_profile TO worker_payroll_run_builder")
+        cur.execute("SELECT has_column_privilege('worker_payroll_run_builder', 'public.garnishment_order', 'id', 'SELECT')")
+        assert cur.fetchone()[0] is True
+        cur.execute(sql)
+        for table in ("garnishment_order", "payroll_profile"):
+            cur.execute("SELECT has_column_privilege('worker_payroll_run_builder', %s, 'id', 'SELECT')",
+                        (f"public.{table}",))
+            assert cur.fetchone()[0] is False, table
+    finally:
+        conn.rollback()
+        conn.close()
+
+
+def test_the_run_builder_row_matches_the_narrowed_registry(engine, org):
+    with engine.connect() as conn:
+        row = conn.execute(text("SELECT reads, writes, flags FROM app.worker_definition "
+                                "WHERE worker = 'payroll-run-builder'")).one()
+    assert "garnishment_order" not in row.reads and "payslip_line" in row.writes
+    assert "combined-scope-until-split" not in row.flags

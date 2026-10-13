@@ -183,11 +183,14 @@ def test_extra_scope_is_merged_into_scope(recs):
     assert {"job_requisition", "job_profile"} <= set(by["employee-record-writer"]["reads"])
     assert "job_requisition" in by["employee-record-writer"]["writes"]
     assert "checklist_task" in by["termination-checklist-builder"]["writes"]
-    assert "payslip_line" in by["payroll-run-builder"]["writes"]
+    assert "payslip_line" in by["payroll-run-builder"]["writes"] and "payslip" not in by["payroll-run-builder"]["writes"]
 
 
-def test_only_the_run_builder_carries_a_combined_scope(recs):
-    assert [r["worker"] for r in recs if "combined-scope-until-split" in r.get("flags", [])] == ["payroll-run-builder"]
+def test_no_worker_carries_a_combined_scope_any_more(recs):
+    """payroll-run-builder's combined scope was retired when run_builder.py was split across its workers."""
+    assert [r["worker"] for r in recs if "combined-scope-until-split" in r.get("flags", [])] == []
+    builder = next(r for r in recs if r["worker"] == "payroll-run-builder")
+    assert not {"payroll_profile", "pt_slab_rule", "statutory_rate_rule", "garnishment_order"} & set(builder["reads"])
 
 
 def _auth(**patch):

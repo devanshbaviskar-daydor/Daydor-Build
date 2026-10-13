@@ -1,6 +1,13 @@
 """payroll-run-builder: ties Sprints 6-7 together into a real `payroll_run`, `payslip`,
 `payslip_line` and `gratuity_accrual_balance` for every active employee under a legal entity.
 
+Split across workers (Oct 13 2026; it used to be one transaction with a combined scope): the three
+computation steps run as their own workers (`daydor.payroll.compute.compute_staged`: gross-pay-calculator,
+tax-withholding-calculator, garnishment-processor, all pure reads), and only the persistence is
+payroll-run-builder's. `build_payroll_run` is the orchestration, so it takes an engine and a tenant
+instead of one connection: it cannot run as a single role any more. Persistence is still one
+transaction, so a run is all or nothing.
+
 Scope decision: unlike the hire flow, this is **not** driven through `WorkflowEngine`. A payroll
 run's gates (`g_pay_anomaly`, `g_pay_disburse`) are checked via direct calls to
 `run_soft_gate`/`request_approval` on the `payroll_run` row itself -- the same pattern Sprint 6
@@ -24,9 +31,10 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import Connection, text
+from sqlalchemy import Connection, Engine, text
 
-from daydor.payroll.compute import compute_gross_to_net
+from daydor.agents.session import worker_session
+from daydor.payroll.compute import GrossToNetResult, compute_staged
 
 GRATUITY_MONTHLY_ACCRUAL_RATE = Decimal("0.0481")  # illustrative: ~15/26/12
 
@@ -38,24 +46,47 @@ def _current_employment_record_id(conn: Connection, employee_id: UUID, as_of: da
         {"e": employee_id, "d": as_of}).scalar_one()
 
 
-def build_payroll_run(conn: Connection, *, legal_entity_id: UUID, period_start: date, period_end: date,
-                      retention_class_id: UUID) -> dict:
-    """Idempotent on (legal_entity_id, period_start, period_end)."""
+def _existing_run(conn: Connection, legal_entity_id: UUID, period_start: date, period_end: date) -> dict | None:
     existing = conn.execute(
         text("SELECT id FROM payroll_run WHERE legal_entity_id = :le AND period_start = :s "
              "AND period_end = :f"), {"le": legal_entity_id, "s": period_start, "f": period_end},
     ).scalar_one_or_none()
-    if existing is not None:
-        payslip_ids = conn.execute(text("SELECT id FROM payslip WHERE payroll_run_id = :r"),
-                                   {"r": existing}).scalars().all()
-        return {"payroll_run_id": existing, "payslip_ids": payslip_ids}
+    if existing is None:
+        return None
+    payslip_ids = conn.execute(text("SELECT id FROM payslip WHERE payroll_run_id = :r"),
+                               {"r": existing}).scalars().all()
+    return {"payroll_run_id": existing, "payslip_ids": payslip_ids}
 
-    employee_ids = conn.execute(
-        text("SELECT id FROM employee WHERE legal_entity_id = :le AND is_active = true"),
-        {"le": legal_entity_id}).scalars().all()
 
-    results = {e: compute_gross_to_net(conn, employee_id=e, as_of=period_end) for e in employee_ids}
+def build_payroll_run(engine: Engine, tenant_id: UUID, *, legal_entity_id: UUID, period_start: date,
+                      period_end: date, retention_class_id: UUID, user_id: UUID | None = None) -> dict:
+    """Idempotent on (legal_entity_id, period_start, period_end).
 
+    1. payroll-run-builder: is there already a run, and who is on it?
+    2. the calculators, one worker each: gross, withholding, garnishments (reads only)
+    3. payroll-run-builder: write the run, its payslips and lines, the gratuity accrual, in one transaction
+    """
+    with worker_session(engine, "payroll-run-builder", tenant_id, user_id=user_id) as conn:
+        existing = _existing_run(conn, legal_entity_id, period_start, period_end)
+        if existing is not None:
+            return existing
+        employee_ids = conn.execute(
+            text("SELECT id FROM employee WHERE legal_entity_id = :le AND is_active = true"),
+            {"le": legal_entity_id}).scalars().all()
+
+    results = compute_staged(engine, tenant_id, employee_ids, period_end, user_id=user_id)
+
+    with worker_session(engine, "payroll-run-builder", tenant_id, user_id=user_id) as conn:
+        existing = _existing_run(conn, legal_entity_id, period_start, period_end)    # a concurrent call won
+        if existing is not None:
+            return existing
+        return persist_payroll_run(conn, legal_entity_id=legal_entity_id, period_start=period_start,
+                                   period_end=period_end, retention_class_id=retention_class_id, results=results)
+
+
+def persist_payroll_run(conn: Connection, *, legal_entity_id: UUID, period_start: date, period_end: date,
+                        retention_class_id: UUID, results: dict[UUID, GrossToNetResult]) -> dict:
+    """payroll-run-builder's own work: write what the calculators computed."""
     payroll_run_id = conn.execute(
         text("SELECT app.open_payroll_run(:le, :s, :f, :r)"),
         {"le": legal_entity_id, "s": period_start, "f": period_end, "r": retention_class_id},

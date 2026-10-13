@@ -564,28 +564,19 @@ GRANT UPDATE (identity_account_id, app_name, permission_level, source, template_
 GRANT SELECT (id, tenant_id, legal_entity_id, period_start, period_end, status, gross_total, net_total, anomaly_score, approval_request_id, disbursed_at, retention_class, created_at, updated_at) ON public.payroll_run TO worker_payroll_anomaly_detector;
 
 -- payroll-run-builder (rule, default autonomy review)
-GRANT SELECT (id, tenant_id, employee_id, benefit_plan_id, coverage_tier, employee_cost, life_event_id, effective_from, effective_to, carrier_sent_at, created_at, updated_at) ON public.benefit_election TO worker_payroll_run_builder;
 GRANT SELECT (id, tenant_id, hire_event_id, full_name, work_email, employment_type, legal_entity_id, department_id, location_id, position_id, state_code, date_of_joining, date_of_exit, is_active, date_of_birth, personal_address, aadhaar_last4, created_at, updated_at) ON public.employee TO worker_payroll_run_builder;
 GRANT SELECT (id, tenant_id, employee_id, effective_from, effective_to, job_profile_id, comp_band_id, fte, ctc_annual, basic_da_monthly, other_allowances_json, wage_floor_compliant, tax_regime_election, flsa_status, created_at, updated_at) ON public.employment_record TO worker_payroll_run_builder;
-GRANT SELECT (id, tenant_id, employee_id, issuing_authority, order_type, amount_or_pct, priority, effective_from, effective_to, created_at, updated_at) ON public.garnishment_order TO worker_payroll_run_builder;
 GRANT SELECT (id, tenant_id, employee_id, as_of_period, accrued_amount, gratuity_wage_base, created_at, updated_at) ON public.gratuity_accrual_balance TO worker_payroll_run_builder;
 GRANT INSERT (employee_id, as_of_period, accrued_amount, gratuity_wage_base) ON public.gratuity_accrual_balance TO worker_payroll_run_builder;
 GRANT UPDATE (employee_id, as_of_period, accrued_amount, gratuity_wage_base) ON public.gratuity_accrual_balance TO worker_payroll_run_builder;
-GRANT SELECT (id, tenant_id, employee_id, leave_policy_id, balance_days, as_of, created_at, updated_at) ON public.leave_balance TO worker_payroll_run_builder;
 GRANT SELECT (id, tenant_id, name, country_code, entity_type, employer_registrations, is_eor_partner, created_at, updated_at) ON public.legal_entity TO worker_payroll_run_builder;
-GRANT SELECT (id, tenant_id, employee_id, pay_frequency, payment_method, work_state, tax_state, reciprocity_agreement_flag, state_registration_status, w4_elections, uan_number, esic_ip_number, created_at, updated_at) ON public.payroll_profile TO worker_payroll_run_builder;
 GRANT SELECT (id, tenant_id, legal_entity_id, period_start, period_end, status, gross_total, net_total, anomaly_score, approval_request_id, disbursed_at, retention_class, created_at, updated_at) ON public.payroll_run TO worker_payroll_run_builder;
 GRANT INSERT (legal_entity_id, period_start, period_end, status, anomaly_score, approval_request_id, retention_class) ON public.payroll_run TO worker_payroll_run_builder;
 GRANT UPDATE (legal_entity_id, period_start, period_end, status, anomaly_score, approval_request_id, retention_class) ON public.payroll_run TO worker_payroll_run_builder;
 GRANT SELECT (id, tenant_id, payroll_run_id, employee_id, employment_record_id, gross_pay, net_pay, tax_withheld, issued_at, retention_class, created_at, updated_at) ON public.payslip TO worker_payroll_run_builder;
-GRANT INSERT (payroll_run_id, employee_id, employment_record_id, issued_at, retention_class) ON public.payslip TO worker_payroll_run_builder;
-GRANT UPDATE (payroll_run_id, employee_id, employment_record_id, issued_at, retention_class) ON public.payslip TO worker_payroll_run_builder;
 GRANT SELECT (id, tenant_id, payslip_id, component_code, amount, rule_id, created_at, updated_at) ON public.payslip_line TO worker_payroll_run_builder;
 GRANT INSERT (payslip_id, component_code, amount, rule_id) ON public.payslip_line TO worker_payroll_run_builder;
 GRANT UPDATE (payslip_id, component_code, amount, rule_id) ON public.payslip_line TO worker_payroll_run_builder;
-GRANT SELECT (id, state_code, effective_from, effective_to, slab_min, slab_max, monthly_amount, created_at, updated_at) ON public.pt_slab_rule TO worker_payroll_run_builder;
-GRANT SELECT (id, scheme, jurisdiction_code, effective_from, effective_to, wage_ceiling, employee_rate, employer_rate, created_at, updated_at) ON public.statutory_rate_rule TO worker_payroll_run_builder;
-GRANT SELECT (id, tenant_id, employee_id, period_start, period_end, regular_hours, overtime_hours, status, approved_by_user_id, created_at, updated_at) ON public.timecard TO worker_payroll_run_builder;
 GRANT EXECUTE ON FUNCTION app.finalize_payroll_run(uuid) TO worker_payroll_run_builder;
 GRANT EXECUTE ON FUNCTION app.open_payroll_run(uuid, date, date, uuid) TO worker_payroll_run_builder;
 GRANT EXECUTE ON FUNCTION app.record_payslip(uuid, uuid, uuid, numeric, numeric, numeric, uuid) TO worker_payroll_run_builder;

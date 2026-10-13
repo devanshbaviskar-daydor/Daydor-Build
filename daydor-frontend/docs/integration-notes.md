@@ -62,7 +62,7 @@ functions directly.
 | Timecard approval routing | `route_for_approval` | `daydor.timekeeping.timecard` | raises `g_timecard` (approver: `tenant_manager`) |
 | Timecard gate resolution | `handle_timekeeping_gate_resolved` (queue handler, kind `timekeeping.gate_resolved`) | `daydor.timekeeping.timecard` | timecard-approval-router |
 | Benefit election | `elect_benefit` | `daydor.benefits.election` | election-processor (not the employee's own session -- finding 16) |
-| Build payroll run | `build_payroll_run` | `daydor.payroll.run_builder` | payroll-run-builder; idempotent on `(legal_entity_id, period_start, period_end)`; writes `payroll_run`/`payslip`/`payslip_line`/`gratuity_accrual_balance` via the `0021_payroll_run_functions.sql` SECURITY DEFINER functions |
+| Build payroll run | `build_payroll_run` | `daydor.payroll.run_builder` | orchestrated across workers (gross-pay-calculator, tax-withholding-calculator, garnishment-processor compute; payroll-run-builder persists); idempotent on `(legal_entity_id, period_start, period_end)`; writes `payroll_run`/`payslip`/`payslip_line`/`gratuity_accrual_balance` via the `0021_payroll_run_functions.sql` SECURITY DEFINER functions |
 | Anomaly pre-check | `check_payroll_run` | `daydor.payroll.anomaly` | soft gate `sg_payroll_anomaly_precheck`, always escalates to `g_pay_anomaly` in shadow mode (approver: `tenant_payroll`/`daydor_ops`) |
 | Disbursal approval + disburse | `request_disbursal_approval` / `disburse_payroll_run` | `daydor.payroll.disbursement` | `g_pay_disburse` (approver: founder); `FakeBankAdapter` |
 | Issue payslips | `issue_payslips` | `daydor.payroll.payslip_issuer` | raises `PayrollRunNotDisbursed` until `disbursed_at` is set |

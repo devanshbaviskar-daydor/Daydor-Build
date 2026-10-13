@@ -1150,7 +1150,6 @@
   "owner": "payroll",
   "note": "Assembles the run. Must not set disbursed_at; needs per-worker column grants.",
   "flags": [
-   "combined-scope-until-split",
    "jurisdiction-packs"
   ],
   "extra_scope": {
@@ -1158,54 +1157,31 @@
     "employee",
     "employment_record",
     "legal_entity",
-    "payslip",
-    "payroll_run",
-    "payroll_profile",
-    "statutory_rate_rule",
-    "pt_slab_rule",
-    "garnishment_order",
-    "benefit_election",
-    "timecard",
-    "leave_balance"
+    "payslip"
    ],
    "writes": [
-    "payslip",
     "payslip_line"
    ],
-   "why": "COMBINED SCOPE until payroll/run_builder.py is split: build_payroll_run persists the work of gross-pay-calculator, tax-withholding-calculator and garnishment-processor in one transaction. Never gets payroll_run.disbursed_at (guarded; owner direct-deposit-disburser)."
+   "why": "Persists what the calculators computed (payroll/run_builder.py persist_payroll_run): lists the run's employees, reads the current employment record and legal entity, and writes payslip_line, which cannot exist before the payslip does (finding 17). It reads payslip only to return an existing run. The computation reads (rates, slabs, garnishment orders, payroll_profile) belong to the three calculator workers; payroll_run.disbursed_at stays with direct-deposit-disburser."
   },
   "writes": [
    "gratuity_accrual_balance",
    "payroll_run",
-   "payslip",
    "payslip_line"
   ],
   "reads": [
-   "benefit_election",
    "employee",
    "employment_record",
-   "garnishment_order",
-   "leave_balance",
    "legal_entity",
-   "payroll_profile",
-   "payroll_run",
-   "payslip",
-   "pt_slab_rule",
-   "statutory_rate_rule",
-   "timecard"
+   "payslip"
   ],
   "domains_touched": [
-   "ben",
    "hr",
    "pay",
-   "ref",
-   "ro",
-   "time"
+   "ro"
   ],
   "restricted_tables": [
-   "employee",
-   "garnishment_order",
-   "payroll_profile"
+   "employee"
   ],
   "gates_on_written_tables": [
    "g_pay_anomaly",

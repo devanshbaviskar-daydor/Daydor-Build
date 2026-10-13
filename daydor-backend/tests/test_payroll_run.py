@@ -78,10 +78,9 @@ def seeded_run(engine, payroll_run_tenant, retention_policy):
 
 def test_build_payroll_run_aggregates_employees_and_accrues_gratuity(engine, seeded_run):
     tenant = seeded_run["tenant"]
-    with worker_session(engine, "payroll-run-builder", tenant) as conn:
-        result = build_payroll_run(conn, legal_entity_id=seeded_run["legal_entity"],
-                                   period_start=date(2026, 3, 1), period_end=date(2026, 3, 31),
-                                   retention_class_id=seeded_run["retention_policy"])
+    result = build_payroll_run(engine, tenant, legal_entity_id=seeded_run["legal_entity"],
+                               period_start=date(2026, 3, 1), period_end=date(2026, 3, 31),
+                               retention_class_id=seeded_run["retention_policy"])
     run_id = result["payroll_run_id"]
     assert len(result["payslip_ids"]) == 2
 
@@ -121,24 +120,22 @@ def test_build_payroll_run_aggregates_employees_and_accrues_gratuity(engine, see
 
 def test_build_payroll_run_is_idempotent_on_period(engine, seeded_run):
     tenant = seeded_run["tenant"]
-    with worker_session(engine, "payroll-run-builder", tenant) as conn:
-        first = build_payroll_run(conn, legal_entity_id=seeded_run["legal_entity"],
-                                  period_start=date(2026, 4, 1), period_end=date(2026, 4, 30),
-                                  retention_class_id=seeded_run["retention_policy"])
-        second = build_payroll_run(conn, legal_entity_id=seeded_run["legal_entity"],
-                                   period_start=date(2026, 4, 1), period_end=date(2026, 4, 30),
-                                   retention_class_id=seeded_run["retention_policy"])
+    first = build_payroll_run(engine, tenant, legal_entity_id=seeded_run["legal_entity"],
+                              period_start=date(2026, 4, 1), period_end=date(2026, 4, 30),
+                              retention_class_id=seeded_run["retention_policy"])
+    second = build_payroll_run(engine, tenant, legal_entity_id=seeded_run["legal_entity"],
+                               period_start=date(2026, 4, 1), period_end=date(2026, 4, 30),
+                               retention_class_id=seeded_run["retention_policy"])
     assert first["payroll_run_id"] == second["payroll_run_id"]
     assert sorted(first["payslip_ids"]) == sorted(second["payslip_ids"])
 
 
 def test_anomaly_soft_gate_always_escalates_in_shadow_mode(engine, seeded_run):
     tenant = seeded_run["tenant"]
-    with worker_session(engine, "payroll-run-builder", tenant) as conn:
-        built = build_payroll_run(conn, legal_entity_id=seeded_run["legal_entity"],
-                                  period_start=date(2026, 5, 1), period_end=date(2026, 5, 31),
-                                  retention_class_id=seeded_run["retention_policy"])
-        run_id = built["payroll_run_id"]
+    built = build_payroll_run(engine, tenant, legal_entity_id=seeded_run["legal_entity"],
+                              period_start=date(2026, 5, 1), period_end=date(2026, 5, 31),
+                              retention_class_id=seeded_run["retention_policy"])
+    run_id = built["payroll_run_id"]
     with worker_session(engine, "payroll-anomaly-detector", tenant) as conn:
         outcome = check_payroll_run(conn, payroll_run_id=run_id)
 
@@ -159,11 +156,10 @@ def test_disbursal_is_impossible_without_an_approved_g_pay_disburse_request(engi
     tenant = seeded_run["tenant"]
     founder_user = seeded_run["founder_user"]
 
-    with worker_session(engine, "payroll-run-builder", tenant) as conn:
-        built = build_payroll_run(conn, legal_entity_id=seeded_run["legal_entity"],
-                                  period_start=date(2026, 6, 1), period_end=date(2026, 6, 30),
-                                  retention_class_id=seeded_run["retention_policy"])
-        run_id = built["payroll_run_id"]
+    built = build_payroll_run(engine, tenant, legal_entity_id=seeded_run["legal_entity"],
+                              period_start=date(2026, 6, 1), period_end=date(2026, 6, 30),
+                              retention_class_id=seeded_run["retention_policy"])
+    run_id = built["payroll_run_id"]
 
     with pytest.raises(PayrollRunNotDisbursed):
         with worker_session(engine, "payslip-issuer", tenant) as conn:
@@ -198,11 +194,10 @@ def test_disbursal_is_impossible_without_an_approved_g_pay_disburse_request(engi
 
 def test_disbursal_rejects_an_approval_for_a_different_gate_or_row(engine, seeded_run):
     tenant = seeded_run["tenant"]
-    with worker_session(engine, "payroll-run-builder", tenant) as conn:
-        built = build_payroll_run(conn, legal_entity_id=seeded_run["legal_entity"],
-                                  period_start=date(2026, 7, 1), period_end=date(2026, 7, 31),
-                                  retention_class_id=seeded_run["retention_policy"])
-        run_id = built["payroll_run_id"]
+    built = build_payroll_run(engine, tenant, legal_entity_id=seeded_run["legal_entity"],
+                              period_start=date(2026, 7, 1), period_end=date(2026, 7, 31),
+                              retention_class_id=seeded_run["retention_policy"])
+    run_id = built["payroll_run_id"]
     with worker_session(engine, "direct-deposit-disburser", tenant) as conn:
         bogus_approval_id = uuid.uuid4()
         with pytest.raises(DBAPIError):

@@ -68,7 +68,6 @@ Model assists on rule workers: bank-reconciler (decider: ambiguous bank-line mat
 | aggregate-only | 1 |
 | c3-inputs-excluded | 1 |
 | changes-visibility-scope | 1 |
-| combined-scope-until-split | 1 |
 | legal-limits | 1 |
 | needs-reference-data-owner | 1 |
 | outbound-allowlist | 1 |
@@ -112,7 +111,7 @@ Sorted by build wave, then domain. `hard_gates_on_tables` are the model's gates 
 | garnishment-processor | pay | rule | - | internal_write | review | 2 | legal-limits | - | garnishment_order |
 | gross-pay-calculator | pay | rule | - | internal_write | auto | 2 | jurisdiction-packs | - | - |
 | payroll-anomaly-detector | pay | decider | - | read_only | auto | 2 | - | - | - |
-| payroll-run-builder | pay | rule | - | internal_write | review | 2 | combined-scope-until-split,jurisdiction-packs | g_pay_anomaly,g_pay_disburse | employee,garnishment_order,payroll_profile |
+| payroll-run-builder | pay | rule | - | internal_write | review | 2 | jurisdiction-packs | g_pay_anomaly,g_pay_disburse | employee |
 | tax-filing-submitter | pay | integration | - | external_irreversible | approve | 2 | no-gate-on-irreversible,statutory-deadline,jurisdiction-packs | - | document |
 | tax-withholding-calculator | pay | rule | - | internal_write | auto | 2 | jurisdiction-packs | - | employee,payroll_profile |
 | pto-accrual-calculator | time | rule | - | internal_write | auto | 2 | jurisdiction-packs | - | employee |
