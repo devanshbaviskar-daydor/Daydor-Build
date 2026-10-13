@@ -21,6 +21,7 @@ import time
 
 from sqlalchemy import Engine
 
+from daydor.clocks import handle_statutory_clock_scan
 from daydor.hire.access_grant import handle_app_access_granter
 from daydor.hire.approvals import handle_requisition_approval_router
 from daydor.hire.background_check import handle_background_check_initiator
@@ -81,6 +82,9 @@ def build_workers(engine: Engine | None = None, name: str = "api") -> list[Worke
     workflow.register("workflow.gate_resolved", worker="workflow-engine", fn=gate_resolved_handler(wf))
     platform = Worker(engine, "platform", f"{name}-platform")
     platform.register("requisition_approval_router", worker="requisition-approval-router", fn=handle_requisition_approval_router(wf))
+    # The daily statutory-clock scan (COBRA, expiries, 409A, thresholds): raises clock.due_soon / clock.overdue events.
+    # A tenant's chain starts with daydor.clocks.start_clock_scan and then reschedules itself.
+    platform.register("statutory_clock_scan", worker="root-orchestrator", fn=handle_statutory_clock_scan)
     ta = Worker(engine, "ta", f"{name}-ta")
     ta.register("job_posting_publisher", worker="job-posting-publisher", fn=handle_job_posting_publisher())
     ta.register("candidate_screener_intake", worker="candidate-screener", fn=handle_candidate_screener_intake(wf))

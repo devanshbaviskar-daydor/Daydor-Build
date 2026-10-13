@@ -81,5 +81,7 @@ Context for Claude Code. Read `docs/backend-plan.md`, `docs/model-findings.md` a
   `g_it_deprov`/`g_pay_disburse`/`g_cobra` are direct guarded-column calls instead of
   engine-level gates, unlike `g_legalhold`/`g_finalpay`.
 - Sprint plan and status: `docs/sprint-plan.md`
+- Statutory clocks: `src/daydor/clocks.py` (daily scan, one timer per tenant per day), SQL in `0039_statutory_clocks.sql`; a new clock
+  is a reviewed migration, never configuration
 - Workflows: `src/daydor/workflow/`, SQL in `0009_workflow.sql`
 - Test org fixture: `tests/conftest.py` (two tenants, a five-person reporting tree, approver users)

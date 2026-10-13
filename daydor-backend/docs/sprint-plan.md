@@ -476,8 +476,11 @@ a test-only switch that ran queue handlers on worker roles (since removed: every
 ### Sprint 13 — Ops scoping, aggregate views, remaining timers, shadow report, model sync
 - **13b, done Oct 13 (`0037`):** `daydor_ops` → assigned-tenant table, checked inside `app.tenant_id()` (finding 6)
 - **13c, done Oct 13 (`0038`):** aggregate-only access with k ≥ 5 suppression, starting with the EEO-1 report (finding 7)
-- Remaining statutory timers not already covered: COBRA follow-ups, 409A staleness, work-
-  authorization/certification expiry, threshold-crossing deadlines
+- **13d, done Oct 13 (`0039`):** the remaining statutory clocks: COBRA notice and election window, work-authorization and
+  role-critical certification expiry, 409A staleness, threshold-registration deadline. One function lists what is due, a daily
+  scan (`daydor.clocks`, run as `root-orchestrator`, registered in the API's runner) emits `clock.due_soon` and `clock.overdue`
+  events once each. The I-9 Section 2 timer keeps its own. Nothing consumes the events yet (the approvals inbox is the next
+  consumer)
 - **13a, done Oct 13 (`0036`):** shadow-mode comparison report (`app.gate_shadow_outcome`, `daydor.gates.report`), the opt-in
   labelled-example store and per-tenant training policy, the calibration pipeline (`daydor.gates.calibration`) and
   `app.gate_calibration` with the promotion criteria enforced by the database; the runner applies a gate's fitted temperatures
