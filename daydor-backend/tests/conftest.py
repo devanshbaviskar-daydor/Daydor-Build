@@ -89,6 +89,10 @@ def org(engine) -> Org:
         # Approvers in tenant A, distinct from employees above where it matters for maker-checker.
         for key, role in [("hr_admin", "hr"), ("payroll_lead", "payroll"), ("founder_user", "founder")]:
             o.user[key] = insert(conn, "app_user", tenant_id=ta, role=role)
+        # A Daydor ops person, assigned to tenant A only (finding 6): the database lets ops see assigned tenants only.
+        o.user["ops"] = insert(conn, "app_user", role="ops")
+        conn.execute(text("INSERT INTO app.ops_tenant_assignment (user_id, tenant_id) VALUES (:u, :t)"),
+                     {"u": o.user["ops"], "t": ta})
         for emp, mgr in [("manager", "founder"), ("report", "manager"), ("deep_report", "report"),
                          ("peer", "founder")]:
             insert(conn, "reporting_line", tenant_id=ta, employee_id=o.emp[emp],

@@ -37,7 +37,8 @@ Context for Claude Code. Read `docs/backend-plan.md`, `docs/model-findings.md` a
    filter by tenant explicitly.
 
 ## Where things are
-- Session context: `src/daydor/db/session.py` (`tenant_session`)
+- Session context: `src/daydor/db/session.py` (`tenant_session`). A `daydor_ops` session sees a tenant only if the user is assigned
+  to it (`app.ops_tenant_assignment`, checked in `app.tenant_id()`), so ops sessions need a `user_id`
 - Queue / outbox / timers: `src/daydor/queue/`, SQL in `migrations/sql/0005_queue.sql`
 - Gates: `src/daydor/gates/` (hard, soft, `decider.py`: `DeciderClient` and `LayaClient`; `report.py` and `calibration.py`:
   shadow report and calibration pipeline, SQL in `0036`; see `docs/laya-runbook.md`), SQL in `0006_gates.sql`

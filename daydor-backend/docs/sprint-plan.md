@@ -474,7 +474,7 @@ a test-only switch that ran queue handlers on worker roles (since removed: every
 - CI: `alembic upgrade head` + `pytest` against Postgres 16 on every push
 
 ### Sprint 13 — Ops scoping, aggregate views, remaining timers, shadow report, model sync
-- `daydor_ops` → assigned-tenant table + RLS check (finding 6)
+- **13b, done Oct 13 (`0037`):** `daydor_ops` → assigned-tenant table, checked inside `app.tenant_id()` (finding 6)
 - Aggregate-only (k ≥ 5 suppression) views for level-1 access, starting with EEO-1 (finding 7)
 - Remaining statutory timers not already covered: COBRA follow-ups, 409A staleness, work-
   authorization/certification expiry, threshold-crossing deadlines

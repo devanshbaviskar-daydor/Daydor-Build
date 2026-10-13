@@ -136,6 +136,10 @@ def run() -> dict:
         # daydor_ops is also a resolver for g_pay_anomaly (model: ap=['P', 'O']) -- without an
         # app_user row, resolving as them fails ("resolving an approval needs a signed-in user").
         ops = app_user("ops@daydor.test", "ops")
+        # Daydor ops sees assigned tenants only (backend finding 6, migration 0037): without this row the
+        # database shows ops nothing in this tenant, and signing in fails.
+        conn.execute(text("INSERT INTO app.ops_tenant_assignment (user_id, tenant_id) VALUES (:u, :t) "
+                          "ON CONFLICT DO NOTHING"), {"u": ops, "t": tenant})
 
     t = "Acme Technologies"
     for email, name, role, user, emp in (

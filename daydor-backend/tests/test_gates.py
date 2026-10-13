@@ -163,7 +163,7 @@ def test_disbursed_at_is_final(engine, org, run_id):
 def test_multi_role_gate_accepts_either_role(engine, org, run_id):
     with tenant_session(engine, "tenant_hr", org.tenant_a, user_id=org.user["hr_admin"]) as conn:
         req = request_approval(conn, "g_pay_anomaly", "payroll_run", run_id)
-    with tenant_session(engine, "daydor_ops", org.tenant_a, user_id=org.user["payroll_lead"]) as conn:
+    with tenant_session(engine, "daydor_ops", org.tenant_a, user_id=org.user["ops"]) as conn:
         assert resolve(conn, req, "approved") == "approved"
 
 

@@ -141,7 +141,7 @@ def decide(engine, org, outcome_, status):
 
 
 def outcome_row(engine, org, evaluation_id):
-    with tenant_session(engine, "daydor_ops", org.tenant_a) as conn:
+    with tenant_session(engine, "daydor_ops", org.tenant_a, user_id=org.user["ops"]) as conn:
         return conn.execute(text("SELECT * FROM app.gate_shadow_outcome WHERE evaluation_id = :e"),
                             {"e": evaluation_id}).one()
 
@@ -169,7 +169,7 @@ def test_shadow_report_reads_the_database_end_to_end(engine, org):
     ok, bad = shadow_eval(engine, org, run_ok, "normal", 0.97), shadow_eval(engine, org, run_bad, "normal", 0.96)
     decide(engine, org, ok, "approved")
     decide(engine, org, bad, "rejected")          # the gate would have waved this through
-    with tenant_session(engine, "daydor_ops", org.tenant_a) as conn:
+    with tenant_session(engine, "daydor_ops", org.tenant_a, user_id=org.user["ops"]) as conn:
         rep = R.shadow_report(conn, GATE, since=datetime.now(timezone.utc) - timedelta(minutes=5))
     assert rep.labelled >= 2 and rep.auto_pass_disagreements >= 1
     assert rep.auto_pass_disagreement_rate > 0 and "Shadow report" in R.render(rep)
@@ -188,7 +188,7 @@ def store_examples(engine):
 
 
 def examples(engine, org, evaluation_id=None):
-    with tenant_session(engine, "daydor_ops", org.tenant_a) as conn:
+    with tenant_session(engine, "daydor_ops", org.tenant_a, user_id=org.user["ops"]) as conn:
         return conn.execute(text("SELECT * FROM app.gate_example" + (" WHERE evaluation_id = :e" if evaluation_id else "")),
                             {"e": evaluation_id}).all()
 
@@ -234,12 +234,12 @@ def test_examples_are_labelled_from_the_human_decision_and_only_once(engine, org
     approved, rejected, pending = (shadow_eval(engine, org, new_run(engine, org)) for _ in range(3))
     decide(engine, org, approved, "approved")
     decide(engine, org, rejected, "rejected")
-    with tenant_session(engine, "daydor_ops", org.tenant_a) as conn:
+    with tenant_session(engine, "daydor_ops", org.tenant_a, user_id=org.user["ops"]) as conn:
         assert conn.execute(text("SELECT app.label_gate_examples(:g)"), {"g": GATE}).scalar_one() >= 2
         assert conn.execute(text("SELECT app.label_gate_examples(:g)"), {"g": GATE}).scalar_one() == 0
     labels = {o.evaluation_id: (examples(engine, org, o.evaluation_id)[0].label) for o in (approved, rejected, pending)}
     assert labels == {approved.evaluation_id: "pass", rejected.evaluation_id: "escalate", pending.evaluation_id: None}
-    with tenant_session(engine, "daydor_ops", org.tenant_a) as conn:
+    with tenant_session(engine, "daydor_ops", org.tenant_a, user_id=org.user["ops"]) as conn:
         rows = C.export_examples(conn, GATE)
     assert {r["label"] for r in rows} <= {"pass", "escalate"} and all(r["label"] for r in rows)
 
@@ -251,7 +251,7 @@ def test_expired_examples_are_purged(engine, org, store_examples):
         conn.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(org.tenant_a)})
         conn.execute(text("UPDATE app.gate_example SET expires_at = now() - interval '1 day' WHERE evaluation_id = :e"),
                      {"e": out.evaluation_id})
-    with tenant_session(engine, "daydor_ops", org.tenant_a) as conn:
+    with tenant_session(engine, "daydor_ops", org.tenant_a, user_id=org.user["ops"]) as conn:
         assert conn.execute(text("SELECT app.purge_expired_gate_examples()")).scalar_one() >= 1
     assert examples(engine, org, out.evaluation_id) == []
 
@@ -266,25 +266,27 @@ def test_examples_need_a_retention_period(engine):
 def test_pooled_export_includes_only_tenants_that_opted_in(engine, org, store_examples):
     mine = shadow_eval(engine, org, new_run(engine, org))
     decide(engine, org, mine, "approved")
-    with tenant_session(engine, "daydor_ops", org.tenant_a) as conn:
+    with tenant_session(engine, "daydor_ops", org.tenant_a, user_id=org.user["ops"]) as conn:
         conn.execute(text("SELECT app.label_gate_examples(:g)"), {"g": GATE})
-    pooled = C.export_pooled(engine, GATE, [org.tenant_a, org.tenant_b])
+    ops = org.user["ops"]
+    pooled = C.export_pooled(engine, GATE, [org.tenant_a, org.tenant_b], user_id=ops)
     assert pooled.included == [] and set(pooled.excluded) == {org.tenant_a, org.tenant_b} and pooled.examples == []
+    assert pooled.reasons == {org.tenant_a: "no opt-in", org.tenant_b: "not assigned"}
 
     with pytest.raises(DBAPIError, match="tenant_training_policy_check"):             # an opt-in must name its basis
-        with tenant_session(engine, "daydor_ops", org.tenant_a) as conn:
+        with tenant_session(engine, "daydor_ops", org.tenant_a, user_id=org.user["ops"]) as conn:
             conn.execute(text("INSERT INTO app.tenant_training_policy (tenant_id, allow_pooling) VALUES (:t, true)"),
                          {"t": org.tenant_a})
-    with tenant_session(engine, "daydor_ops", org.tenant_a) as conn:
+    with tenant_session(engine, "daydor_ops", org.tenant_a, user_id=org.user["ops"]) as conn:
         conn.execute(text("INSERT INTO app.tenant_training_policy (tenant_id, allow_pooling, basis) "
                           "VALUES (:t, true, 'order form 12, clause 4') ON CONFLICT (tenant_id) DO UPDATE "
                           "SET allow_pooling = true, basis = 'order form 12, clause 4'"), {"t": org.tenant_a})
     try:
-        pooled = C.export_pooled(engine, GATE, [org.tenant_a, org.tenant_b])
+        pooled = C.export_pooled(engine, GATE, [org.tenant_a, org.tenant_b], user_id=ops)
         assert pooled.included == [org.tenant_a] and pooled.excluded == [org.tenant_b]
         assert pooled.examples and all(e["tenant_id"] == org.tenant_a for e in pooled.examples)
     finally:
-        with tenant_session(engine, "daydor_ops", org.tenant_a) as conn:
+        with tenant_session(engine, "daydor_ops", org.tenant_a, user_id=org.user["ops"]) as conn:
             conn.execute(text("UPDATE app.tenant_training_policy SET allow_pooling = false WHERE tenant_id = :t"),
                          {"t": org.tenant_a})
 

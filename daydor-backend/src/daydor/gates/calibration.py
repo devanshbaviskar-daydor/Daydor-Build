@@ -223,19 +223,26 @@ class PooledExport:
     examples: list[dict]
     included: list[UUID]
     excluded: list[UUID]
+    reasons: dict[UUID, str]                     # why each excluded tenant was left out
 
 
-def export_pooled(engine: Engine, gate_id: str, tenant_ids: Sequence[UUID]) -> PooledExport:
-    """Examples across tenants, from only those that opted in to pooling (ADR-006). A tenant with no policy row,
-    or one that says no, is left out and reported, never silently included."""
-    examples, included, excluded = [], [], []
+def export_pooled(engine: Engine, gate_id: str, tenant_ids: Sequence[UUID], *, user_id: UUID) -> PooledExport:
+    """Examples across tenants, from only those that opted in to pooling (ADR-006), run by a Daydor ops person
+    (`user_id`) who can only see the tenants they are assigned to (finding 6). A tenant with no policy row, one that
+    says no, or one this person is not assigned to is left out and reported, never silently included."""
+    examples, included, excluded, reasons = [], [], [], {}
     for tid in tenant_ids:
-        with tenant_session(engine, "daydor_ops", tid) as conn:
+        with tenant_session(engine, "daydor_ops", tid, user_id=user_id) as conn:
+            if not conn.execute(text("SELECT app.ops_assigned(:t)"), {"t": tid}).scalar_one():
+                excluded.append(tid)
+                reasons[tid] = "not assigned"
+                continue
             allowed = conn.execute(text("SELECT allow_pooling FROM app.tenant_training_policy WHERE tenant_id = :t"),
                                    {"t": tid}).scalar_one_or_none()
             if not allowed:
                 excluded.append(tid)
+                reasons[tid] = "no opt-in"
                 continue
             included.append(tid)
             examples += [{**e, "tenant_id": tid} for e in export_examples(conn, gate_id)]
-    return PooledExport(examples, included, excluded)
+    return PooledExport(examples, included, excluded, reasons)
