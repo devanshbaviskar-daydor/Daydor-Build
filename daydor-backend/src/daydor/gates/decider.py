@@ -177,7 +177,7 @@ class LayaClient:
     engine = "laya"
 
     def __init__(self, predictor: Callable[..., dict] | None = None, *, truth_render: str = "choice",
-                 max_state_chars: int = DEFAULT_MAX_STATE_CHARS, model: str | None = None,
+                 max_state_chars: int = DEFAULT_MAX_STATE_CHARS, model: str | None = "english",
                  require_pinned_revision: bool = True) -> None:
         if truth_render not in ("choice", "noul"):
             raise ValueError("truth_render must be 'choice' or 'noul'")
@@ -195,7 +195,11 @@ class LayaClient:
             from laya import Router  # optional dependency: pip install 'daydor-backend[laya]'
         except ImportError as exc:
             raise DeciderUnavailable("laya is not installed (pip install 'daydor-backend[laya]')") from exc
-        self._predictor = Router(preload=True).predict
+        # Load only the checkpoint this client serves. `Router(preload=True)` loads all three (about
+        # 1.16B parameters, found in the real-checkpoint smoke test), and a gate reads English text.
+        router = Router(default=self.model or "english")
+        router.preload([self.model or "english"])
+        self._predictor = router.predict
         return self._predictor
 
     def decide(self, schema: DecisionSchema, state: Any, timeout_s: float) -> DeciderResult:

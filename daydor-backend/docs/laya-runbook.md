@@ -30,3 +30,18 @@ truncation, and prints latency (expect 0.2 to 0.5 s on CPU, 33 to 40 ms on a T4)
 3. Only then `UPDATE app.gate_definition SET mode = 'enforce', calibration_version = '<v>'`. The database
    refuses `enforce` without one (`gate_definition_enforce_needs_calibration`).
 4. Promotion criteria are in `docs/backend-plan.md`, "Soft gates with Laya".
+
+## 5. Smoke test result (Oct 13 2026)
+Run on CPU (Apple silicon, PyTorch 2.12) with `laya==0.4.6` and `LAYA_REVISION=reviewed`, which the library resolves to
+`convaiinnovations/laya` at `55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851` (English checkpoint). 5 tests passed.
+- **Parsing works on real output.** Choice answers from both gate schemas parse, probabilities form a distribution,
+  `engine_version` carries the pin, and an oversized state fails closed.
+- **Latency:** 50 to 300 ms per call once loaded; the first call after load was about 2 s.
+- **Quality is what the model card warned about.** A payroll run with a 98% anomaly score and net pay of 1% of gross was
+  called `normal` at 0.856 confidence. Do not read anything into the accuracy; this is why gates stay in shadow mode and
+  need a fitted calibration. The library also warned that the checkpoint ships invalid temperatures for 11+ option
+  questions (not ours: gates use 2 to 3 options).
+- **A bug the test found:** `LayaClient` used `Router(preload=True)`, which loads all three checkpoints (about 1.16B
+  parameters, three downloads). It now loads only the one it serves (`model="english"` by default).
+- Weights download once to the Hugging Face cache; with `HF_HUB_OFFLINE=1` a second run loads from disk in seconds.
+

@@ -27,7 +27,7 @@ the 82-table model in `model/daydor_model.json`. Sprint-by-sprint plan and statu
 | 3 | Queue and timers | Postgres: `FOR UPDATE SKIP LOCKED` leases, retries with backoff, dead-letter (ADR-001) |
 | 4 | State machines | Definitions and transitions stored as data, guarded by gates |
 | 5 | Gate service | Registry of the 20 hard gates, `approval_request` as the record, DB-enforced maker-checker |
-| 6 | Soft gates (Laya, ADR-005) | `DeciderClient` interface, typed questions, thresholds on `answer_confidence` only, calibration required to enforce (`0030`), `gate_evaluation` log, shadow mode first, fail closed. Built; `LayaClient` not yet run against a real checkpoint (`docs/laya-runbook.md`) |
+| 6 | Soft gates (Laya, ADR-005) | `DeciderClient` interface, typed questions, thresholds on `answer_confidence` only, calibration required to enforce (`0030`), `gate_evaluation` log, shadow mode first, fail closed. Built; `LayaClient` smoke-tested against a real pinned checkpoint Oct 13 (`docs/laya-runbook.md`), shadow only |
 | 7 | Privacy | `app.decrypt_pii(column, purpose)` checks consent and writes `audit_log`; per-tenant keys. Role checks use `app.current_actor_role()` (finding 24) |
 | 8 | Jurisdiction packs | Effective-dated `statutory_rate_rule` / `pt_slab_rule`; deterministic payroll code |
 | 8b | Worker registry and roles | 89 workers + 2 platform actors in `app.worker_definition`; per-tenant `worker_tenant_policy` (a tenant may only lower autonomy); one `worker_<name>` role per worker with derived column grants; `worker_platform` group; fail-closed `app.assert_worker_enabled` (ADR-004, `0025`-`0029`) |
@@ -156,9 +156,9 @@ Miscellaneous items below aren't yet scheduled to a specific sprint:
 2. ~~Finding 2~~ closed in Sprint 12a (`grant_caps`, `0024`); finding 23 (the same over-grant on other tables' workflow-owned columns) closed in Sprint 12b. **Finding 9** (manager-approval gates,
    partly resolved for timecards in sprint-plan.md Sprint 6; `g_expense` still open) — both in
    Sprint 12.
-3. **Laya**: interface, runner and `calibration_version` migration are done (0030). Remaining: the smoke test against a
-   pinned real checkpoint (`docs/laya-runbook.md`), then the labelled-example store, calibration and the
-   shadow-vs-human report (Sprint 13).
+3. **Laya**: interface, runner, `calibration_version` migration (0030) and the real-checkpoint smoke test are done.
+   Remaining: production pinning and vendoring, the labelled-example store, calibration and the shadow-vs-human report
+   (Sprint 13).
 4. **Enum value lists** in the model, then generated CHECK constraints (finding 5) — Sprint 12.
 5. **Ops tenant assignment** (finding 6) and k ≥ 5 aggregate views starting with EEO-1
    (finding 7) — Sprint 13.

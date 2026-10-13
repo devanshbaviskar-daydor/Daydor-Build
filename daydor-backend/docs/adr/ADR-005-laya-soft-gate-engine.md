@@ -34,6 +34,9 @@ probabilities, with no API key and no data leaving our infrastructure.
   evaluation; each evaluation records the calibration that decided it). `jev.py` is removed.
 - Both wired soft gates (`sg_payroll_anomaly_precheck`, `sg_access_request_precheck`) default to `LayaClient()`, which
   refuses to load without `LAYA_REVISION`, so they fail closed to `escalate` until a checkpoint is pinned.
-- Not done: the smoke test against a real pinned checkpoint (`tests/test_laya_smoke.py`, `docs/laya-runbook.md`),
-  the labelled-example store, calibration and the shadow-versus-human report.
+- Smoke test against a real pinned checkpoint passed Oct 13 2026 (`tests/test_laya_smoke.py`, results in
+  `docs/laya-runbook.md`): parsing, distributions, pinning and truncation are sound; the base checkpoint's judgement
+  is poor, as expected, so gates stay in shadow mode.
+- Not done: pinning and vendoring for production, the labelled-example store, calibration and the
+  shadow-versus-human report.
 - Old `app.gate_evaluation` rows may carry engine `jev`; nothing wrote real Jev rows.

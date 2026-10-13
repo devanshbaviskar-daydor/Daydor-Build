@@ -25,8 +25,8 @@ from daydor.payroll.anomaly import SCHEMA as PAYROLL_SCHEMA  # noqa: E402
 
 @pytest.fixture(scope="module")
 def client():
-    c = LayaClient()
-    c._predict()                  # load once, outside the timed calls
+    c = LayaClient(model="english")      # the soft gates read English text; load once, outside the timed calls
+    c._predict()
     return c
 
 

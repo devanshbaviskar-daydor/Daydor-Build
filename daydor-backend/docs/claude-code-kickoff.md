@@ -157,7 +157,7 @@ CONSTRAINTS (from CLAUDE.md, restated because they matter most)
 OPEN DECISIONS: Phase 1 is done and the policy items were decided as conservative defaults in
 docs/adr/ADR-006-delegated-policy-defaults.md (irreversible workers, candidate-screener, restricted data and
 training, expense and FMLA guards). Do not reverse them. Still open: who writes leave_request.fmla_designation
-(finding 29), and the real-checkpoint smoke test of LayaClient (docs/laya-runbook.md).
+(finding 29), (the LayaClient smoke test passed; see docs/laya-runbook.md).
 
 WHEN DONE
 Update docs/backend-plan.md (status and next steps), docs/sprint-plan.md and CLAUDE.md if rules changed.
@@ -169,7 +169,7 @@ review, and the open decisions still waiting on me. Do not start the next sessio
 
 | Session | Scope |
 |---|---|
-| A | **Mostly done Oct 13:** `DeciderClient` in `soft.py`, `anomaly.py`, `engine.py` and tests, and the `calibration_version` migration (`0030`). Left: install, pin and vendor a checkpoint, smoke-test `LayaClient` (`docs/laya-runbook.md`), run the soft gates in shadow mode (ADR-005) |
+| A | **Mostly done Oct 13:** `DeciderClient` in `soft.py`, `anomaly.py`, `engine.py` and tests, and the `calibration_version` migration (`0030`). Smoke test against a real pinned checkpoint passed. Left: production pin and vendor, run the soft gates in shadow mode (ADR-005) |
 | B | Shadow-versus-human report, the labelled-example store and the calibration pipeline (Sprint 13) |
 | C | Hardening still open in the sprint plan: enum CHECK constraints (finding 5), ops tenant scoping (finding 6), aggregate views (finding 7), CI |
 | D | Timers for statutory clocks beyond I-9 (COBRA follow-ups, 409A, expiries, thresholds) and the human approvals inbox |
