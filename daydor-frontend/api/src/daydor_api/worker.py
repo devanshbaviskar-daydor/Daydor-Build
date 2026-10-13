@@ -2,8 +2,10 @@
 
 The backend registers handlers in its tests but ships no process that ticks them, so nothing moves
 a workflow forward in a running system. This is that process: it registers every handler the
-backend has today (Hire flow, all 18 steps) with the queue and role the backend's own tests use,
-then ticks them in a loop.
+backend has today (Hire, Exit) with the queue it runs on and the registry worker that owns it
+(`worker=`: the database role, its column grants and its enabled flag all come from the backend's worker
+registry, and a disabled worker's job fails closed), then ticks them in a loop. `employee_closeout`
+stays on `agent_hr` only for exit workflow version 2 instances already in flight.
 
 Steps 9-18 (background check through payroll profile) were added once the backend's Hire flow grew
 past the offer step; `employee_record_writer_create`/`_open`/`_payroll` replace the single
@@ -36,7 +38,12 @@ from daydor.hire.posting import handle_job_posting_publisher
 from daydor.hire.screening import handle_candidate_screener_assess, handle_candidate_screener_intake
 from daydor.hire.work_authorization import handle_i9_e_verify_initiator
 from daydor.exit.checklist import handle_termination_checklist_builder
-from daydor.exit.closeout import handle_employee_closeout
+from daydor.exit.closeout import (
+    handle_employee_closeout,
+    handle_employee_record_writer_closeout,
+    handle_rehire_eligibility_flagger,
+    handle_vesting_schedule_tracker,
+)
 from daydor.exit.cobra import handle_cobra_trigger_detector
 from daydor.exit.deprovisioning import handle_deprovisioning_agent
 from daydor.exit.device_return import handle_equipment_return_tracker
@@ -72,43 +79,49 @@ def build_workers(engine: Engine | None = None, name: str = "api") -> list[Worke
     engine = engine or get_engine()
     wf = WorkflowEngine()
     workflow = Worker(engine, "workflow", f"{name}-workflow")
-    workflow.register("workflow.gate_resolved", role="agent_ro", fn=gate_resolved_handler(wf))
+    workflow.register("workflow.gate_resolved", worker="workflow-engine", fn=gate_resolved_handler(wf))
     platform = Worker(engine, "platform", f"{name}-platform")
-    platform.register("requisition_approval_router", role="agent_ro", fn=handle_requisition_approval_router(wf))
+    platform.register("requisition_approval_router", worker="requisition-approval-router", fn=handle_requisition_approval_router(wf))
     ta = Worker(engine, "ta", f"{name}-ta")
-    ta.register("job_posting_publisher", role="agent_ta", fn=handle_job_posting_publisher())
-    ta.register("candidate_screener_intake", role="agent_ta", fn=handle_candidate_screener_intake(wf))
-    ta.register("candidate_screener_assess", role="agent_ta", fn=handle_candidate_screener_assess(wf))
-    ta.register("interview_scheduler", role="agent_ta", fn=handle_interview_scheduler(wf))
-    ta.register("offer_letter_generator", role="agent_ta", fn=handle_offer_letter_generator(wf))
-    ta.register("background_check_initiator", role="agent_ta", fn=handle_background_check_initiator(wf))
+    ta.register("job_posting_publisher", worker="job-posting-publisher", fn=handle_job_posting_publisher())
+    ta.register("candidate_screener_intake", worker="candidate-screener", fn=handle_candidate_screener_intake(wf))
+    ta.register("candidate_screener_assess", worker="candidate-screener", fn=handle_candidate_screener_assess(wf))
+    ta.register("interview_scheduler", worker="interview-scheduler", fn=handle_interview_scheduler(wf))
+    ta.register("offer_letter_generator", worker="offer-letter-generator", fn=handle_offer_letter_generator(wf))
+    ta.register("background_check_initiator", worker="background-check-initiator", fn=handle_background_check_initiator(wf))
     hr = Worker(engine, "hr", f"{name}-hr")
-    hr.register("employee_record_writer_create", role="agent_hr", fn=_employee_created_then_provision_signin(wf))
-    hr.register("employee_record_writer_open", role="agent_hr", fn=handle_employee_record_writer_open(wf))
-    hr.register("i9_e_verify_initiator", role="agent_hr", fn=handle_i9_e_verify_initiator(wf))
-    hr.register("legal_hold_checker", role="agent_hr", fn=handle_legal_hold_checker(wf))
-    hr.register("termination_checklist_builder", role="agent_hr", fn=handle_termination_checklist_builder(wf))
-    hr.register("cobra_trigger_detector", role="agent_hr", fn=handle_cobra_trigger_detector(wf))
+    hr.register("employee_record_writer_create", worker="employee-record-writer", fn=_employee_created_then_provision_signin(wf))
+    hr.register("employee_record_writer_open", worker="employee-record-writer", fn=handle_employee_record_writer_open(wf))
+    hr.register("i9_e_verify_initiator", worker="i9-e-verify-initiator", fn=handle_i9_e_verify_initiator(wf))
+    hr.register("legal_hold_checker", worker="root-orchestrator", fn=handle_legal_hold_checker(wf))
+    hr.register("termination_checklist_builder", worker="termination-checklist-builder", fn=handle_termination_checklist_builder(wf))
+    hr.register("cobra_trigger_detector", worker="cobra-trigger-detector", fn=handle_cobra_trigger_detector(wf))
     hr.register("employee_closeout", role="agent_hr", fn=handle_employee_closeout(wf))
+    # Exit workflow version 3 (0029, active since 0033): one close-out step per worker.
+    hr.register("vesting_schedule_tracker", worker="vesting-schedule-tracker", fn=handle_vesting_schedule_tracker(wf))
+    hr.register("rehire_eligibility_flagger", worker="rehire-eligibility-flagger",
+                fn=handle_rehire_eligibility_flagger(wf))
+    hr.register("employee_record_writer_closeout", worker="employee-record-writer",
+                fn=handle_employee_record_writer_closeout(wf))
     privacy = Worker(engine, "privacy", f"{name}-privacy")
-    privacy.register("new_hire_doc_collector", role="agent_priv", fn=handle_new_hire_doc_collector(wf))
+    privacy.register("new_hire_doc_collector", worker="new-hire-doc-collector", fn=handle_new_hire_doc_collector(wf))
     ob = Worker(engine, "ob", f"{name}-ob")
-    ob.register("onboarding_checklist_builder", role="agent_ob", fn=handle_onboarding_checklist_builder(wf))
+    ob.register("onboarding_checklist_builder", worker="onboarding-checklist-builder", fn=handle_onboarding_checklist_builder(wf))
     it = Worker(engine, "it", f"{name}-it")
-    it.register("sso_identity_provisioner", role="agent_it", fn=handle_sso_identity_provisioner(wf))
-    it.register("app_access_granter", role="agent_it", fn=handle_app_access_granter(wf))
-    it.register("deprovisioning_agent", role="agent_it", fn=handle_deprovisioning_agent(wf))
-    it.register("equipment_return_tracker", role="agent_it", fn=handle_equipment_return_tracker(wf))
+    it.register("sso_identity_provisioner", worker="sso-identity-provisioner", fn=handle_sso_identity_provisioner(wf))
+    it.register("app_access_granter", worker="app-access-granter", fn=handle_app_access_granter(wf))
+    it.register("deprovisioning_agent", worker="deprovisioning-agent", fn=handle_deprovisioning_agent(wf))
+    it.register("equipment_return_tracker", worker="equipment-return-tracker", fn=handle_equipment_return_tracker(wf))
     pay = Worker(engine, "pay", f"{name}-pay")
-    pay.register("employee_record_writer_payroll", role="agent_pay", fn=handle_employee_record_writer_payroll(wf))
-    pay.register("final_pay_calculator", role="agent_pay", fn=handle_final_pay_calculator(wf))
-    pay.register("final_settlement_opener", role="agent_pay", fn=handle_final_settlement_opener(wf))
-    pay.register("direct_deposit_disburser", role="agent_pay", fn=handle_direct_deposit_disburser(wf))
+    pay.register("employee_record_writer_payroll", worker="employee-record-writer", fn=handle_employee_record_writer_payroll(wf))
+    pay.register("final_pay_calculator", worker="final-pay-calculator", fn=handle_final_pay_calculator(wf))
+    pay.register("final_settlement_opener", worker="final-pay-calculator", fn=handle_final_settlement_opener(wf))
+    pay.register("direct_deposit_disburser", worker="direct-deposit-disburser", fn=handle_direct_deposit_disburser(wf))
     # g_timecard's resolution isn't tracked by a WorkflowEngine instance (pay periods recur, no
     # single start/end) -- it fans out to this second, dedicated 'timekeeping' queue instead of
     # the workflow engine's own (daydor.timekeeping.timecard's module docstring).
     timekeeping = Worker(engine, "timekeeping", f"{name}-timekeeping")
-    timekeeping.register("timekeeping.gate_resolved", role="agent_time", fn=handle_timekeeping_gate_resolved)
+    timekeeping.register("timekeeping.gate_resolved", worker="timecard-approval-router", fn=handle_timekeeping_gate_resolved)
     return [workflow, platform, ta, hr, privacy, ob, it, pay, timekeeping]
 
 

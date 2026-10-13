@@ -25,8 +25,9 @@ def test_worker_definition_has_one_row_per_worker_and_actor(engine, org):
         rows = conn.execute(text("SELECT worker, role_name, kind, platform_actor FROM app.worker_definition")).all()
     expected = {r["worker"] for r in W.worker_records()}
     assert {r.worker for r in rows} == expected
-    assert len(rows) == 89 + 2
-    assert {r.worker for r in rows if r.platform_actor} == {"workflow-engine", "root-orchestrator"}
+    assert len(rows) == 89 + 4
+    assert {r.worker for r in rows if r.platform_actor} == {"workflow-engine", "root-orchestrator", "hire-intake",
+                                                          "exit-intake"}
     assert all(r.role_name == W.role_name(r.worker) for r in rows)
 
 

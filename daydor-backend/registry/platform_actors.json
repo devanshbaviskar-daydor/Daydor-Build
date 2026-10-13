@@ -17,5 +17,30 @@
    "work_authorization"
   ],
   "writes": []
+ },
+ {
+  "actor": "hire-intake",
+  "description": "Starts and advances a hire on a person's behalf: the API's start-hire, enter-application and request-consent actions. Opens the requisition (job_requisition) and moves the workflow; the flow's own workers do the rest.",
+  "owner": "hr",
+  "reads": [
+   "position",
+   "job_requisition",
+   "job_posting"
+  ],
+  "writes": [
+   "job_requisition"
+  ]
+ },
+ {
+  "actor": "exit-intake",
+  "description": "Starts an exit on a person's behalf: the API's initiate-termination action (termination has no agent writer in the model; HR initiates it). Moves the workflow; the flow's own workers do the rest.",
+  "owner": "hr",
+  "reads": [
+   "employee",
+   "termination"
+  ],
+  "writes": [
+   "termination"
+  ]
  }
 ]

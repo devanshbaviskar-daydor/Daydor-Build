@@ -165,9 +165,11 @@ def test_exit_flow_end_to_end_settlement_disbursal_and_closeout(engine, exit_org
                             {"i": final_settlement_id}).scalar_one() is not None
 
     hr.tick()  # cobra_trigger_detector: IN employee -> no COBRA event, advances straight through
-    assert instance_state(engine, tenant, instance_id).state == "s10_closeout"
+    assert instance_state(engine, tenant, instance_id).state == "s10_vesting"
 
-    hr.tick()  # employee_closeout -> done
+    hr.tick()  # vesting_schedule_tracker -> s11_rehire_flag
+    hr.tick()  # rehire_eligibility_flagger -> s12_employee_closeout
+    hr.tick()  # employee_record_writer_closeout -> done
     assert instance_state(engine, tenant, instance_id).status == "completed"
 
     with engine.begin() as conn:

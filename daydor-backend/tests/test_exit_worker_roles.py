@@ -1,7 +1,7 @@
 """The exit flow on workflow version 3: every handler and guarded call runs as the worker that owns it.
 
 Version 3 splits the close-out (vesting read, rehire flag, employee close) into one step per worker.
-It is inserted inactive by 0029, so these tests switch it on for their own duration and restore it."""
+It was inserted inactive by 0029 and activated by 0033, once the queue runner registered its handlers."""
 import uuid
 from datetime import date
 
@@ -36,30 +36,14 @@ def wf():
     return WorkflowEngine()
 
 
-@pytest.fixture
-def exit_v3(engine):
-    """Make version 3 the active 'exit' definition for one test, then put version 2 back."""
-    def flip(v_off, v_on):
-        with tenant_session(engine, "daydor_ops") as conn:
-            conn.execute(text("UPDATE app.workflow_definition SET active = false WHERE name = 'exit' AND version = :o"),
-                         {"o": v_off})
-            conn.execute(text("UPDATE app.workflow_definition SET active = true WHERE name = 'exit' AND version = :n"),
-                         {"n": v_on})
-    flip(2, 3)
-    try:
-        yield
-    finally:
-        flip(3, 2)
-
-
 def test_committed_v3_sql_matches_the_definition():
     assert (SQL / "0029_exit_workflow_v3.sql").read_text() == seed_sql_v3()
 
 
-def test_v3_is_inserted_inactive_and_v2_stays_active(engine, org):
+def test_v3_is_the_active_exit_definition(engine, org):
     with engine.connect() as conn:
         rows = dict(conn.execute(text("SELECT version, active FROM app.workflow_definition WHERE name = 'exit'")).all())
-    assert rows == {1: False, 2: True, 3: False}
+    assert rows == {1: False, 2: False, 3: True}      # 0029 inserted it inactive, 0033 activated it
 
 
 def test_v3_keeps_every_state_and_replaces_only_the_closeout():
@@ -91,7 +75,7 @@ def _workers(engine, wf):
     return hr, it, pay
 
 
-def test_exit_flow_v3_runs_end_to_end_with_every_step_on_its_own_worker_role(engine, exit_org, wf, exit_v3):
+def test_exit_flow_v3_runs_end_to_end_with_every_step_on_its_own_worker_role(engine, exit_org, wf):
     tenant, employee = exit_org["tenant"], exit_org["employee"]
     founder_user, hr_user = exit_org["founder_user"], exit_org["hr_user"]
     with tenant_session(engine, "agent_hr", tenant) as conn:

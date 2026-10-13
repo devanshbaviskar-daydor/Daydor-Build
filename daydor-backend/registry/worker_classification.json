@@ -663,7 +663,14 @@
   "flags": [
    "guarded-write",
    "legal-hold-check"
-  ]
+  ],
+  "extra_scope": {
+   "reads": [
+    "termination"
+   ],
+   "writes": [],
+   "why": "The API's disburse-final-settlement action finds the exit instance through termination (daydor_api routers/exit.py _instance_id_for_employee)."
+  }
  },
  {
   "worker": "payslip-issuer",
@@ -885,7 +892,14 @@
   "flags": [
    "us-pack",
    "statutory-deadline"
-  ]
+  ],
+  "extra_scope": {
+   "reads": [
+    "termination"
+   ],
+   "writes": [],
+   "why": "The API's send-COBRA-notice action finds the exit instance through termination (daydor_api routers/exit.py)."
+  }
  },
  {
   "worker": "punch-validator",

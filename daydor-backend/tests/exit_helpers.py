@@ -10,7 +10,8 @@ from sqlalchemy import text
 
 from daydor.db.session import tenant_session
 from daydor.exit.checklist import handle_termination_checklist_builder
-from daydor.exit.closeout import handle_employee_closeout
+from daydor.exit.closeout import (handle_employee_record_writer_closeout, handle_rehire_eligibility_flagger,
+                                  handle_vesting_schedule_tracker)
 from daydor.exit.cobra import handle_cobra_trigger_detector
 from daydor.exit.deprovisioning import handle_deprovisioning_agent
 from daydor.exit.device_return import handle_equipment_return_tracker
@@ -73,7 +74,9 @@ def hr_worker(engine, wf, name="w-exit-hr"):
     w.register("legal_hold_checker", role="agent_hr", fn=handle_legal_hold_checker(wf))
     w.register("termination_checklist_builder", role="agent_hr", fn=handle_termination_checklist_builder(wf))
     w.register("cobra_trigger_detector", role="agent_hr", fn=handle_cobra_trigger_detector(wf))
-    w.register("employee_closeout", role="agent_hr", fn=handle_employee_closeout(wf))
+    w.register("vesting_schedule_tracker", role="agent_hr", fn=handle_vesting_schedule_tracker(wf))
+    w.register("rehire_eligibility_flagger", role="agent_hr", fn=handle_rehire_eligibility_flagger(wf))
+    w.register("employee_record_writer_closeout", role="agent_hr", fn=handle_employee_record_writer_closeout(wf))
     return w
 
 
