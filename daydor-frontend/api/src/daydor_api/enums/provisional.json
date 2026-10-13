@@ -345,6 +345,7 @@
    "sources": {
     "built": [
      "migrations/sql/0021_payroll_run_functions.sql",
+     "tests/test_gate_calibration.py",
      "tests/test_gates.py"
     ]
    }
