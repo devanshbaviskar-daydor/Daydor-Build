@@ -11,16 +11,19 @@
    ],
    "sources": {
     "rejected": [
-     "migrations/sql/0040_agent_runs.sql"
+     "migrations/sql/0040_agent_runs.sql",
+     "migrations/sql/0041_agent_harness.sql"
     ],
     "review_pending": [
-     "migrations/sql/0040_agent_runs.sql"
+     "migrations/sql/0040_agent_runs.sql",
+     "migrations/sql/0041_agent_harness.sql"
     ],
     "running": [
      "migrations/sql/0040_agent_runs.sql"
     ],
     "succeeded": [
      "migrations/sql/0040_agent_runs.sql",
+     "migrations/sql/0041_agent_harness.sql",
      "tests/test_agent_runs.py"
     ]
    }
@@ -336,7 +339,8 @@
      "src/daydor/hire/requisition.py"
     ],
     "draft": [
-     "src/daydor/hire/requisition.py"
+     "src/daydor/hire/requisition.py",
+     "tests/test_agent_harness.py"
     ],
     "rejected": [
      "src/daydor/hire/requisition.py"
