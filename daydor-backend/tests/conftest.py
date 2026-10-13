@@ -22,6 +22,7 @@ from sqlalchemy.engine import make_url
 
 from daydor.config import test_database_url
 from tests.factories import insert
+from tests import role_mode  # noqa: F401  (DAYDOR_TEST_ROLES=worker runs queue handlers on worker roles)
 
 ROOT = __import__("pathlib").Path(__file__).resolve().parents[1]
 

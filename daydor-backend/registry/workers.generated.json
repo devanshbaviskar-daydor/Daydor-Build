@@ -17,12 +17,13 @@
   "extra_scope": {
    "reads": [
     "job_profile",
-    "job_requisition"
+    "job_requisition",
+    "termination"
    ],
    "writes": [
     "job_requisition"
    ],
-   "why": "Opens the seat from the requisition and job profile, and fill_seat marks the requisition filled (hire/employee_record.py). Column access for job_requisition is capped by the model's G access."
+   "why": "Opens the seat from the requisition and job profile, and fill_seat marks the requisition filled (hire/employee_record.py). Column access for job_requisition is capped by the model's G access. The exit close-out reads termination.last_working_day to set date_of_exit (exit/closeout.py)."
   },
   "writes": [
    "emergency_contact",
@@ -35,9 +36,11 @@
   "reads": [
    "consent_record",
    "job_profile",
-   "job_requisition"
+   "job_requisition",
+   "termination"
   ],
   "domains_touched": [
+   "er",
    "hr",
    "pay",
    "priv",

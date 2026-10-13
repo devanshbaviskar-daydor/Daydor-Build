@@ -51,18 +51,39 @@ GUARD_OWNERS = {
     ("er_case", "outcome"): ["investigation-tracker"],
 }
 
-# Helper functions that only some workers need. Everything else in the platform group.
+# Encrypted PII (ADR-002): who may collect a column and who may decrypt it for a purpose. These seed the
+# worker roles into app.pii_column.collect_roles and app.pii_purpose.allowed_roles (0028). Deciders and
+# LLM workers never appear here (validated).
+PII_COLLECTORS = {
+    ("employee", "aadhaar_ekyc_ref"): ["employee-record-writer", "new-hire-doc-collector"],
+    ("employee", "pan_encrypted"): ["employee-record-writer", "new-hire-doc-collector"],
+    ("employee", "ssn_encrypted"): ["employee-record-writer", "new-hire-doc-collector"],
+    ("employee", "bank_account_encrypted"): ["employee-record-writer"],
+}
+PII_PURPOSES = {
+    "identity_verification": ["employee-record-writer", "new-hire-doc-collector", "i9-e-verify-initiator"],
+    "background_check": ["background-check-initiator"],
+    "payroll_disbursal": ["direct-deposit-disburser"],
+    "tax_filing": ["tax-filing-submitter"],
+}
+
+# Helper functions that only some workers need. Everything else is in the platform group (0027).
 FUNCTION_GRANTS = {
-    "app.encrypt_pii(text, text, uuid, text)": [
-        "employee-record-writer", "new-hire-doc-collector", "onboarding-checklist-builder"],
-    "app.decrypt_pii(text, text, uuid, text)": [
-        "employee-record-writer", "i9-e-verify-initiator", "background-check-initiator",
-        "direct-deposit-disburser", "tax-filing-submitter"],
+    "app.encrypt_pii(text, text, uuid, text)": sorted({w for ws in PII_COLLECTORS.values() for w in ws}),
+    "app.decrypt_pii(text, text, uuid, text)": sorted({w for ws in PII_PURPOSES.values() for w in ws}),
     "app.open_payroll_run(uuid, date, date, uuid)": ["payroll-run-builder"],
     "app.record_payslip(uuid, uuid, uuid, numeric, numeric, numeric, uuid)": ["payroll-run-builder"],
     "app.finalize_payroll_run(uuid)": ["payroll-run-builder"],
     "app.open_final_settlement(uuid, uuid, numeric, numeric, numeric, numeric)": ["final-pay-calculator"],
 }
+
+# Tables a worker lists as read but only through an aggregate view (k >= 5, finding 7), so no column
+# grant exists or should. The role gets nothing on them until that view is built.
+AGGREGATE_ONLY = frozenset({"self_identification"})
+
+# Model tables every worker needs through the platform group: the engine opens approvals when a
+# gated transition fires, inside whichever worker's job is running. Insert and read, never update.
+PLATFORM_TABLES = ("approval_request",)
 
 
 def role_name(worker: str) -> str:
@@ -187,9 +208,140 @@ def generate_definition_sql() -> str:
     return "\n".join(L)
 
 
+# ---------------------------------------------------------------------------- 0028
+def _columns(table, level: int, *, guarded_ok: set[str] | None = None, write: bool = False) -> list[str]:
+    """Columns of `table` the agent role ("G") has at least `level` on, as grants would list them."""
+    guarded = {c for t, c, _ in GUARDS if t == table.id}
+    out = []
+    for c in table.columns:
+        if c.encrypted or c.level("G") < level:
+            continue
+        if write and (c.name in SYSTEM_MANAGED or c.derived):
+            continue
+        if write and c.name in guarded and c.name not in (guarded_ok or set()):
+            continue
+        out.append(c.name)
+    return out
+
+
+def table_grants(rec: dict, model=None) -> dict[str, dict[str, list[str]]]:
+    """{table: {"select": [cols], "insert": [cols], "update": [cols]}} for one worker record."""
+    model = model or load_model()
+    out: dict[str, dict[str, list[str]]] = {}
+    for tid in sorted(set(rec["reads"]) | set(rec["writes"])):
+        t = model.table(tid)
+        g = {"select": _columns(t, READ)}
+        if tid in rec["writes"]:
+            ok = {c for (tt, c), ws in GUARD_OWNERS.items() if tt == tid and rec["worker"] in ws}
+            cols = _columns(t, WRITE, guarded_ok=ok, write=True)
+            g["insert"] = cols
+            if not t.append_only:
+                g["update"] = cols
+        out[tid] = {k: v for k, v in g.items() if v}
+    return {k: v for k, v in out.items() if v}
+
+
+def validate_roles(recs=None, model=None) -> list[str]:
+    """Problems that would silently shrink or widen a role. Empty means the generator's inputs are sound."""
+    recs = list(recs if recs is not None else worker_records())
+    model = model or load_model()
+    by = {r["worker"]: r for r in recs}
+    errs: list[str] = []
+    names = [role_name(r["worker"]) for r in recs]
+    if len(set(names)) != len(names):
+        errs.append("role name collision")
+    for n in names:
+        if len(n) > 63:
+            errs.append(f"role name {n} longer than 63 bytes")
+    guards = {(t, c) for t, c, _ in GUARDS}
+    if set(GUARD_OWNERS) != guards:
+        errs.append(f"GUARD_OWNERS {sorted(set(GUARD_OWNERS) ^ guards)} do not match gates.registry.GUARDS")
+    for (t, c), owners in GUARD_OWNERS.items():
+        for w in owners:
+            if w not in by:
+                errs.append(f"guard owner {w} of {t}.{c} is not a worker")
+            elif t not in by[w]["writes"]:
+                errs.append(f"guard owner {w} of {t}.{c} does not write {t}")
+    for r in recs:
+        if r["worker"] not in by:
+            continue
+        for tid in set(r["reads"]) | set(r["writes"]):
+            t = model.table(tid)
+            if not _columns(t, READ) and tid not in AGGREGATE_ONLY:
+                errs.append(f"{r['worker']}: scope has {tid} but the agent role cannot read any column of it")
+        for tid in r["writes"]:
+            t = model.table(tid)
+            ok = {c for (tt, c), ws in GUARD_OWNERS.items() if tt == tid and r["worker"] in ws}
+            if not _columns(t, WRITE, guarded_ok=ok, write=True) and not t.append_only:
+                errs.append(f"{r['worker']}: writes {tid} but the agent role has no writable column on it")
+    pii = {w for ws in PII_COLLECTORS.values() for w in ws} | {w for ws in PII_PURPOSES.values() for w in ws}
+    for w in pii | {w for ws in FUNCTION_GRANTS.values() for w in ws}:
+        if w not in by:
+            errs.append(f"{w} is granted a function or PII role but is not a worker")
+    for w in pii:
+        r = by.get(w)
+        if r and (r["kind"] in ("decider", "llm") or r.get("assist")):
+            errs.append(f"{w}: a model-using worker may never be a PII collector or reader")
+    return errs
+
+
+def generate_roles_sql() -> str:
+    model = load_model()
+    errs = validate_roles(model=model)
+    if errs:
+        raise ValueError("worker roles invalid:\n" + "\n".join(errs))
+    recs = worker_records()
+    L = ["-- GENERATED by daydor.agents.roles from registry/ and the model (python -m daydor.agents.roles).",
+         "-- Do not edit by hand. One NOLOGIN role per worker, each a member of worker_platform (0027).",
+         "-- Grants are column-level, derived from the worker's scope and the model's agent access (G):",
+         "-- never encrypted or derived columns, never DELETE, guarded columns only to their named owner.",
+         "",
+         "DO $$",
+         "DECLARE r text;",
+         "BEGIN",
+         "    FOREACH r IN ARRAY ARRAY[" + ", ".join(_lit(role_name(x["worker"])) for x in recs) + "] LOOP",
+         "        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN",
+         f"            EXECUTE format('CREATE ROLE %I NOLOGIN IN ROLE {PLATFORM_GROUP}', r);",
+         "        END IF;",
+         "    END LOOP;",
+         "END $$;",
+         ""]
+    L += [f"GRANT {role_name(x['worker'])} TO daydor_app WITH INHERIT FALSE, SET TRUE;" for x in recs]
+    L += ["", "SET ROLE daydor_schema_owner;", ""]
+
+    pm = {t: model.table(t) for t in PLATFORM_TABLES}
+    L.append(f"-- {PLATFORM_GROUP}: approvals can be opened by the engine inside any worker's job")
+    for tid, t in pm.items():
+        sel, ins = _columns(t, READ), _columns(t, WRITE, write=True)
+        L.append(f"GRANT SELECT ({', '.join(sel)}) ON public.{q(tid)} TO {PLATFORM_GROUP};")
+        L.append(f"GRANT INSERT ({', '.join(ins)}) ON public.{q(tid)} TO {PLATFORM_GROUP};")
+    L.append("")
+    for x in recs:
+        role = role_name(x["worker"])
+        L.append(f"-- {x['worker']} ({x['kind']}, default autonomy {x['autonomy']})")
+        for tid, g in table_grants(x, model).items():
+            for verb in ("select", "insert", "update"):
+                if verb in g:
+                    L.append(f"GRANT {verb.upper()} ({', '.join(g[verb])}) ON public.{q(tid)} TO {role};")
+        for fn, ws in sorted(FUNCTION_GRANTS.items()):
+            if x["worker"] in ws:
+                L.append(f"GRANT EXECUTE ON FUNCTION {fn} TO {role};")
+        L.append("")
+    L += ["-- PII registries: worker roles, matched by app.current_actor_role() (0027)."]
+    for (tbl, col), ws in sorted(PII_COLLECTORS.items()):
+        L.append(f"UPDATE app.pii_column SET collect_roles = collect_roles || {_arr(role_name(w) for w in ws)} "
+                 f"WHERE table_name = {_lit(tbl)} AND column_name = {_lit(col)};")
+    for purpose, ws in sorted(PII_PURPOSES.items()):
+        L.append(f"UPDATE app.pii_purpose SET allowed_roles = allowed_roles || {_arr(role_name(w) for w in ws)} "
+                 f"WHERE purpose = {_lit(purpose)};")
+    L += ["", "RESET ROLE;", ""]
+    return "\n".join(L)
+
+
 def write_outputs() -> None:  # pragma: no cover
     DEFINITION_SQL.write_text(generate_definition_sql())
-    print(f"wrote {DEFINITION_SQL.name}")
+    ROLES_SQL.write_text(generate_roles_sql())
+    print(f"wrote {DEFINITION_SQL.name} and {ROLES_SQL.name}")
 
 
 if __name__ == "__main__":  # pragma: no cover

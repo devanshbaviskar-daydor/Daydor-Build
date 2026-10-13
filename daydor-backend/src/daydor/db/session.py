@@ -27,6 +27,15 @@ APP_ROLES = frozenset({
 })
 
 
+def _is_worker_role(role: str) -> bool:
+    """Per-worker roles (worker_<name>) come from the registry. Imported lazily: the registry reads
+    JSON from the repo, which plain people-role sessions should not need."""
+    if not role.startswith("worker_"):
+        return False
+    from daydor.agents.roles import worker_role_names
+    return role in worker_role_names()
+
+
 @dataclass(frozen=True)
 class SessionContext:
     role: str
@@ -37,7 +46,7 @@ class SessionContext:
     agent_task_run_id: UUID | None = None
 
     def __post_init__(self) -> None:
-        if self.role not in APP_ROLES:
+        if self.role not in APP_ROLES and not _is_worker_role(self.role):
             raise ValueError(f"unknown role {self.role!r}")
 
 
@@ -46,7 +55,7 @@ def make_engine(url: str | None = None) -> Engine:
 
 
 def apply_context(conn: Connection, ctx: SessionContext) -> None:
-    # Role names cannot be bound parameters; they are validated against APP_ROLES above.
+    # Role names cannot be bound parameters; they are validated against APP_ROLES or the registry above.
     conn.exec_driver_sql(f'SET LOCAL ROLE "{ctx.role}"')
     conn.execute(
         text("SELECT set_config('app.tenant_id', :t, true), set_config('app.user_id', :u, true), "
