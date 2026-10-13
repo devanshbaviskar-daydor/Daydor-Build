@@ -486,7 +486,8 @@ a test-only switch that ran queue handlers on worker roles (since removed: every
   `app.gate_calibration` with the promotion criteria enforced by the database; the runner applies a gate's fitted temperatures
 - **Laya adoption (ADR-005):** `DeciderClient`/`LayaClient`, the migration and smoke test (0030), and the data pipeline (13a)
   are done; still to do: pinned and vendored weights for production
-- **Model artifact sync:** push every local deviation back into `model/source_artifact.html` and
+- **Model artifact sync (13e): planned, not applied.** `docs/model-sync.md` sorts every deviation by how risky the push-back is
+  and lists the decisions needed (the artifact is hosted outside the repo; group C changes applied baselines). Original scope: push every local deviation back into `model/source_artifact.html` and
   re-export, in one pass, now that they've all stabilized: finding 1's `approval_request` columns,
   finding 10's nullable PII columns, Sprint 6's `g_timecard`/`g_expense` gates, and whatever Sprint
   12 decides for finding 2. Doing this once, after things settle, beats touching the artifact
