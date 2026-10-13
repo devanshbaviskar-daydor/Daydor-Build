@@ -81,7 +81,9 @@ def _temperatures(conn: Connection, version: str) -> dict[str, float]:
 
 
 def run_soft_gate(conn: Connection, gate: SoftGate, subject_table: str, subject_id: UUID,
-                  client: DeciderClient) -> SoftGateOutcome:
+                  client: DeciderClient, *, open_approval: bool = True) -> SoftGateOutcome:
+    """`open_approval=False` records the evaluation and returns the decision without opening the
+    hard gate, for a caller whose own workflow opens it (so one escalation is one approval)."""
     d = _definition(conn, gate.gate_id)
     check_inputs(gate.gate_id, gate.inputs, d.max_input_class)
     if subject_table not in d.tables:
@@ -131,6 +133,6 @@ def run_soft_gate(conn: Connection, gate: SoftGate, subject_table: str, subject_
                      {"e": eval_id, "i": json.dumps(state, default=str)})
 
     approval_id = None
-    if effective == "escalate":
+    if effective == "escalate" and open_approval:
         approval_id = request_approval(conn, d.escalate_to, subject_table, subject_id)
     return SoftGateOutcome(eval_id, effective, model_decision, confidence, approval_id)

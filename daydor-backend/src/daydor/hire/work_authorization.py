@@ -16,7 +16,7 @@ from uuid import UUID
 from sqlalchemy import Connection, text
 
 from daydor.adapters.everify import EVerifyAdapter, EVerifyRequest, FakeEVerifyAdapter
-from daydor.queue import schedule_timer
+from daydor.queue import emit_event, schedule_timer
 from daydor.queue.worker import Job
 from daydor.workflow.engine import WorkflowEngine
 
@@ -65,3 +65,24 @@ def handle_i9_e_verify_initiator(engine: WorkflowEngine, adapter: EVerifyAdapter
         engine.fire(conn, UUID(job.payload["workflow_instance_id"]), "advance", event_id=f"job:{job.id}")
         return {k: str(v) for k, v in result.items()}
     return handle
+
+
+def check_i9_section2(conn: Connection, *, employee_id: UUID, work_authorization_id: UUID) -> dict:
+    """The I-9 section 2 deadline passed: say so if section 2 is still not done. Silent when it was
+    completed in time or the employee has left. The timer fires once, so the event is not repeated."""
+    row = conn.execute(
+        text("SELECT wa.i9_section2_completed_at, e.is_active FROM work_authorization wa "
+             "JOIN employee e ON e.id = wa.employee_id WHERE wa.id = :w AND wa.employee_id = :e"),
+        {"w": work_authorization_id, "e": employee_id}).one_or_none()
+    if row is None or row.i9_section2_completed_at is not None or not row.is_active:
+        return {"overdue": False}
+    emit_event(conn, "i9.section2_overdue", "work_authorization", work_authorization_id,
+               {"employee_id": str(employee_id)})
+    return {"overdue": True}
+
+
+def handle_i9_section2_due(conn: Connection, job: Job) -> dict:
+    """Queue handler for the timer kind 'i9_section2_due' (queue 'hr', scheduled in step 14)."""
+    result = check_i9_section2(conn, employee_id=UUID(job.payload["employee_id"]),
+                               work_authorization_id=UUID(job.payload["work_authorization_id"]))
+    return {"overdue": result["overdue"]}

@@ -38,7 +38,7 @@ from daydor.hire.interview import handle_interview_scheduler
 from daydor.hire.offer import handle_offer_letter_generator
 from daydor.hire.posting import handle_job_posting_publisher
 from daydor.hire.screening import handle_candidate_screener_assess, handle_candidate_screener_intake
-from daydor.hire.work_authorization import handle_i9_e_verify_initiator
+from daydor.hire.work_authorization import handle_i9_e_verify_initiator, handle_i9_section2_due
 from daydor.exit.checklist import handle_termination_checklist_builder
 from daydor.exit.closeout import (
     handle_employee_record_writer_closeout,
@@ -97,6 +97,7 @@ def build_workers(engine: Engine | None = None, name: str = "api") -> list[Worke
     hr.register("employee_record_writer_create", worker="employee-record-writer", fn=_employee_created_then_provision_signin(wf))
     hr.register("employee_record_writer_open", worker="employee-record-writer", fn=handle_employee_record_writer_open(wf))
     hr.register("i9_e_verify_initiator", worker="i9-e-verify-initiator", fn=handle_i9_e_verify_initiator(wf))
+    hr.register("i9_section2_due", worker="root-orchestrator", fn=handle_i9_section2_due)
     hr.register("legal_hold_checker", worker="root-orchestrator", fn=handle_legal_hold_checker(wf))
     hr.register("termination_checklist_builder", worker="termination-checklist-builder", fn=handle_termination_checklist_builder(wf))
     hr.register("cobra_trigger_detector", worker="cobra-trigger-detector", fn=handle_cobra_trigger_detector(wf))

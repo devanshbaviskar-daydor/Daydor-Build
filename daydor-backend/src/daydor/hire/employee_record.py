@@ -97,6 +97,18 @@ def open_payroll_profile(conn: Connection, *, employee_id: UUID, pay_frequency: 
     ).scalar_one()
 
 
+def fill_seat(conn: Connection, *, requisition_id: UUID, employee_id: UUID) -> None:
+    """The hire is done: the position now has its employee and the requisition is 'filled'. Idempotent,
+    and the position update only applies while the seat is still vacant, so a replay (or a seat
+    someone else filled meanwhile) is left alone. `open_requisition` already refuses a position
+    that is not open and vacant, so this is what stops it being hired for twice."""
+    conn.execute(text("UPDATE position SET status = 'filled', current_employee_id = :e "
+                      "WHERE id = (SELECT position_id FROM job_requisition WHERE id = :r) "
+                      "AND current_employee_id IS NULL"), {"e": employee_id, "r": requisition_id})
+    conn.execute(text("UPDATE job_requisition SET status = 'filled' WHERE id = :r AND status <> 'filled'"),
+                 {"r": requisition_id})
+
+
 def handle_employee_record_writer_create(engine: WorkflowEngine):
     """Queue handler for kind 'employee_record_writer_create' (hire flow step 10, queue 'hr').
 
@@ -163,6 +175,7 @@ def handle_employee_record_writer_payroll(engine: WorkflowEngine):
             payment_method=ctx["payment_method"], work_state=ctx["work_state"], tax_state=ctx["tax_state"],
             uan_number=ctx.get("uan_number", ""), esic_ip_number=ctx.get("esic_ip_number", ""),
             w4_elections=ctx.get("w4_elections"))
+        fill_seat(conn, requisition_id=UUID(job.payload["subject_id"]), employee_id=UUID(ctx["employee_id"]))
         engine.fire(conn, UUID(job.payload["workflow_instance_id"]), "advance", event_id=f"job:{job.id}",
                    context_patch={"payroll_profile_id": str(payroll_profile_id)})
         return {"payroll_profile_id": str(payroll_profile_id)}
