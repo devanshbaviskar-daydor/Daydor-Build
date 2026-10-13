@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "requisition_draft/1",
+  "title": "A drafted job description for a requisition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["title", "summary", "responsibilities", "requirements"],
+  "properties": {
+    "title": {"type": "string", "minLength": 3, "maxLength": 120},
+    "summary": {"type": "string", "minLength": 40, "maxLength": 1200},
+    "responsibilities": {"type": "array", "minItems": 3, "maxItems": 8, "items": {"type": "string", "minLength": 5, "maxLength": 300}},
+    "requirements": {"type": "array", "minItems": 3, "maxItems": 8, "items": {"type": "string", "minLength": 5, "maxLength": 300}},
+    "nice_to_have": {"type": "array", "maxItems": 5, "items": {"type": "string", "minLength": 5, "maxLength": 300}}
+  }
+}

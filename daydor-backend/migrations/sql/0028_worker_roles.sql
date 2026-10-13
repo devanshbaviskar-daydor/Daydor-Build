@@ -630,6 +630,8 @@ GRANT UPDATE (gate_type, subject_table, subject_id, required_approver_role, stat
 GRANT SELECT (id, tenant_id, position_id, hiring_manager_id, status, target_start_date, approval_request_id, created_at, updated_at) ON public.job_requisition TO worker_requisition_approval_router;
 
 -- requisition-drafter (llm, default autonomy review)
+GRANT SELECT (id, tenant_id, name, parent_department_id, head_employee_id, cost_center_code, created_at, updated_at) ON public.department TO worker_requisition_drafter;
+GRANT SELECT (id, tenant_id, title, job_family, level, flsa_default, description, created_at, updated_at) ON public.job_profile TO worker_requisition_drafter;
 GRANT SELECT (id, tenant_id, position_id, hiring_manager_id, status, target_start_date, approval_request_id, created_at, updated_at) ON public.job_requisition TO worker_requisition_drafter;
 GRANT INSERT (position_id, hiring_manager_id, status, target_start_date, approval_request_id) ON public.job_requisition TO worker_requisition_drafter;
 GRANT UPDATE (position_id, hiring_manager_id, status, target_start_date, approval_request_id) ON public.job_requisition TO worker_requisition_drafter;

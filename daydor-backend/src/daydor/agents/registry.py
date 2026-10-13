@@ -21,6 +21,10 @@ from daydor.gates.registry import GUARDS, SOFT_GATES
 from daydor.model import load_model
 
 ROOT = Path(__file__).resolve().parents[3]
+PROMPTS = ROOT / "registry" / "prompts"
+SCHEMAS = ROOT / "registry" / "schemas"
+CLASS_RANK = {"S": 0, "C0": 1, "C1": 2, "C2": 3, "C3": 4, "C4": 5}
+BUDGET_KEYS = ("max_turns", "max_tool_calls", "max_input_tokens", "max_output_tokens", "timeout_s")
 AUTHORED = ROOT / "registry" / "worker_classification.json"
 ACTORS = ROOT / "registry" / "platform_actors.json"
 GENERATED = ROOT / "registry" / "workers.generated.json"
@@ -114,6 +118,77 @@ def build() -> list[dict]:
     for a in authored():
         recs.append({**a, **facts[a["worker"]]})
     return sorted(recs, key=lambda r: (r["wave"], r["home_domain"], r["worker"]))
+
+
+def prompt_path(worker: str, version: str) -> Path:
+    return PROMPTS / worker / f"{version}.md"
+
+
+def schema_files() -> dict[str, Path]:
+    """`$id` -> file, for every JSON Schema in registry/schemas."""
+    return {json.loads(f.read_text())["$id"]: f for f in sorted(SCHEMAS.glob("*.json"))}
+
+
+def validate_contract(r: dict, model=None) -> list[str]:
+    """The runtime contract of an LLM worker (Phase B): pinned prompt, declared context, tools, budgets, output schema.
+    Nothing a model is given or may do is implicit."""
+    import hashlib
+
+    import jsonschema
+    w, c = r["worker"], r.get("contract")
+    if r["kind"] != "llm":
+        return [f"{w}: only llm workers have a contract"] if c is not None else []
+    if c is None:
+        return [f"{w}: an llm worker needs a contract"]
+    errs: list[str] = []
+    if c.get("max_data_class") not in ("S", "C0", "C1", "C2"):
+        errs.append(f"{w}: contract max_data_class must be S, C0, C1 or C2, never C3 or C4")
+    if c.get("gates_may_request") != []:
+        errs.append(f"{w}: a model never opens gates (ADR-006); gates_may_request must be empty")
+    if not c.get("built", False):
+        return errs                                                   # declared but not yet implemented
+    for k in ("prompt_version", "prompt_sha256", "context", "tools", "budgets", "output_schema", "idempotency"):
+        if k not in c:
+            errs.append(f"{w}: contract is missing {k}")
+    if errs:
+        return errs
+    f = prompt_path(w, c["prompt_version"])
+    if not f.exists():
+        errs.append(f"{w}: prompt {f.relative_to(ROOT)} does not exist")
+    elif hashlib.sha256(f.read_bytes()).hexdigest() != c["prompt_sha256"]:
+        errs.append(f"{w}: prompt {c['prompt_version']} does not match its pinned sha256 (a changed prompt is a new version)")
+    schemas = schema_files()
+    if c["output_schema"] not in schemas:
+        errs.append(f"{w}: output schema {c['output_schema']} is not in registry/schemas")
+    else:
+        try:
+            jsonschema.Draft202012Validator.check_schema(json.loads(schemas[c["output_schema"]].read_text()))
+        except jsonschema.SchemaError as exc:
+            errs.append(f"{w}: output schema {c['output_schema']} is not a valid JSON Schema: {exc.message}")
+    b = c["budgets"]
+    for k in BUDGET_KEYS:
+        if not isinstance(b.get(k), (int, float)) or b[k] <= 0:
+            errs.append(f"{w}: budget {k} must be a positive number")
+    if "max_cost_usd" in b and (not isinstance(b["max_cost_usd"], (int, float)) or b["max_cost_usd"] <= 0):
+        errs.append(f"{w}: budget max_cost_usd must be positive")
+    if not isinstance(c["tools"], list) or len(set(c["tools"])) != len(c["tools"]):
+        errs.append(f"{w}: tools must be a list of distinct names")
+    model = model or load_model()
+    scope = set(r["reads"]) | set(r["writes"])
+    for ref in c["context"]:
+        table, _, column = ref.partition(".")
+        try:
+            col = model.table(table).column(column)
+        except KeyError:
+            errs.append(f"{w}: context {ref} is not a model column")
+            continue
+        if table not in scope:
+            errs.append(f"{w}: context {ref} is outside the worker's scope")
+        if col.encrypted or CLASS_RANK[col.cls] >= CLASS_RANK["C3"]:
+            errs.append(f"{w}: context {ref} is {col.cls}{' (encrypted)' if col.encrypted else ''}; restricted data never reaches a model")
+        elif c.get("max_data_class") in CLASS_RANK and CLASS_RANK[col.cls] > CLASS_RANK[c["max_data_class"]]:
+            errs.append(f"{w}: context {ref} is {col.cls}, above the contract's max_data_class {c['max_data_class']}")
+    return errs
 
 
 def validate_extra_scope(auth: list[dict] | None = None, actors: list[dict] | None = None) -> list[str]:
@@ -229,6 +304,7 @@ def validate(recs: list[dict] | None = None) -> list[str]:
                 errs.append(f"{w}: irreversible and no hard gate covers its tables; add a gate or flag it")
         if "guarded-write" in flags and not r["guarded_tables_written"]:
             errs.append(f"{w}: flagged guarded-write but writes no guarded table")
+        errs += validate_contract(r, m)
     return errs
 
 

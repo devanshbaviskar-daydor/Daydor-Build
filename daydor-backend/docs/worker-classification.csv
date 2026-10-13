@@ -13,7 +13,7 @@ candidate-screener,ta,decider,yes,,internal_write,approve,hr,step,1,"c3-inputs-e
 interview-scheduler,ta,llm,yes,,external_notify,review,hr,step,1,"untrusted-input,outbound-allowlist",,"application,interview",no,,,
 job-posting-publisher,ta,integration,no,,external_reversible,review,hr,step,1,pay-transparency,"comp_band,job_requisition",job_posting,no,,,
 offer-letter-generator,ta,rule,no,,internal_write,approve,hr,step,1,,"comp_band,job_profile","document,offer",no,g_offer_band,g_offer_band,document
-requisition-drafter,ta,llm,yes,,internal_write,review,hr,step,1,,position,job_requisition,no,,,
+requisition-drafter,ta,llm,yes,,internal_write,review,hr,step,1,,"department,job_profile,position",job_requisition,no,,,
 cobra-trigger-detector,ben,monitor,no,,internal_write,auto,hr,event,2,"us-pack,statutory-deadline","employee,legal_entity,termination",cobra_event,no,g_cobra,g_cobra,employee
 vesting-schedule-tracker,comp,rule,no,,internal_write,auto,founder,timer,2,,equity_grant,vesting_event,no,,,
 final-pay-calculator,er,rule,no,,internal_write,approve,payroll,step,2,jurisdiction-packs,"employment_record,gratuity_accrual_balance,leave_balance,termination",final_settlement,no,"g_finalpay,g_pay_disburse",g_finalpay,

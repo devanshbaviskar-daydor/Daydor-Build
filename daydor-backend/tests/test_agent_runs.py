@@ -331,10 +331,16 @@ def test_the_gate_and_subscription_are_registered(engine):
 def test_pure_autonomy_rules():
     run = lambda **k: runs.AgentRun(uuid.uuid4(), k.get("status", "running"), True, k.get("released", False),
                                     k["eff"], k["default"])
-    assert run(eff="approve", default="auto").must_hold and run(eff="approve", default="review").must_hold
-    assert not run(eff="approve", default="approve").must_hold and not run(eff="auto", default="auto").must_hold
-    assert not run(eff="approve", default="auto", released=True).must_hold          # an approved hold runs
-    assert run(eff="review", default="auto").needs_review and not run(eff="review", default="review").needs_review
-    assert not run(eff="approve", default="auto").needs_review
+    W = "job-posting-publisher"
+    assert run(eff="approve", default="auto").must_hold_before(W) and run(eff="approve", default="review").must_hold_before(W)
+    assert not run(eff="approve", default="approve").must_hold_before(W) and not run(eff="auto", default="auto").must_hold_before(W)
+    assert not run(eff="approve", default="auto", released=True).must_hold_before(W)          # an approved hold runs
+    assert run(eff="review", default="auto").needs_review_after(W) and not run(eff="review", default="review").needs_review_after(W)
+    assert not run(eff="approve", default="auto").needs_review_after(W)
+    # An LLM worker on the harness acts at review by default, and is not held up front: it proposes first.
+    L = "requisition-drafter"
+    assert run(eff="review", default="review").needs_review_after(L) and not run(eff="auto", default="review").needs_review_after(L)
+    assert not run(eff="approve", default="review").must_hold_before(L) and runs.is_llm(L)
+    assert not runs.is_llm("interview-scheduler")            # llm kind, but still a deterministic placeholder
     assert runs.is_tracked("gl-poster") and not runs.is_tracked("workflow-engine") and not runs.is_tracked("no-such")
     assert runs.owner_role("job-posting-publisher") == "tenant_hr" and runs.owner_role("gl-poster") == "tenant_founder"

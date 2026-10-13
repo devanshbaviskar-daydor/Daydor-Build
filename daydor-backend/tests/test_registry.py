@@ -264,3 +264,65 @@ def test_mutation_an_enabled_unbuilt_irreversible_worker_is_rejected(recs):
     r = by_name(recs, "device-purchase-initiator")
     r["disabled_why"] = ""
     assert any("needs a disabled_why" in e for e in errors_with(recs, r))
+
+
+# ---- Phase B: an LLM worker's contract
+def llm(recs, name="requisition-drafter"):
+    return by_name(recs, name)
+
+
+def test_every_llm_worker_has_a_contract_and_the_drafter_is_built(recs):
+    for r in recs:
+        if r["kind"] == "llm":
+            assert "contract" in r and r["contract"]["gates_may_request"] == [], r["worker"]
+        else:
+            assert "contract" not in r, r["worker"]
+    assert [r["worker"] for r in recs if r["kind"] == "llm" and r["contract"].get("built")] == ["requisition-drafter"]
+
+
+def test_mutation_an_llm_worker_without_a_contract_is_rejected(recs):
+    r = llm(recs); del r["contract"]
+    assert any("needs a contract" in e for e in errors_with(recs, r))
+
+
+def test_mutation_only_llm_workers_have_a_contract(recs):
+    r = by_name(recs, "gl-poster"); r["contract"] = {"built": False, "max_data_class": "C0", "gates_may_request": []}
+    assert any("only llm workers have a contract" in e for e in errors_with(recs, r))
+
+
+def test_mutation_a_model_may_never_open_a_gate(recs):
+    r = llm(recs); r["contract"]["gates_may_request"] = ["g_requisition_budget"]
+    assert any("never opens gates" in e for e in errors_with(recs, r))
+
+
+def test_mutation_the_contract_cannot_allow_restricted_data(recs):
+    r = llm(recs); r["contract"]["max_data_class"] = "C3"
+    assert any("never C3 or C4" in e for e in errors_with(recs, r))
+    r = llm(recs); r["contract"]["context"] = r["contract"]["context"] + ["employee.date_of_birth"]
+    errs = errors_with(recs, r)
+    assert any("restricted data never reaches a model" in e for e in errs) and any("outside the worker's scope" in e for e in errs)
+
+
+def test_mutation_context_above_the_contracts_class_or_outside_scope_is_rejected(recs):
+    r = llm(recs); r["contract"]["context"] = r["contract"]["context"] + ["position.budgeted_cost"]
+    assert any("above the contract's max_data_class" in e for e in errors_with(recs, r))
+    r = llm(recs); r["contract"]["context"] = ["job_profile.nonexistent"]
+    assert any("not a model column" in e for e in errors_with(recs, r))
+
+
+def test_mutation_a_changed_prompt_must_be_a_new_version(recs):
+    r = llm(recs); r["contract"]["prompt_sha256"] = "0" * 64
+    assert any("does not match its pinned sha256" in e for e in errors_with(recs, r))
+    r = llm(recs); r["contract"]["prompt_version"] = "v99"
+    assert any("does not exist" in e for e in errors_with(recs, r))
+
+
+def test_mutation_budgets_and_schema_must_be_real(recs):
+    r = llm(recs); r["contract"]["budgets"] = {**r["contract"]["budgets"], "max_turns": 0}
+    assert any("budget max_turns must be a positive number" in e for e in errors_with(recs, r))
+    r = llm(recs); r["contract"]["output_schema"] = "nope/1"
+    assert any("not in registry/schemas" in e for e in errors_with(recs, r))
+    r = llm(recs); r["contract"]["tools"] = ["a", "a"]
+    assert any("distinct names" in e for e in errors_with(recs, r))
+    r = llm(recs); del r["contract"]["idempotency"]
+    assert any("missing idempotency" in e for e in errors_with(recs, r))

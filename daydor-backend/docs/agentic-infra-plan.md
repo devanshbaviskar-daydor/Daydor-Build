@@ -62,7 +62,7 @@ Each phase ends with tests green and a demo. A phase does not start until the pr
 - A trace function walks workflow instance, job, run, gate evaluations, approvals and audit rows.
 - *Built in this change.*
 
-**Phase B: the LLM runtime (G3, G4).**
+**Phase B: the LLM runtime (G3, G4). Built Oct 13 (`0041`, `0042`; `docs/agent-harness.md`).**
 - Registry contract for `llm` workers: model tier, pinned prompt version, allowed tools (generated from scope), highest data
   class, token, time and cost budgets, typed input and output schemas, idempotency template, gates it may request.
 - `ModelClient` interface with a Claude implementation (Messages API, bounded tool use) and a scripted fake for tests; a CI
@@ -102,3 +102,12 @@ G1 and G2 are closed (finding 31). Every job of a real worker opens an `agent_ta
 default holds the job behind `g_agent_action` (approve) or flags it `review_pending` (review); `app.agent_run_trace` gives the trace.
 Platform actors are untracked. `docs/worker-classification.csv` now carries the scope columns the discussion asked for as the registry seed
 (`uses_model`, owner, triggers, DB reads and writes, whether it requests approvals, gates, restricted tables). Phase B is next.
+
+## 7. What Phase B changed (built Oct 13, migrations 0041 and 0042)
+G3 and G4 are closed for the reference worker. `daydor.agents.harness` is the runtime (model client interface with a Claude implementation
+and a scripted fake, bounded tool loop, declared context, untrusted-text fencing, pinned prompts, propose-validate-store-commit);
+`requisition-drafter` is the reference worker with a registry `contract`. Decisions taken: the first LLM worker is `requisition-drafter`; a
+model never opens gates; `review` blocks the next workflow step until acknowledged (jobs enqueued under review are held, `reject` cancels
+them); tiers map to Haiku, Sonnet and Opus by environment, prices are configuration, never assumed; no per-tenant cost cap yet (Phase C).
+Not done: running against the real API, wiring a worker into a flow, per-tenant caps, rollout states, evals (Phase C).
+

@@ -10,7 +10,42 @@
   ],
   "owner": "hr",
   "note": "Drafts the requisition and job description from the hiring manager's input and the job profile.",
-  "llm_tier": "medium"
+  "llm_tier": "medium",
+  "extra_scope": {
+   "reads": [
+    "job_profile",
+    "department"
+   ],
+   "writes": [],
+   "why": "The drafter's context is the seat's job profile (title, family, level, description: C0) and the department name (C0); the model lists only position as a read (daydor.agents.workers.requisition_drafter)."
+  },
+  "contract": {
+   "built": true,
+   "prompt_version": "v1",
+   "prompt_sha256": "4bbef8268ac00d5828bd8bb06117ae8ec7bc23db6c1112dde5fae3d46346c8fd",
+   "context": [
+    "job_profile.title",
+    "job_profile.job_family",
+    "job_profile.level",
+    "job_profile.description",
+    "department.name"
+   ],
+   "max_data_class": "C0",
+   "tools": [
+    "list_similar_titles"
+   ],
+   "budgets": {
+    "max_turns": 6,
+    "max_tool_calls": 4,
+    "max_input_tokens": 20000,
+    "max_output_tokens": 4000,
+    "timeout_s": 90,
+    "max_cost_usd": 0.25
+   },
+   "output_schema": "requisition_draft/1",
+   "idempotency": "requisition_drafter:{requisition_id}",
+   "gates_may_request": []
+  }
  },
  {
   "worker": "requisition-approval-router",
@@ -109,7 +144,12 @@
    "untrusted-input",
    "outbound-allowlist"
   ],
-  "llm_tier": "small"
+  "llm_tier": "small",
+  "contract": {
+   "built": false,
+   "max_data_class": "C1",
+   "gates_may_request": []
+  }
  },
  {
   "worker": "background-check-initiator",
@@ -330,7 +370,12 @@
   ],
   "owner": "hr",
   "note": "Drafts a handoff plan from the job profile and open tasks.",
-  "llm_tier": "medium"
+  "llm_tier": "medium",
+  "contract": {
+   "built": false,
+   "max_data_class": "C1",
+   "gates_may_request": []
+  }
  },
  {
   "worker": "termination-checklist-builder",
@@ -701,7 +746,12 @@
   "flags": [
    "untrusted-documents"
   ],
-  "llm_tier": "small"
+  "llm_tier": "small",
+  "contract": {
+   "built": false,
+   "max_data_class": "C1",
+   "gates_may_request": []
+  }
  },
  {
   "worker": "multi-currency-payment-router",
@@ -1267,7 +1317,12 @@
   "flags": [
    "untrusted-documents"
   ],
-  "llm_tier": "small"
+  "llm_tier": "small",
+  "contract": {
+   "built": false,
+   "max_data_class": "C1",
+   "gates_may_request": []
+  }
  },
  {
   "worker": "bank-reconciler",

@@ -37,6 +37,13 @@ def is_tracked(worker: str) -> bool:
     return next((r["kind"] != "platform" for r in worker_records() if r["worker"] == worker), False)
 
 
+def is_llm(worker: str) -> bool:
+    """A worker that runs on the LLM harness: kind llm with a built contract. The other llm-kind workers are deterministic
+    placeholders until their harness exists, and behave as before."""
+    return next((r["kind"] == "llm" and bool((r.get("contract") or {}).get("built")) for r in worker_records()
+                 if r["worker"] == worker), False)
+
+
 def owner_role(worker: str) -> str:
     owner = next(r["owner"] for r in worker_records() if r["worker"] == worker)
     return OWNER_ROLE[owner]
@@ -58,13 +65,14 @@ class AgentRun:
             return self.effective_autonomy
         return None
 
-    @property
-    def must_hold(self) -> bool:
-        return self.status == "running" and not self.released and self.tightened == "approve"
+    def must_hold_before(self, worker: str) -> bool:
+        """Hold the job before it starts. An LLM worker is not held up front: it proposes first, so the person approves what the
+        model actually wrote (the handler asks to be held once the proposal is stored)."""
+        return (self.status == "running" and not self.released and self.tightened == "approve" and not is_llm(worker))
 
-    @property
-    def needs_review(self) -> bool:
-        return self.tightened == "review"
+    def needs_review_after(self, worker: str) -> bool:
+        """Leave the run for a person to acknowledge: a tenant asked for review, or the worker is an LLM acting at review."""
+        return self.tightened == "review" or (is_llm(worker) and self.effective_autonomy == "review")
 
 
 def idempotency_key(job: Job) -> str:

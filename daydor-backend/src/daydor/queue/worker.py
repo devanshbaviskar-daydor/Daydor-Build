@@ -123,7 +123,7 @@ class Worker:
                 if run.status in runs.TERMINAL:                          # a duplicate delivery of finished work
                     self._complete(job, {"skipped": run.status, "run": str(run.id)})
                     return "skipped"
-                if run.must_hold:                                        # the tenant wants a person's yes first
+                if run.must_hold_before(handler.worker):                 # the tenant wants a person's yes first
                     with tenant_session(self.engine, handler.role, job.tenant_id) as conn:
                         runs.hold_for_approval(conn, run, handler.worker)
                     self._complete(job, {"held": str(run.id)})
@@ -132,14 +132,26 @@ class Worker:
                                 agent_task_run_id=run.id if run else None) as conn:
                 if handler.worker is not None and not tracked:
                     conn.execute(text("SELECT app.assert_worker_enabled(:w)"), {"w": handler.worker})
+                if run is not None and run.needs_review_after(handler.worker):
+                    # Jobs this handler enqueues are held until a person acknowledges the run (0041): review blocks the next step.
+                    conn.execute(text("SELECT set_config('app.agent_review_hold', :r, true)"), {"r": str(run.id)})
                 result = handler.fn(conn, job)
+            if isinstance(result, dict) and run is not None:
+                if result.get("_agent_hold"):                              # an LLM worker's proposal is stored; a person decides
+                    with tenant_session(self.engine, handler.role, job.tenant_id) as conn:
+                        runs.hold_for_approval(conn, run, handler.worker)
+                    self._complete(job, {"held": str(run.id), "proposal": result["_agent_hold"]})
+                    return "held"
+                if result.get("_agent_fail"):                              # the agent side failed; the records of why are committed
+                    self._finish(handler, job, run, "failed", str(result["_agent_fail"]))
+                    return self._fail(job, f"{result['_agent_fail']}: {result.get('error', '')}")
         except Exception as exc:  # noqa: BLE001 - every failure is recorded on the job
             log.warning("job %s (%s) failed: %s", job.id, job.kind, exc)
             if run is not None:
                 self._finish(handler, job, run, "failed", type(exc).__name__)
             return self._fail(job, f"{type(exc).__name__}: {exc}\n{traceback.format_exc(limit=5)}")
         if run is not None:
-            self._finish(handler, job, run, "review_pending" if run.needs_review else "succeeded")
+            self._finish(handler, job, run, "review_pending" if run.needs_review_after(handler.worker) else "succeeded")
         self._complete(job, result)
         return "succeeded"
 

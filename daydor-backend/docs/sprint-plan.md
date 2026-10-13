@@ -413,7 +413,8 @@ a test-only switch that ran queue handlers on worker roles (since removed: every
 
 - **Phase A, done Oct 13 (`0040`):** the trace spine (`agent_task_run` per worker job, `app.agent_run_trace`) and autonomy that holds
   (`g_agent_action`) or flags (`review_pending`) a job; `daydor.agents.runs`; the API runner registers the settler queue.
-- Next: Phase B, the LLM runtime (registry contract, model client, propose-validate-commit, bounded tool loop, context builder).
+- **Phase B, done Oct 13 (`0041`, `0042`):** the LLM runtime (`daydor.agents.harness`, `docs/agent-harness.md`): registry contract for LLM workers, model client (Claude + scripted fake), bounded tool loop, declared context, untrusted-text fencing, pinned prompts, propose-validate-store-commit, model-call records; review now blocks the next step; reference worker `requisition-drafter`.
+- Next: Phase C, rollout states, evals and CI, cost accounting and per-tenant caps.
 
 ---
 
