@@ -13,6 +13,7 @@ from daydor.gates.decider import Answer, Choice, DecisionSchema, DeciderResult
 from daydor.gates.registry import seed_sql
 from daydor.gates.soft import ForbiddenInput, SoftGate, run_soft_gate
 from daydor.model import load_model
+from tests.calibration_helpers import approve_calibration
 from tests.factories import insert
 
 SQL = Path(__file__).resolve().parents[1] / "migrations" / "sql"
@@ -209,8 +210,9 @@ PAYROLL_GATE = SoftGate("sg_payroll_anomaly_precheck", SCHEMA,
 @pytest.fixture
 def enforce_mode(engine):
     with engine.begin() as conn:
-        conn.execute(text("UPDATE app.gate_definition SET mode = 'enforce', calibration_version = 'test-cal-1' "
-                          "WHERE gate_id = 'sg_payroll_anomaly_precheck'"))
+        version = approve_calibration(conn, "sg_payroll_anomaly_precheck")
+        conn.execute(text("UPDATE app.gate_definition SET mode = 'enforce', calibration_version = :v "
+                          "WHERE gate_id = 'sg_payroll_anomaly_precheck'"), {"v": version})
     yield
     with engine.begin() as conn:
         conn.execute(text("UPDATE app.gate_definition SET mode = 'shadow', calibration_version = NULL "
@@ -318,7 +320,7 @@ def test_choice_cardinality_limit():
 
 # ---------------------------------------------------------------- Laya-specific database rules
 def test_enforce_mode_is_refused_without_a_calibration(engine):
-    with pytest.raises(DBAPIError, match="gate_definition_enforce_needs_calibration"):
+    with pytest.raises(DBAPIError, match="gate_definition_enforce_needs_calibration|cannot enforce"):
         with engine.begin() as conn:
             conn.execute(text("UPDATE app.gate_definition SET mode = 'enforce' "
                               "WHERE gate_id = 'sg_payroll_anomaly_precheck'"))
@@ -343,12 +345,7 @@ def test_evaluation_from_the_wrong_engine_is_refused(engine, org, run_id):
 
 def test_evaluation_records_which_calibration_decided(engine, org, run_id, enforce_mode):
     out = soft(engine, org, run_id, FakeDecider("normal", 0.97))
-    assert evaluation(engine, org, out.evaluation_id).calibration_version == "test-cal-1"
-
-
-def test_enforced_evaluations_record_the_calibration_that_decided_them(engine, org, run_id, enforce_mode):
-    out = soft(engine, org, run_id, FakeDecider("normal", 0.97))
-    assert evaluation(engine, org, out.evaluation_id).calibration_version == "test-cal-1"
+    assert evaluation(engine, org, out.evaluation_id).calibration_version == "test-cal:sg_payroll_anomaly_precheck"
 
 
 def test_shadow_evaluations_carry_no_calibration(engine, org, run_id):

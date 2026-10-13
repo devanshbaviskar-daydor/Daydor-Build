@@ -478,11 +478,11 @@ a test-only switch that ran queue handlers on worker roles (since removed: every
 - Aggregate-only (k ≥ 5 suppression) views for level-1 access, starting with EEO-1 (finding 7)
 - Remaining statutory timers not already covered: COBRA follow-ups, 409A staleness, work-
   authorization/certification expiry, threshold-crossing deadlines
-- Shadow-mode comparison report: for every soft gate run in shadow mode so far (`g_aedt`,
-  `g_pay_anomaly`), compare `app.gate_evaluation.model_decision` against the human's actual
-  decision, so there is real data for Laya calibration (ADR-005)
-- **Laya adoption (ADR-005):** `DeciderClient`/`LayaClient` and the `calibration_version` migration are done (0030, Oct 13);
-  still to do: pinned/vendored checkpoint and smoke test, labelled-example store, calibration pipeline
+- **13a, done Oct 13 (`0036`):** shadow-mode comparison report (`app.gate_shadow_outcome`, `daydor.gates.report`), the opt-in
+  labelled-example store and per-tenant training policy, the calibration pipeline (`daydor.gates.calibration`) and
+  `app.gate_calibration` with the promotion criteria enforced by the database; the runner applies a gate's fitted temperatures
+- **Laya adoption (ADR-005):** `DeciderClient`/`LayaClient`, the migration and smoke test (0030), and the data pipeline (13a)
+  are done; still to do: pinned and vendored weights for production
 - **Model artifact sync:** push every local deviation back into `model/source_artifact.html` and
   re-export, in one pass, now that they've all stabilized: finding 1's `approval_request` columns,
   finding 10's nullable PII columns, Sprint 6's `g_timecard`/`g_expense` gates, and whatever Sprint

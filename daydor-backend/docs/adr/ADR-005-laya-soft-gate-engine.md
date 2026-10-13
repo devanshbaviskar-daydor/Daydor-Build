@@ -37,6 +37,8 @@ probabilities, with no API key and no data leaving our infrastructure.
 - Smoke test against a real pinned checkpoint passed Oct 13 2026 (`tests/test_laya_smoke.py`, results in
   `docs/laya-runbook.md`): parsing, distributions, pinning and truncation are sound; the base checkpoint's judgement
   is poor, as expected, so gates stay in shadow mode.
-- Not done: pinning and vendoring for production, the labelled-example store, calibration and the
-  shadow-versus-human report.
+- Sprint 13 (`0036`): `app.gate_shadow_outcome`, the opt-in labelled-example store, `app.tenant_training_policy`,
+  `app.gate_calibration` with the promotion criteria checked by the database, and the rule that a gate enforces only on an
+  approved calibration of its own at a threshold no looser than it was measured at (`daydor.gates.report`, `calibration`).
+- Not done: pinning and vendoring for production, and real shadow data to fit on.
 - Old `app.gate_evaluation` rows may carry engine `jev`; nothing wrote real Jev rows.

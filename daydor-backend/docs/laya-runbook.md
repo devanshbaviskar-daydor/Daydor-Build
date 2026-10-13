@@ -22,14 +22,27 @@ truncation, and prints latency (expect 0.2 to 0.5 s on CPU, 33 to 40 ms on a T4)
 - `laya-serve` (later) binds `0.0.0.0` without authentication by default: bind it privately and set
   `LAYA_API_KEY`.
 
-## 3. Shadow, calibration, enforce
-1. Leave the gate in `shadow`: the database forces `escalate`, and each evaluation is logged beside the
-   human outcome on the hard gate.
-2. Label from shadow data (needs the example store, not built), fit temperatures per (question type,
-   option count) with `laya.calibrate`, and publish a `calibration_version`.
-3. Only then `UPDATE app.gate_definition SET mode = 'enforce', calibration_version = '<v>'`. The database
-   refuses `enforce` without one (`gate_definition_enforce_needs_calibration`).
-4. Promotion criteria are in `docs/backend-plan.md`, "Soft gates with Laya".
+## 3. Shadow, calibration, enforce (built in Sprint 13, migration 0036)
+1. **Shadow.** The gate records its answer and the database forces `escalate`; a person decides on the hard gate it
+   escalated to. `app.gate_shadow_outcome` pairs the two (`human_label`: approved is `pass`, rejected is `escalate`).
+2. **Look.** `daydor.gates.report.shadow_report(conn, gate_id)` and `render(report)` give labels, the rate at which a
+   person disagreed with what the gate would have auto-passed, calibration error, latency, and which promotion criteria
+   the evidence meets so far.
+3. **Collect inputs (optional, per gate).** `store_examples` is false everywhere. A reviewed migration sets it with an
+   `example_retention_days`; the runner then stores exactly the gate's declared inputs (`app.gate_example`), ops and admin
+   read them, `app.label_gate_examples()` labels them from the human outcome, `app.purge_expired_gate_examples()` enforces
+   retention. Pooling across tenants needs each tenant's opt-in on `app.tenant_training_policy` (ADR-006);
+   `export_pooled` says who was left out.
+4. **Fit.** `daydor.gates.calibration.propose_calibration` fits a temperature on the earlier labelled rows, measures on
+   the latest, picks the lowest threshold at which auto-passes were right often enough, and records a *candidate* in
+   `app.gate_calibration`. A model whose confidence means nothing earns no threshold, and the candidate cannot be approved.
+5. **Approve.** A named owner sets `status = 'approved'` with a sign-off. The database refuses unless: at least 300 labels,
+   50 of the rarer label, ECE 0.10 or lower, the rule baseline beaten (`compare_to_baseline`, `zscore_flags`), under 1%
+   disagreement, two clean shadow weeks. Evidence is immutable; calibrations are never deleted.
+6. **Enforce.** `UPDATE app.gate_definition SET mode = 'enforce', calibration_version = '<v>'` works only for an approved
+   calibration of that gate, at a threshold no looser than it was measured at. The runner applies the calibration's
+   temperatures before it thresholds, and the evaluation log keeps the raw probabilities, so the next fit starts from
+   the checkpoint's own numbers. A calibration in use cannot be retired.
 
 ## 5. Smoke test result (Oct 13 2026)
 Run on CPU (Apple silicon, PyTorch 2.12) with `laya==0.4.6` and `LAYA_REVISION=reviewed`, which the library resolves to

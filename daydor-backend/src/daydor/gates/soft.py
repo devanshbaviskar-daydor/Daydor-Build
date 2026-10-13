@@ -21,6 +21,7 @@ from uuid import UUID
 from sqlalchemy import Connection, text
 
 from daydor.gates.decider import DeciderClient, DeciderResult, DecisionSchema
+from daydor.gates.calibration import apply_temperatures
 from daydor.gates.hard import request_approval
 from daydor.model import load_model
 
@@ -74,6 +75,11 @@ def _definition(conn: Connection, gate_id: str):
     return row
 
 
+def _temperatures(conn: Connection, version: str) -> dict[str, float]:
+    row = conn.execute(text("SELECT temperatures FROM app.gate_calibration WHERE version = :v"), {"v": version}).scalar_one_or_none()
+    return {k: float(v) for k, v in (row or {}).items()}
+
+
 def run_soft_gate(conn: Connection, gate: SoftGate, subject_table: str, subject_id: UUID,
                   client: DeciderClient) -> SoftGateOutcome:
     d = _definition(conn, gate.gate_id)
@@ -93,13 +99,17 @@ def run_soft_gate(conn: Connection, gate: SoftGate, subject_table: str, subject_
     try:
         result = client.decide(gate.schema, state, gate.timeout_s)
         latency_ms = int((time.monotonic() - started) * 1000)
+        raw_answers = result.answers
+        if d.calibration_version:       # the fitted temperatures decide, not the checkpoint's own confidence
+            result = apply_temperatures(result, _temperatures(conn, d.calibration_version))
         if latency_ms > gate.timeout_s * 1000:
             raise TimeoutError(f"{client.engine} answered in {latency_ms} ms, over the {gate.timeout_s}s budget")
         passes, confidence = gate.pass_rule(result)
         model_decision = "pass" if passes else "escalate"
         engine_version = result.engine_version
+        # The log keeps the checkpoint's raw numbers, which is what a later calibration is fitted to.
         output = {k: {"value": a.value, "probabilities": a.probabilities, "confidence": a.confidence}
-                  for k, a in result.answers.items()}
+                  for k, a in raw_answers.items()}
     except Exception as exc:  # noqa: BLE001 - any failure fails closed
         latency_ms = int((time.monotonic() - started) * 1000)
         model_decision, error = "error", f"{type(exc).__name__}: {exc}"
@@ -116,6 +126,9 @@ def run_soft_gate(conn: Connection, gate: SoftGate, subject_table: str, subject_
     ).scalar_one()
     effective = conn.execute(text("SELECT effective_decision FROM app.gate_evaluation WHERE id = :i"),
                              {"i": eval_id}).scalar_one()
+    if d.store_examples:        # opt-in per gate (0036): the labelled inputs that calibration and fine-tuning need
+        conn.execute(text("SELECT app.record_gate_example(CAST(:e AS uuid), CAST(:i AS jsonb))"),
+                     {"e": eval_id, "i": json.dumps(state, default=str)})
 
     approval_id = None
     if effective == "escalate":

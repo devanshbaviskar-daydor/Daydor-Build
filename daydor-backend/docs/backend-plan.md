@@ -158,9 +158,9 @@ Miscellaneous items below aren't yet scheduled to a specific sprint:
 2. ~~Finding 2~~ closed in Sprint 12a (`grant_caps`, `0024`); finding 23 (the same over-grant on other tables' workflow-owned columns) closed in Sprint 12b. **Finding 9** (manager-approval gates,
    partly resolved for timecards in sprint-plan.md Sprint 6; `g_expense` still open) — both in
    Sprint 12.
-3. **Laya**: interface, runner, `calibration_version` migration (0030) and the real-checkpoint smoke test are done.
-   Remaining: production pinning and vendoring, the labelled-example store, calibration and the shadow-vs-human report
-   (Sprint 13).
+3. **Laya**: interface, runner, `calibration_version` migration (0030), the real-checkpoint smoke test, and (Sprint 13,
+   0036) the shadow-versus-human report, the opt-in labelled-example store, the calibration pipeline and the database's
+   promotion criteria are done. Remaining: production pinning and vendoring, and real shadow data (see `docs/laya-runbook.md`).
 4. **Enum value lists** in the model, then generated CHECK constraints (finding 5) — Sprint 12.
 5. **Ops tenant assignment** (finding 6) and k ≥ 5 aggregate views starting with EEO-1
    (finding 7) — Sprint 13.

@@ -16,6 +16,7 @@ from daydor.workflow import WorkflowEngine, WorkflowError
 from daydor.workflow.definitions import seed_sql
 from daydor.workflow.engine import ConcurrentTransition, gate_resolved_handler
 from tests.factories import insert
+from tests.calibration_helpers import approve_calibration
 from tests.test_gates import FakeDecider, PAYROLL_GATE
 
 SQL = Path(__file__).resolve().parents[1] / "migrations" / "sql"
@@ -188,8 +189,9 @@ def test_concurrent_transitions_one_wins(engine, org, run):
 @pytest.fixture
 def enforce_payroll_soft_gate(engine):
     with engine.begin() as conn:
-        conn.execute(text("UPDATE app.gate_definition SET mode = 'enforce', "
-                          "calibration_version = 'test-cal-1' WHERE gate_id = 'sg_payroll_anomaly_precheck'"))
+        version = approve_calibration(conn, "sg_payroll_anomaly_precheck")
+        conn.execute(text("UPDATE app.gate_definition SET mode = 'enforce', calibration_version = :v "
+                          "WHERE gate_id = 'sg_payroll_anomaly_precheck'"), {"v": version})
     yield
     with engine.begin() as conn:
         conn.execute(text("UPDATE app.gate_definition SET mode = 'shadow', "

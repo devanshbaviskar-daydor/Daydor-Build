@@ -39,7 +39,8 @@ Context for Claude Code. Read `docs/backend-plan.md`, `docs/model-findings.md` a
 ## Where things are
 - Session context: `src/daydor/db/session.py` (`tenant_session`)
 - Queue / outbox / timers: `src/daydor/queue/`, SQL in `migrations/sql/0005_queue.sql`
-- Gates: `src/daydor/gates/` (hard, soft, `decider.py`: `DeciderClient` and `LayaClient`; see `docs/laya-runbook.md`), SQL in `0006_gates.sql`
+- Gates: `src/daydor/gates/` (hard, soft, `decider.py`: `DeciderClient` and `LayaClient`; `report.py` and `calibration.py`:
+  shadow report and calibration pipeline, SQL in `0036`; see `docs/laya-runbook.md`), SQL in `0006_gates.sql`
 - Privacy: `src/daydor/privacy/pii.py` (`encrypt_pii`/`decrypt_pii`), SQL in `0011_privacy.sql`
 - Hire flow (complete, steps 1-18; step 19/payslip is out of scope, see finding 15):
   `src/daydor/hire/` (`employee_record.py`, `requisition.py`, `approvals.py`, `posting.py`,
