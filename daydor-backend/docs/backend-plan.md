@@ -138,12 +138,12 @@ licences in legal review. Known upstream issues on `noul` and `act_probability`.
 | 3. Per-worker NOLOGIN roles, derived column grants, `worker_platform` group | Done (`0027`, `0028`) |
 | 4. Guarded columns only to named owners (`GUARD_OWNERS`) | Done (in `0028`) |
 | 5. `worker_session`, queue `Worker.register(worker=...)`, `SessionContext` accepts worker roles | Done |
-| 6. Remove the `agent_<domain>` roles | **Postponed**: the frontend API (`worker.py`, `sessions.py`, 18 `agent_session` calls) still runs on them. Follow-up: move the API, then drop them and `agent_runtime`'s duplicate platform grants |
-| Exit close-out split into one handler per worker | Done, staged inactive (`0029`, finding 27) |
+| 6. Remove the `agent_<domain>` roles | Done Oct 13 (`0034`): the API (`worker.py`, `sessions.py`, 18 router calls, `seed_dev`) and every backend test moved to worker roles first. `agent_runtime` stays, inert, as the model's agent access level |
+| Exit close-out split into one handler per worker | Done: `0029` inserted version 3 inactive, `0033` activated it once the API registered the handlers (finding 27) |
 
-Still open from the reconciliation (`docs/worker-roles-reconciliation.md`): the API must adopt `worker_session` /
-`worker=`; `payroll/run_builder.py` is split later (combined scope until then); the Laya adoption takes the next
-free migration number after `0029`.
+Still open from the reconciliation (`docs/worker-roles-reconciliation.md`): `payroll/run_builder.py` is split later
+(combined scope until then). The API move is done (steps 1 to 3, Oct 13): handlers register by worker, 18 actions use
+`worker_session`, exit v3 is active, and the domain roles are dropped.
 
 ## Next steps
 

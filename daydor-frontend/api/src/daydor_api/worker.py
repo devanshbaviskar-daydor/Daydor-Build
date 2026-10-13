@@ -4,8 +4,8 @@ The backend registers handlers in its tests but ships no process that ticks them
 a workflow forward in a running system. This is that process: it registers every handler the
 backend has today (Hire, Exit) with the queue it runs on and the registry worker that owns it
 (`worker=`: the database role, its column grants and its enabled flag all come from the backend's worker
-registry, and a disabled worker's job fails closed), then ticks them in a loop. `employee_closeout`
-stays on `agent_hr` only for exit workflow version 2 instances already in flight.
+registry, and a disabled worker's job fails closed), then ticks them in a loop. The `agent_<domain>`
+roles and the version 2 `employee_closeout` handler are gone (0034).
 
 Steps 9-18 (background check through payroll profile) were added once the backend's Hire flow grew
 past the offer step; `employee_record_writer_create`/`_open`/`_payroll` replace the single
@@ -39,7 +39,6 @@ from daydor.hire.screening import handle_candidate_screener_assess, handle_candi
 from daydor.hire.work_authorization import handle_i9_e_verify_initiator
 from daydor.exit.checklist import handle_termination_checklist_builder
 from daydor.exit.closeout import (
-    handle_employee_closeout,
     handle_employee_record_writer_closeout,
     handle_rehire_eligibility_flagger,
     handle_vesting_schedule_tracker,
@@ -96,7 +95,6 @@ def build_workers(engine: Engine | None = None, name: str = "api") -> list[Worke
     hr.register("legal_hold_checker", worker="root-orchestrator", fn=handle_legal_hold_checker(wf))
     hr.register("termination_checklist_builder", worker="termination-checklist-builder", fn=handle_termination_checklist_builder(wf))
     hr.register("cobra_trigger_detector", worker="cobra-trigger-detector", fn=handle_cobra_trigger_detector(wf))
-    hr.register("employee_closeout", role="agent_hr", fn=handle_employee_closeout(wf))
     # Exit workflow version 3 (0029, active since 0033): one close-out step per worker.
     hr.register("vesting_schedule_tracker", worker="vesting-schedule-tracker", fn=handle_vesting_schedule_tracker(wf))
     hr.register("rehire_eligibility_flagger", worker="rehire-eligibility-flagger",

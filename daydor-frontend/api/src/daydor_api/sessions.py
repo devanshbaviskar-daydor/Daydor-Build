@@ -7,9 +7,7 @@ worker_session: for actions a person starts but the backend runs as the worker t
 (workflow instances can only be inserted by worker roles). The role comes from the backend's worker
 registry, so its column grants are exactly that worker's scope, and a disabled worker fails closed. The
 person's user id rides along in the session so the database still knows who asked. Never an owner,
-`daydor_system` or any row-security-bypassing role.
-
-agent_session: the older domain-role form (`agent_pay`, ...), kept only until the domain roles are dropped."""
+`daydor_system` or any row-security-bypassing role."""
 from __future__ import annotations
 
 from contextlib import contextmanager
@@ -22,8 +20,6 @@ from daydor.db.session import tenant_session
 
 from .identity import Identity
 from .state import get_engine
-
-ALLOWED_AGENT_ROLES = frozenset({"agent_ta", "agent_hr", "agent_ro", "agent_pay", "agent_time", "agent_ben", "agent_it"})
 
 
 @contextmanager
@@ -40,10 +36,3 @@ def worker_session(ident: Identity, worker: str) -> Iterator[Connection]:
     with _backend_worker_session(get_engine(), worker, ident.tenant_id, user_id=ident.user_id) as conn:
         yield conn
 
-
-@contextmanager
-def agent_session(ident: Identity, agent_role: str) -> Iterator[Connection]:
-    if agent_role not in ALLOWED_AGENT_ROLES:
-        raise ValueError(f"agent role {agent_role!r} is not allowed for API-started actions")
-    with tenant_session(get_engine(), agent_role, ident.tenant_id, user_id=ident.user_id) as conn:
-        yield conn

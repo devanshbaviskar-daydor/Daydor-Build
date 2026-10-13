@@ -10,6 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from daydor.benefits.election import elect_benefit
+from daydor.agents.session import worker_session
 from daydor.db.session import tenant_session
 from daydor.gates.hard import resolve
 from daydor.queue import Worker
@@ -36,7 +37,7 @@ def benefit_plan(engine, org):
 
 def test_leave_accrues_linearly_from_date_of_joining_capped_at_policy(engine, org, leave_policy):
     tenant = org.tenant_a
-    with tenant_session(engine, "agent_time", tenant) as conn:
+    with worker_session(engine, "pto-accrual-calculator", tenant) as conn:
         balance_id = accrue_leave(conn, employee_id=org.emp["report"], leave_policy_id=leave_policy,
                                   as_of=date(2026, 7, 17))  # hired 2026-01-01 (org fixture) -> 6 months
     with tenant_session(engine, "tenant_hr", tenant) as conn:
@@ -45,7 +46,7 @@ def test_leave_accrues_linearly_from_date_of_joining_capped_at_policy(engine, or
     assert row.balance_days == Decimal("9.0")  # 6 months * 1.5
 
     # Recomputing (e.g. a later run) updates the same row rather than appending a new one.
-    with tenant_session(engine, "agent_time", tenant) as conn:
+    with worker_session(engine, "pto-accrual-calculator", tenant) as conn:
         again = accrue_leave(conn, employee_id=org.emp["report"], leave_policy_id=leave_policy,
                              as_of=date(2027, 7, 17))  # 18 months -> would be 27, capped at 18
     assert again == balance_id
@@ -68,7 +69,7 @@ def test_timecard_requires_manager_approval_via_g_timecard(engine, org):
         record_punch(conn, employee_id=employee_id,
                     punched_at=datetime(2026, 8, 3, 18, 0, tzinfo=timezone.utc), kind="out")
 
-    with tenant_session(engine, "agent_time", tenant) as conn:
+    with worker_session(engine, "punch-validator", tenant) as conn:
         timecard_id = validate_timecard(conn, employee_id=employee_id, period_start=period_start,
                                         period_end=period_end)
 
@@ -79,7 +80,7 @@ def test_timecard_requires_manager_approval_via_g_timecard(engine, org):
     assert card.regular_hours == Decimal("9.000000")
     assert card.overtime_hours == Decimal("0")
 
-    with tenant_session(engine, "agent_time", tenant) as conn:
+    with worker_session(engine, "timecard-approval-router", tenant) as conn:
         approval_id = route_for_approval(conn, timecard_id=timecard_id)
 
     # The employee cannot approve their own timecard.
@@ -95,7 +96,7 @@ def test_timecard_requires_manager_approval_via_g_timecard(engine, org):
     # backlog of no-op jobs from every other sprint's gate resolutions, more than one tick's
     # batch can drain. A real worker just keeps ticking; so does this test.
     worker = Worker(engine, "timekeeping", "w-timekeeping", batch=50)
-    worker.register("timekeeping.gate_resolved", role="agent_time", fn=handle_timekeeping_gate_resolved)
+    worker.register("timekeeping.gate_resolved", worker="timecard-approval-router", fn=handle_timekeeping_gate_resolved)
     for _ in range(20):
         worker.tick()
         with tenant_session(engine, "tenant_hr", tenant) as conn:
@@ -124,7 +125,7 @@ def test_benefit_election_is_processed_by_an_agent_not_the_employee_directly(eng
                           coverage_tier="employee_only", employee_cost=Decimal("500"),
                           effective_from=date(2026, 3, 1))
 
-    with tenant_session(engine, "agent_ben", tenant) as conn:
+    with worker_session(engine, "election-processor", tenant) as conn:
         a = elect_benefit(conn, employee_id=employee_id, benefit_plan_id=benefit_plan,
                           coverage_tier="employee_only", employee_cost=Decimal("500"),
                           effective_from=date(2026, 3, 1))

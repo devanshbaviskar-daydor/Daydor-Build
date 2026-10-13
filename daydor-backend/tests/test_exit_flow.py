@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from daydor.agents.session import worker_session
 from daydor.db.session import tenant_session
 from daydor.exit.cobra import detect_cobra_event, request_cobra_notice_approval
 from daydor.exit.deprovisioning import deprovision_identity
@@ -35,7 +36,7 @@ def test_termination_under_active_legal_hold_is_blocked_from_it_deprovisioning(e
               reason="Pending litigation", placed_by_user_id=exit_org["founder_user"],
               placed_at="2026-05-01")
 
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "exit-intake", tenant) as conn:
         instance_id = start_exit(conn, wf, employee_id=employee, termination_type="involuntary",
                                  reason_code="performance", notice_date=date(2026, 6, 1),
                                  last_working_day=date(2026, 6, 15),
@@ -64,12 +65,12 @@ def test_start_exit_replay_returns_existing_instance_without_advancing_it(engine
     kwargs = dict(employee_id=employee, termination_type="voluntary", reason_code="resignation",
                   notice_date=date(2026, 6, 1), last_working_day=date(2026, 6, 15),
                   initiated_by_user_id=exit_org["hr_user"])
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "exit-intake", tenant) as conn:
         instance_id = start_exit(conn, wf, **kwargs)
     hr_worker(engine, wf).tick()   # moves the instance on from s02_legal_hold_check
     before = instance_state(engine, tenant, instance_id)
 
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "exit-intake", tenant) as conn:
         assert start_exit(conn, wf, **kwargs) == instance_id
     after = instance_state(engine, tenant, instance_id)
     assert (after.state, after.status) == (before.state, before.status)
@@ -81,7 +82,7 @@ def test_exit_flow_end_to_end_settlement_disbursal_and_closeout(engine, exit_org
     employee = exit_org["employee"]
     founder_user, hr_user = exit_org["founder_user"], exit_org["hr_user"]
 
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "exit-intake", tenant) as conn:
         instance_id = start_exit(conn, wf, employee_id=employee, termination_type="voluntary",
                                  reason_code="resignation", notice_date=date(2026, 6, 1),
                                  last_working_day=date(2026, 6, 30),
@@ -101,13 +102,13 @@ def test_exit_flow_end_to_end_settlement_disbursal_and_closeout(engine, exit_org
                           "'g_it_deprov' AND subject_id = :i", {"i": exit_org["identity_account"]})
 
     with pytest.raises(DBAPIError):
-        with tenant_session(engine, "agent_it", tenant) as conn:
+        with worker_session(engine, "deprovisioning-agent", tenant) as conn:
             deprovision_identity(conn, wf, instance_id, identity_account_id=exit_org["identity_account"],
                                  approval_request_id=uuid.uuid4())
 
     with tenant_session(engine, "tenant_hr", tenant, user_id=hr_user) as conn:
         assert resolve(conn, approval_id, "approved") == "approved"
-    with tenant_session(engine, "agent_it", tenant) as conn:
+    with worker_session(engine, "deprovisioning-agent", tenant) as conn:
         deprovision_identity(conn, wf, instance_id, identity_account_id=exit_org["identity_account"],
                              approval_request_id=approval_id)
     assert instance_state(engine, tenant, instance_id).state == "s05_device_assignment"
@@ -149,13 +150,13 @@ def test_exit_flow_end_to_end_settlement_disbursal_and_closeout(engine, exit_org
                                    {"i": final_settlement_id})
 
     with pytest.raises(DBAPIError):
-        with tenant_session(engine, "agent_pay", tenant) as conn:
+        with worker_session(engine, "direct-deposit-disburser", tenant) as conn:
             disburse_final_settlement(conn, wf, instance_id, final_settlement_id=final_settlement_id,
                                       approval_request_id=disburse_approval_id)  # still pending
 
     with tenant_session(engine, "tenant_founder", tenant, user_id=founder_user) as conn:
         assert resolve(conn, disburse_approval_id, "approved") == "approved"
-    with tenant_session(engine, "agent_pay", tenant) as conn:
+    with worker_session(engine, "direct-deposit-disburser", tenant) as conn:
         disburse_final_settlement(conn, wf, instance_id, final_settlement_id=final_settlement_id,
                                   approval_request_id=disburse_approval_id)
     assert instance_state(engine, tenant, instance_id).state == "s09_cobra"
@@ -189,20 +190,20 @@ def test_cobra_notice_is_impossible_without_an_approved_g_cobra_request(engine, 
                           legal_entity_id=le_us, department_id=exit_org["department"], location_id=loc,
                           hire_event_id=f"hire-{uuid.uuid4().hex[:10]}", date_of_joining="2024-01-01")
 
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "cobra-trigger-detector", tenant) as conn:
         cobra_event_id = detect_cobra_event(conn, employee_id=employee, event_date=date(2026, 6, 30))
         assert cobra_event_id is not None
         approval_id = request_cobra_notice_approval(conn, cobra_event_id=cobra_event_id)
 
     with pytest.raises(DBAPIError):
-        with tenant_session(engine, "agent_hr", tenant) as conn:
+        with worker_session(engine, "cobra-notice-generator", tenant) as conn:
             conn.execute(text("UPDATE cobra_event SET approval_request_id = :a, notice_sent_at = now() "
                               "WHERE id = :i"), {"a": uuid.uuid4(), "i": cobra_event_id})
 
     with tenant_session(engine, "tenant_hr", tenant, user_id=exit_org["hr_user"]) as conn:
         assert resolve(conn, approval_id, "approved") == "approved"
 
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "cobra-notice-generator", tenant) as conn:
         conn.execute(text("UPDATE cobra_event SET approval_request_id = :a, notice_sent_at = now() "
                           "WHERE id = :i"), {"a": approval_id, "i": cobra_event_id})
 

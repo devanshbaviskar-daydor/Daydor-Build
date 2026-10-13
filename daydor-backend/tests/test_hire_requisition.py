@@ -8,6 +8,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import text
 
+from daydor.agents.session import worker_session
 from daydor.db.session import tenant_session
 from daydor.gates.hard import resolve
 from daydor.hire.posting import handle_job_posting_publisher
@@ -21,7 +22,7 @@ from tests.hire_helpers import drive_to_job_posting
 
 def test_confirm_budgeted_seat_rejects_filled_or_missing_position(engine, hire_org):
     tenant = hire_org["tenant"]
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "hire-intake", tenant) as conn:
         with pytest.raises(NoVacantPosition):
             confirm_budgeted_seat(conn, uuid.uuid4())
 
@@ -30,19 +31,19 @@ def test_confirm_budgeted_seat_rejects_filled_or_missing_position(engine, hire_o
                         job_profile_id=hire_org["job_profile"], status="open", budgeted_fte="1.0",
                         budgeted_cost="1000000", opened_at="2026-01-01",
                         current_employee_id=hire_org["hiring_manager"])
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "hire-intake", tenant) as conn:
         with pytest.raises(NoVacantPosition):
             confirm_budgeted_seat(conn, filled)
 
 
 def test_confirm_budgeted_seat_accepts_open_vacant_position(engine, hire_org):
-    with tenant_session(engine, "agent_hr", hire_org["tenant"]) as conn:
+    with worker_session(engine, "hire-intake", hire_org["tenant"]) as conn:
         confirm_budgeted_seat(conn, hire_org["position"])  # does not raise
 
 
 def test_open_requisition_is_idempotent_per_position(engine, hire_org):
     tenant = hire_org["tenant"]
-    with tenant_session(engine, "agent_ta", tenant) as conn:
+    with worker_session(engine, "hire-intake", tenant) as conn:
         a = open_requisition(conn, position_id=hire_org["position"],
                              hiring_manager_id=hire_org["hiring_manager"],
                              target_start_date=date(2026, 3, 1))
@@ -57,7 +58,7 @@ def test_start_hire_replay_returns_existing_instance_without_advancing_it(engine
     wf = WorkflowEngine()
     instance_id, _, approval_id = drive_to_job_posting(engine, hire_org, wf)  # parked on g_requisition_budget
 
-    with tenant_session(engine, "agent_ta", tenant) as conn:
+    with worker_session(engine, "hire-intake", tenant) as conn:
         again = start_hire(conn, wf, position_id=hire_org["position"],
                            hiring_manager_id=hire_org["hiring_manager"],
                            target_start_date=date(2026, 3, 1), channel="company_site",
@@ -94,11 +95,11 @@ def test_hire_requisition_flow_to_job_posting(engine, hire_org):
     # resolution across every test in this session relays through it), so other tests' pending
     # jobs may also be claimed and succeed in this tick; only this instance's own progress matters.
     workflow_worker = Worker(engine, "workflow", "w-workflow")
-    workflow_worker.register("workflow.gate_resolved", role="agent_ro", fn=gate_resolved_handler(wf))
+    workflow_worker.register("workflow.gate_resolved", worker="workflow-engine", fn=gate_resolved_handler(wf))
     assert workflow_worker.tick()["succeeded"] >= 1
 
     ta_worker = Worker(engine, "ta", "w-ta")
-    ta_worker.register("job_posting_publisher", role="agent_ta", fn=handle_job_posting_publisher())
+    ta_worker.register("job_posting_publisher", worker="job-posting-publisher", fn=handle_job_posting_publisher())
     assert ta_worker.tick()["succeeded"] == 1
 
     # job_posting_publisher does not auto-advance: s04_job_posting is a genuine parked state,

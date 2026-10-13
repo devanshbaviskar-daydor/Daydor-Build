@@ -3,10 +3,13 @@
 test_column_grants_match_model is the generated matrix: it compares every column privilege in
 the live database with what the artifact's access engine says, for all 82 tables x 10 roles.
 """
+import uuid
+
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
 
+from daydor.agents.session import worker_session
 from daydor.db.session import tenant_session
 from daydor.model import load_model
 from daydor.model.ddl import SYSTEM_MANAGED
@@ -59,7 +62,7 @@ def test_it_admin_cannot_read_restricted_pii(engine, org):
             conn.execute(text("SELECT date_of_birth FROM employee"))
 
 
-@pytest.mark.parametrize("role", ["tenant_hr", "tenant_payroll", "tenant_founder", "agent_pay"])
+@pytest.mark.parametrize("role", ["tenant_hr", "tenant_payroll", "tenant_founder", "worker_direct_deposit_disburser"])
 def test_encrypted_columns_never_granted(engine, org, role):
     with pytest.raises(ProgrammingError, match="permission denied"):
         with tenant_session(engine, role, org.tenant_a) as conn:
@@ -119,12 +122,19 @@ def test_tenant_id_defaults_from_session(engine, org):
 
 
 def test_audit_log_is_append_only(engine, org):
-    with tenant_session(engine, "agent_hr", org.tenant_a) as conn:
-        aid = conn.execute(text("INSERT INTO audit_log (actor_kind, event_type, subject_table, subject_id, "
-                                "occurred_at) VALUES ('agent', 'test', 'employee', :e, now()) RETURNING id"),
-                           {"e": org.emp["report"]}).scalar_one()
+    # Every worker may insert audit rows (the model's "every worker (insert only)") but cannot read them back.
+    marker = f"test-{uuid.uuid4().hex[:8]}"
+    with worker_session(engine, "employee-record-writer", org.tenant_a) as conn:
+        conn.execute(text("INSERT INTO audit_log (actor_kind, event_type, subject_table, subject_id, "
+                          "occurred_at) VALUES ('agent', :m, 'employee', :e, now())"),
+                     {"m": marker, "e": org.emp["report"]})
     with pytest.raises(ProgrammingError, match="permission denied"):
-        with tenant_session(engine, "agent_hr", org.tenant_a) as conn:
+        with worker_session(engine, "employee-record-writer", org.tenant_a) as conn:
+            conn.execute(text("SELECT id FROM audit_log"))
+    with tenant_session(engine, "tenant_hr", org.tenant_a) as conn:
+        aid = conn.execute(text("SELECT id FROM audit_log WHERE event_type = :m"), {"m": marker}).scalar_one()
+    with pytest.raises(ProgrammingError, match="permission denied"):
+        with worker_session(engine, "employee-record-writer", org.tenant_a) as conn:
             conn.execute(text("UPDATE audit_log SET event_type = 'tampered' WHERE id = :a"), {"a": aid})
 
 

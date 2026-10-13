@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from sqlalchemy import text
 
+from daydor.agents.session import worker_session
 from daydor.db.session import tenant_session
 from daydor.hire.employee_record import handle_employee_record_writer, hire_employee, open_employment_record
 from daydor.privacy.pii import decrypt_pii, encrypt_pii
@@ -25,9 +26,9 @@ def test_hire_employee_is_idempotent_on_hire_event_id(engine, hire_org):
     kw = _hire_kwargs(hire_org, f"hire-{uuid.uuid4().hex[:10]}")
     tenant = hire_org["tenant"]
 
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "employee-record-writer", tenant) as conn:
         a = hire_employee(conn, **kw)
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "employee-record-writer", tenant) as conn:
         b = hire_employee(conn, **kw)
     assert a == b
 
@@ -46,7 +47,7 @@ def test_hire_then_consent_then_encrypt(engine, hire_org):
     kw = _hire_kwargs(hire_org, f"hire-{uuid.uuid4().hex[:10]}")
     tenant = hire_org["tenant"]
 
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "employee-record-writer", tenant) as conn:
         employee_id = hire_employee(conn, **kw)
 
     # consent_record can now reference the employee that exists.
@@ -66,7 +67,7 @@ def test_open_employment_record_is_idempotent(engine, hire_org):
     kw = _hire_kwargs(hire_org, f"hire-{uuid.uuid4().hex[:10]}")
     tenant, job_profile = hire_org["tenant"], hire_org["job_profile"]
 
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "employee-record-writer", tenant) as conn:
         employee_id = hire_employee(conn, **kw)
         a = open_employment_record(conn, employee_id=employee_id, effective_from=date(2026, 2, 1),
                                    job_profile_id=job_profile, fte=Decimal("1.0"),
@@ -89,11 +90,11 @@ def test_employee_record_writer_queue_handler(engine, hire_org):
                               "fte": "1.0", "ctc_annual": "1200000", "basic_da_monthly": "50000",
                               "tax_regime_election": "new", "flsa_status": "exempt"},
     }}
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "employee-record-writer", tenant) as conn:
         enqueue(conn, "hr", "employee_record_writer", payload)
 
     w = Worker(engine, "hr", "w1")
-    w.register("employee_record_writer", role="agent_hr", fn=handle_employee_record_writer)
+    w.register("employee_record_writer", worker="employee-record-writer", fn=handle_employee_record_writer)
     outcome = w.tick()
     assert outcome["succeeded"] == 1
 

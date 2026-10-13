@@ -68,8 +68,10 @@ Context for Claude Code. Read `docs/backend-plan.md`, `docs/model-findings.md` a
   rules, reviewed `extra_scope`), `src/daydor/agents/roles.py` (generates `app.worker_definition` and one NOLOGIN
   `worker_<name>` role per worker with column grants derived from scope and the model's agent access),
   `src/daydor/agents/session.py` (`worker_session`: role from the registry, fails closed if disabled). SQL in
-  `0025`-`0029`. Queue handlers can register with `worker=`; the old `agent_<domain>` roles still work and are
-  removed later. `DAYDOR_TEST_ROLES=worker pytest` runs the queue handlers on worker roles.
+  `0025`-`0034`. Queue handlers register with `worker=` and actions use `worker_session`; the `agent_<domain>`
+  roles are dropped (`0034`), `agent_runtime` stays only as the model's inert agent access level. The API runs on
+  the same roles (`daydor_api/sessions.py`, `worker.py`); "hire-intake" and "exit-intake" are platform actors for
+  person-started actions.
 - Exit flow (complete, steps 1-14): `src/daydor/exit/` (`termination.py`, `legal_hold.py`,
   `checklist.py`, `deprovisioning.py`, `device_return.py`, `final_settlement.py`, `cobra.py`,
   `closeout.py`, `workflow.py`), SQL in `0022_exit_gate_guards.sql`, `0023_exit_workflow.sql`.

@@ -22,9 +22,9 @@ from daydor.config import database_url
 APP_ROLES = frozenset({
     "daydor_admin", "daydor_ops", "tenant_founder", "tenant_hr", "tenant_payroll", "tenant_it",
     "tenant_manager", "tenant_employee", "external_auditor", "daydor_worker",
-    *(f"agent_{d}" for d in ("ro", "priv", "ref", "hr", "ta", "ob", "it", "pay", "ben", "time",
-                             "comp", "perf", "learn", "fin", "er")),
 })
+# Agent work runs as per-worker roles (`worker_<name>`, from the registry; see daydor.agents.roles). The
+# domain roles `agent_<domain>` that used to run it were dropped in 0034.
 
 
 def _is_worker_role(role: str) -> bool:

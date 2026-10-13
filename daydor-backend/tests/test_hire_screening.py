@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from sqlalchemy import text
 
+from daydor.agents.session import worker_session
 from daydor.db.session import tenant_session
 from daydor.hire.requisition import open_requisition
 from daydor.hire.screening import intake_application
@@ -15,10 +16,11 @@ from tests.hire_helpers import comp_band, drive_to_offer, drive_to_screening_res
 
 def test_application_intake_is_idempotent_per_requisition_and_email(engine, hire_org):
     tenant = hire_org["tenant"]
-    with tenant_session(engine, "agent_ta", tenant) as conn:
+    with worker_session(engine, "hire-intake", tenant) as conn:
         req_id = open_requisition(conn, position_id=hire_org["position"],
                                   hiring_manager_id=hire_org["hiring_manager"],
                                   target_start_date=date(2026, 3, 1))
+    with worker_session(engine, "candidate-screener", tenant) as conn:
         a = intake_application(conn, requisition_id=req_id, full_name="Jordan Candidate",
                                email="dup@example.test", phone="555-0101", resume_ref="r1", source="referral")
         b = intake_application(conn, requisition_id=req_id, full_name="Jordan Candidate",

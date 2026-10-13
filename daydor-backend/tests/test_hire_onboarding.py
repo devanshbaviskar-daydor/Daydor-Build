@@ -89,7 +89,7 @@ def test_new_hire_documents_are_collected_once_consent_clears(engine, hire_org, 
     # running it), so more than one job may be claimed here; only this instance's own outcome
     # matters.
     priv_worker = Worker(engine, "privacy", "w-priv")
-    priv_worker.register("new_hire_doc_collector", role="agent_priv", fn=handle_new_hire_doc_collector(wf))
+    priv_worker.register("new_hire_doc_collector", worker="new-hire-doc-collector", fn=handle_new_hire_doc_collector(wf))
     assert priv_worker.tick()["succeeded"] >= 1
 
     with tenant_session(engine, "tenant_hr", tenant) as conn:

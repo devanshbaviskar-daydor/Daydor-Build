@@ -7,6 +7,7 @@ from datetime import date, datetime
 import pytest
 from sqlalchemy import text
 
+from daydor.agents.session import worker_session
 from daydor.db.session import tenant_session
 from daydor.gates.hard import resolve
 from daydor.hire.approvals import handle_requisition_approval_router
@@ -86,7 +87,7 @@ def drive_to_job_posting(engine, hire_org, wf: WorkflowEngine, **extra_context):
     tenant = hire_org["tenant"]
     context = {"channel": "company_site", "pay_range_min": "1000000", "pay_range_max": "1500000",
               **extra_context}
-    with tenant_session(engine, "agent_ta", tenant) as conn:
+    with worker_session(engine, "hire-intake", tenant) as conn:
         instance_id = start_hire(conn, wf, position_id=hire_org["position"],
                                  hiring_manager_id=hire_org["hiring_manager"],
                                  target_start_date=date(2026, 3, 1), **context)
@@ -95,7 +96,7 @@ def drive_to_job_posting(engine, hire_org, wf: WorkflowEngine, **extra_context):
             {"i": instance_id}).scalar_one()
 
     router_worker = Worker(engine, "platform", "w-platform-helper")
-    router_worker.register("requisition_approval_router", role="agent_ro",
+    router_worker.register("requisition_approval_router", worker="requisition-approval-router",
                            fn=handle_requisition_approval_router(wf))
     router_worker.tick()
 
@@ -112,7 +113,7 @@ def resolve_and_relay(engine, wf, tenant, role, user_id, approval_id, worker_suf
     with tenant_session(engine, role, tenant, user_id=user_id) as conn:
         assert resolve(conn, approval_id, "approved") == "approved"
     workflow_worker = Worker(engine, "workflow", f"w-workflow-{worker_suffix}")
-    workflow_worker.register("workflow.gate_resolved", role="agent_ro", fn=gate_resolved_handler(wf))
+    workflow_worker.register("workflow.gate_resolved", worker="workflow-engine", fn=gate_resolved_handler(wf))
     # Every test in the suite resolves gates onto this shared queue, so the backlog can exceed one tick's
     # batch. Keep ticking until a tick runs no job, rather than relying on one batch reaching ours.
     for _ in range(50):
@@ -127,12 +128,12 @@ def ta_worker(engine, wf, name="w-ta", bg_outcome="clear"):
     from daydor.adapters.background_check import FakeBackgroundCheckAdapter
     from daydor.hire.background_check import handle_background_check_initiator
     w = Worker(engine, "ta", name)
-    w.register("job_posting_publisher", role="agent_ta", fn=handle_job_posting_publisher())
-    w.register("candidate_screener_intake", role="agent_ta", fn=handle_candidate_screener_intake(wf))
-    w.register("candidate_screener_assess", role="agent_ta", fn=handle_candidate_screener_assess(wf))
-    w.register("interview_scheduler", role="agent_ta", fn=handle_interview_scheduler(wf))
-    w.register("offer_letter_generator", role="agent_ta", fn=handle_offer_letter_generator(wf))
-    w.register("background_check_initiator", role="agent_ta",
+    w.register("job_posting_publisher", worker="job-posting-publisher", fn=handle_job_posting_publisher())
+    w.register("candidate_screener_intake", worker="candidate-screener", fn=handle_candidate_screener_intake(wf))
+    w.register("candidate_screener_assess", worker="candidate-screener", fn=handle_candidate_screener_assess(wf))
+    w.register("interview_scheduler", worker="interview-scheduler", fn=handle_interview_scheduler(wf))
+    w.register("offer_letter_generator", worker="offer-letter-generator", fn=handle_offer_letter_generator(wf))
+    w.register("background_check_initiator", worker="background-check-initiator",
                fn=handle_background_check_initiator(wf, FakeBackgroundCheckAdapter(outcome=bg_outcome)))
     return w
 
@@ -151,7 +152,7 @@ def drive_to_screening_result(engine, hire_org, wf, *, comp_band_id, proposed_ba
     worker = ta_worker(engine, wf, worker_name, bg_outcome=bg_outcome)
     worker.tick()  # job_posting_publisher
 
-    with tenant_session(engine, "agent_ta", tenant) as conn:
+    with worker_session(engine, "hire-intake", tenant) as conn:
         submit_application(conn, wf, instance_id, full_name="Jordan Candidate",
                            email=f"{worker_name}@example.test", phone="555-0100", resume_ref="resume-1",
                            source="referral")
@@ -191,23 +192,23 @@ def hr_worker(engine, wf, name="w-hr"):
         handle_employee_record_writer_open
     from daydor.hire.work_authorization import handle_i9_e_verify_initiator
     w = Worker(engine, "hr", name)
-    w.register("employee_record_writer_create", role="agent_hr", fn=handle_employee_record_writer_create(wf))
-    w.register("employee_record_writer_open", role="agent_hr", fn=handle_employee_record_writer_open(wf))
-    w.register("i9_e_verify_initiator", role="agent_hr", fn=handle_i9_e_verify_initiator(wf))
+    w.register("employee_record_writer_create", worker="employee-record-writer", fn=handle_employee_record_writer_create(wf))
+    w.register("employee_record_writer_open", worker="employee-record-writer", fn=handle_employee_record_writer_open(wf))
+    w.register("i9_e_verify_initiator", worker="i9-e-verify-initiator", fn=handle_i9_e_verify_initiator(wf))
     return w
 
 
 def priv_worker(engine, wf, name="w-priv"):
     from daydor.hire.documents import handle_new_hire_doc_collector
     w = Worker(engine, "privacy", name)
-    w.register("new_hire_doc_collector", role="agent_priv", fn=handle_new_hire_doc_collector(wf))
+    w.register("new_hire_doc_collector", worker="new-hire-doc-collector", fn=handle_new_hire_doc_collector(wf))
     return w
 
 
 def ob_worker(engine, wf, name="w-ob"):
     from daydor.hire.checklist import handle_onboarding_checklist_builder
     w = Worker(engine, "ob", name)
-    w.register("onboarding_checklist_builder", role="agent_ob", fn=handle_onboarding_checklist_builder(wf))
+    w.register("onboarding_checklist_builder", worker="onboarding-checklist-builder", fn=handle_onboarding_checklist_builder(wf))
     return w
 
 
@@ -215,15 +216,15 @@ def it_worker(engine, wf, name="w-it"):
     from daydor.hire.access_grant import handle_app_access_granter
     from daydor.hire.identity import handle_sso_identity_provisioner
     w = Worker(engine, "it", name)
-    w.register("sso_identity_provisioner", role="agent_it", fn=handle_sso_identity_provisioner(wf))
-    w.register("app_access_granter", role="agent_it", fn=handle_app_access_granter(wf))
+    w.register("sso_identity_provisioner", worker="sso-identity-provisioner", fn=handle_sso_identity_provisioner(wf))
+    w.register("app_access_granter", worker="app-access-granter", fn=handle_app_access_granter(wf))
     return w
 
 
 def pay_worker(engine, wf, name="w-pay"):
     from daydor.hire.employee_record import handle_employee_record_writer_payroll
     w = Worker(engine, "pay", name)
-    w.register("employee_record_writer_payroll", role="agent_pay",
+    w.register("employee_record_writer_payroll", worker="employee-record-writer",
                fn=handle_employee_record_writer_payroll(wf))
     return w
 
@@ -263,7 +264,7 @@ def drive_to_consent_gate(engine, hire_org, wf, *, comp_band_id, retention_class
     # consent_record has no agent writer (daydor.hire.consent's docstring); request_consent is
     # the explicit trigger that checks the dpdp_consent gate once the employee has done their part.
     from daydor.hire.consent import request_consent
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "hire-intake", tenant) as conn:
         request_consent(conn, wf, instance_id)
 
     with tenant_session(engine, "tenant_hr", tenant) as conn:

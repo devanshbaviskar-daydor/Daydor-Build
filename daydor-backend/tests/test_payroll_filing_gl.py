@@ -12,6 +12,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from daydor.agents.session import worker_session
 from daydor.db.session import tenant_session
 from daydor.gates.hard import resolve
 from daydor.payroll.gl_posting import open_journal_entry, post_journal_entry, request_gl_close_approval
@@ -60,7 +61,7 @@ def _build_run_with_one_employee(engine, t, *, legal_entity_id, state_code, rete
         insert(conn, "statutory_rate_rule", scheme="tds", jurisdiction_code="IN",
               effective_from="2026-01-01", employee_rate="0.10", employer_rate="0")
 
-    with tenant_session(engine, "agent_pay", tenant) as conn:
+    with worker_session(engine, "payroll-run-builder", tenant) as conn:
         return build_payroll_run(conn, legal_entity_id=legal_entity_id, period_start=date(2026, 8, 1),
                                  period_end=date(2026, 8, 31), retention_class_id=retention_class_id)
 
@@ -73,7 +74,7 @@ def test_filing_submitter_files_every_scheme_for_india_and_is_idempotent(engine,
     built = _build_run_with_one_employee(engine, filing_tenant, legal_entity_id=le,
                                          state_code=state_code, retention_class_id=retention_policy)
 
-    with tenant_session(engine, "agent_pay", tenant) as conn:
+    with worker_session(engine, "tax-filing-submitter", tenant) as conn:
         first = file_payroll_run(conn, payroll_run_id=built["payroll_run_id"], period="2026-08",
                                  retention_class_id=retention_policy)
         second = file_payroll_run(conn, payroll_run_id=built["payroll_run_id"], period="2026-08",
@@ -92,9 +93,10 @@ def test_filing_submitter_raises_for_an_unregistered_jurisdiction(engine, filing
                                                                    retention_policy):
     tenant = filing_tenant["tenant"]
     le = _legal_entity(engine, tenant, "FR")
-    with tenant_session(engine, "agent_pay", tenant) as conn:
+    with worker_session(engine, "payroll-run-builder", tenant) as conn:
         built = build_payroll_run(conn, legal_entity_id=le, period_start=date(2026, 8, 1),
                                   period_end=date(2026, 8, 31), retention_class_id=retention_policy)
+    with worker_session(engine, "tax-filing-submitter", tenant) as conn:
         with pytest.raises(UnsupportedJurisdiction):
             file_payroll_run(conn, payroll_run_id=built["payroll_run_id"], period="2026-08",
                              retention_class_id=retention_policy)
@@ -110,22 +112,22 @@ def test_gl_posting_is_impossible_without_an_approved_g_close_request(engine, fi
                                          state_code=state_code, retention_class_id=retention_policy)
     run_id = built["payroll_run_id"]
 
-    with tenant_session(engine, "agent_pay", tenant) as conn:
+    with worker_session(engine, "gl-poster", tenant) as conn:
         je_id = open_journal_entry(conn, payroll_run_id=run_id)
         je_id_again = open_journal_entry(conn, payroll_run_id=run_id)
     assert je_id == je_id_again
 
-    with tenant_session(engine, "agent_pay", tenant) as conn:
+    with worker_session(engine, "gl-poster", tenant) as conn:
         approval_id = request_gl_close_approval(conn, gl_journal_entry_id=je_id)
 
     with pytest.raises(DBAPIError):
-        with tenant_session(engine, "agent_pay", tenant) as conn:
+        with worker_session(engine, "gl-poster", tenant) as conn:
             post_journal_entry(conn, gl_journal_entry_id=je_id, approval_request_id=approval_id)
 
     with tenant_session(engine, "tenant_founder", tenant, user_id=founder_user) as conn:
         assert resolve(conn, approval_id, "approved") == "approved"
 
-    with tenant_session(engine, "agent_pay", tenant) as conn:
+    with worker_session(engine, "gl-poster", tenant) as conn:
         post_journal_entry(conn, gl_journal_entry_id=je_id, approval_request_id=approval_id)
 
     with engine.begin() as conn:

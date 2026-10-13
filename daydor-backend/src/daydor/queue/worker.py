@@ -1,7 +1,7 @@
 """Job dispatcher.
 
     worker = Worker(engine, queue="hr", worker_id="hr-1")
-    worker.register("employee.hired", role="agent_hr", fn=handle_hire)      # a domain role, or
+    worker.register("employee.hired", role="tenant_hr", fn=handle_hire)     # a people role, or
     worker.register("job_posting_publisher", worker="job-posting-publisher", fn=handle_publish)
     worker.tick()          # relay outbox, fire timers, claim and run a batch
 

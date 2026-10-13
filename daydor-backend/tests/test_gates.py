@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, ProgrammingError
 
+from daydor.agents.session import worker_session
 from daydor.db.session import tenant_session
 from daydor.gates.hard import request_approval, resolve, status
 from daydor.gates.decider import Answer, Choice, DecisionSchema, DeciderResult
@@ -35,7 +36,7 @@ def as_founder(engine, org, user="founder_user"):
 
 
 def disburse(engine, org, run, approval):
-    with tenant_session(engine, "agent_pay", org.tenant_a) as conn:
+    with worker_session(engine, "direct-deposit-disburser", org.tenant_a) as conn:
         conn.execute(text("UPDATE payroll_run SET approval_request_id = :a, disbursed_at = now() "
                           "WHERE id = :r"), {"a": approval, "r": run})
 
@@ -104,7 +105,7 @@ def test_agents_cannot_resolve_gates(engine, org, run_id):
     with as_payroll(engine, org) as conn:
         req = request_approval(conn, "g_pay_disburse", "payroll_run", run_id)
     with pytest.raises(ProgrammingError, match="permission denied for function resolve_approval"):
-        with tenant_session(engine, "agent_pay", org.tenant_a) as conn:
+        with worker_session(engine, "direct-deposit-disburser", org.tenant_a) as conn:
             resolve(conn, req, "approved")
 
 
@@ -217,7 +218,7 @@ def enforce_mode(engine):
 
 
 def soft(engine, org, run, client):
-    with tenant_session(engine, "agent_pay", org.tenant_a) as conn:
+    with worker_session(engine, "payroll-anomaly-detector", org.tenant_a) as conn:
         return run_soft_gate(conn, PAYROLL_GATE, "payroll_run", run, client)
 
 
@@ -272,7 +273,7 @@ def test_restricted_columns_can_never_be_inputs(engine, org, run_id):
                    lambda c, s: {}, pass_if_normal)
     decider = FakeDecider()
     with pytest.raises(ForbiddenInput, match="restricted data never goes to a model"):
-        with tenant_session(engine, "agent_pay", org.tenant_a) as conn:
+        with worker_session(engine, "payroll-anomaly-detector", org.tenant_a) as conn:
             run_soft_gate(conn, bad, "payroll_run", run_id, decider)
     assert decider.calls == []
 
@@ -281,7 +282,7 @@ def test_inputs_above_gate_class_limit_rejected(engine, org):
     gate = SoftGate("sg_access_request_precheck", SCHEMA, ("payroll_run.gross_total",),
                     lambda c, s: {}, pass_if_normal)
     with pytest.raises(ForbiddenInput, match="above this gate's limit C1"):
-        with tenant_session(engine, "agent_it", org.tenant_a) as conn:
+        with worker_session(engine, "app-access-exception-flagger", org.tenant_a) as conn:
             run_soft_gate(conn, gate, "app_access_grant", uuid.uuid4(), FakeDecider())
 
 
@@ -289,12 +290,12 @@ def test_undeclared_state_fields_rejected(engine, org, run_id):
     leaky = SoftGate("sg_payroll_anomaly_precheck", SCHEMA, ("payroll_run.gross_total",),
                      lambda c, s: {"gross_total": 1, "employee_names": ["x"]}, pass_if_normal)
     with pytest.raises(ForbiddenInput, match="undeclared fields"):
-        with tenant_session(engine, "agent_pay", org.tenant_a) as conn:
+        with worker_session(engine, "payroll-anomaly-detector", org.tenant_a) as conn:
             run_soft_gate(conn, leaky, "payroll_run", run_id, FakeDecider())
 
 
 def test_database_forces_shadow_mode_to_escalate(engine, org, run_id):
-    with tenant_session(engine, "agent_pay", org.tenant_a) as conn:
+    with worker_session(engine, "payroll-anomaly-detector", org.tenant_a) as conn:
         eid = conn.execute(text(
             "SELECT app.record_gate_evaluation('sg_payroll_anomaly_precheck', 'payroll_run', :s, 'laya', "
             "NULL, 'x@1', 'h', ARRAY['payroll_run.gross_total'], NULL, 0.999, 'pass', 5, NULL)"),
@@ -333,7 +334,7 @@ def test_soft_gates_record_their_engine_and_checkpoint(engine):
 
 def test_evaluation_from_the_wrong_engine_is_refused(engine, org, run_id):
     with pytest.raises(DBAPIError, match="is decided by laya, not other"):
-        with tenant_session(engine, "agent_pay", org.tenant_a) as conn:
+        with worker_session(engine, "payroll-anomaly-detector", org.tenant_a) as conn:
             conn.execute(text(
                 "SELECT app.record_gate_evaluation('sg_payroll_anomaly_precheck', 'payroll_run', :s, 'other', "
                 "NULL, 'x@1', 'h', ARRAY['payroll_run.gross_total'], NULL, 0.9, 'pass', 5, NULL)"),

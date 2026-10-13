@@ -8,6 +8,7 @@ from datetime import date
 import pytest
 from sqlalchemy import text
 
+from daydor.agents.session import worker_session
 from daydor.db.session import tenant_session
 from daydor.exit.checklist import handle_termination_checklist_builder
 from daydor.exit.closeout import (handle_employee_record_writer_closeout, handle_rehire_eligibility_flagger,
@@ -61,7 +62,7 @@ def exit_org(engine):
               as_of_period="2026-06-30", accrued_amount="50000", gratuity_wage_base="50000")
         founder_user = insert(conn, "app_user", tenant_id=tenant, role="founder")
         hr_user = insert(conn, "app_user", tenant_id=tenant, role="hr")
-    with tenant_session(engine, "agent_time", tenant) as conn:
+    with worker_session(engine, "pto-accrual-calculator", tenant) as conn:
         accrue_leave(conn, employee_id=employee, leave_policy_id=leave_policy, as_of=date(2026, 6, 1))
     return {"tenant": tenant, "legal_entity": le, "department": dept, "location": loc,
            "job_profile": job_profile, "employee": employee, "identity_account": identity_account,
@@ -71,27 +72,27 @@ def exit_org(engine):
 
 def hr_worker(engine, wf, name="w-exit-hr"):
     w = Worker(engine, "hr", name)
-    w.register("legal_hold_checker", role="agent_hr", fn=handle_legal_hold_checker(wf))
-    w.register("termination_checklist_builder", role="agent_hr", fn=handle_termination_checklist_builder(wf))
-    w.register("cobra_trigger_detector", role="agent_hr", fn=handle_cobra_trigger_detector(wf))
-    w.register("vesting_schedule_tracker", role="agent_hr", fn=handle_vesting_schedule_tracker(wf))
-    w.register("rehire_eligibility_flagger", role="agent_hr", fn=handle_rehire_eligibility_flagger(wf))
-    w.register("employee_record_writer_closeout", role="agent_hr", fn=handle_employee_record_writer_closeout(wf))
+    w.register("legal_hold_checker", worker="root-orchestrator", fn=handle_legal_hold_checker(wf))
+    w.register("termination_checklist_builder", worker="termination-checklist-builder", fn=handle_termination_checklist_builder(wf))
+    w.register("cobra_trigger_detector", worker="cobra-trigger-detector", fn=handle_cobra_trigger_detector(wf))
+    w.register("vesting_schedule_tracker", worker="vesting-schedule-tracker", fn=handle_vesting_schedule_tracker(wf))
+    w.register("rehire_eligibility_flagger", worker="rehire-eligibility-flagger", fn=handle_rehire_eligibility_flagger(wf))
+    w.register("employee_record_writer_closeout", worker="employee-record-writer", fn=handle_employee_record_writer_closeout(wf))
     return w
 
 
 def it_worker(engine, wf, name="w-exit-it"):
     w = Worker(engine, "it", name)
-    w.register("deprovisioning_agent", role="agent_it", fn=handle_deprovisioning_agent(wf))
-    w.register("equipment_return_tracker", role="agent_it", fn=handle_equipment_return_tracker(wf))
+    w.register("deprovisioning_agent", worker="deprovisioning-agent", fn=handle_deprovisioning_agent(wf))
+    w.register("equipment_return_tracker", worker="equipment-return-tracker", fn=handle_equipment_return_tracker(wf))
     return w
 
 
 def pay_worker(engine, wf, name="w-exit-pay"):
     w = Worker(engine, "pay", name)
-    w.register("final_pay_calculator", role="agent_pay", fn=handle_final_pay_calculator(wf))
-    w.register("final_settlement_opener", role="agent_pay", fn=handle_final_settlement_opener(wf))
-    w.register("direct_deposit_disburser", role="agent_pay", fn=handle_direct_deposit_disburser(wf))
+    w.register("final_pay_calculator", worker="final-pay-calculator", fn=handle_final_pay_calculator(wf))
+    w.register("final_settlement_opener", worker="final-pay-calculator", fn=handle_final_settlement_opener(wf))
+    w.register("direct_deposit_disburser", worker="direct-deposit-disburser", fn=handle_direct_deposit_disburser(wf))
     return w
 
 

@@ -90,6 +90,9 @@ AGGREGATE_ONLY = frozenset({"self_identification"})
 # Model tables every worker needs through the platform group: the engine opens approvals when a
 # gated transition fires, inside whichever worker's job is running. Insert and read, never update.
 PLATFORM_TABLES = ("approval_request",)
+# The model names "every worker (insert only)" as the writer of these, so every worker may insert and none may
+# read or change them (the table is append-only).
+PLATFORM_INSERT_ONLY = ("audit_log",)
 
 
 def role_name(worker: str) -> str:
@@ -321,6 +324,9 @@ def generate_roles_sql() -> str:
         sel, ins = _columns(t, READ), _columns(t, WRITE, write=True)
         L.append(f"GRANT SELECT ({', '.join(sel)}) ON public.{q(tid)} TO {PLATFORM_GROUP};")
         L.append(f"GRANT INSERT ({', '.join(ins)}) ON public.{q(tid)} TO {PLATFORM_GROUP};")
+    for tid in PLATFORM_INSERT_ONLY:
+        ins = _columns(model.table(tid), WRITE, write=True)
+        L.append(f"GRANT INSERT ({', '.join(ins)}) ON public.{q(tid)} TO {PLATFORM_GROUP};")
     L.append("")
     for x in recs:
         role = role_name(x["worker"])
@@ -362,6 +368,11 @@ def generate_defaults_sql() -> str:
         L.append("UPDATE app.worker_definition SET enabled = false WHERE worker IN ("
                  + ", ".join(_lit(w) for w in off) + ");")
         L.append("")
+    L.append("-- Insert-only platform tables (the model's \"every worker (insert only)\"): safe to replay.")
+    for tid in PLATFORM_INSERT_ONLY:
+        ins = _columns(model.table(tid), WRITE, write=True)
+        L.append(f"GRANT INSERT ({', '.join(ins)}) ON public.{q(tid)} TO {PLATFORM_GROUP};")
+    L.append("")
     L.append("-- Guarded columns: only the named owners hold them.")
     for (tid, col), owners in sorted(GUARD_OWNERS.items()):
         t = model.table(tid)

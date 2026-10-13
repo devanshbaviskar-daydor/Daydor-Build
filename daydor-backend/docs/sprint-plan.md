@@ -394,7 +394,7 @@ tracker`) — treat an employee with no equity as a normal case, not a bug.
 
 Built from `docs/claude-code-kickoff.md` after the Phase 0 reconciliation (`docs/worker-roles-reconciliation.md`)
 and the reviewed scope additions (`docs/registry-scope-proposal.md`). 276 tests pass, also with
-`DAYDOR_TEST_ROLES=worker` (queue handlers on worker roles).
+a test-only switch that ran queue handlers on worker roles (since removed: every test now uses worker roles).
 
 - `registry/worker_classification.json` gained a reviewed `extra_scope` per worker, plus
   `registry/platform_actors.json` (workflow-engine, root-orchestrator); `daydor.agents.registry` merges and validates.
@@ -402,8 +402,8 @@ and the reviewed scope additions (`docs/registry-scope-proposal.md`). 276 tests 
   `0027` `worker_platform`, worker-aware role functions and the PII role-check fix (finding 24), `0028` one NOLOGIN
   role per worker with derived column grants and the PII registry seeds, `0029` exit workflow version 3 (inactive).
 - `daydor.agents.roles` (generator and rules), `daydor.agents.session.worker_session`, `Worker.register(worker=...)`.
-- **Postponed:** removing `agent_<domain>` roles (step 6), because the frontend API still runs on them.
-  **Staged:** exit workflow version 3 needs the API to register three new handler kinds before it is activated.
+- **Follow-up done the same day (API move):** the API's worker process and 18 router actions run on worker roles, exit workflow
+  version 3 is active (`0033`), and the `agent_<domain>` roles are dropped (`0034`) after every backend test moved off them.
 
 ---
 

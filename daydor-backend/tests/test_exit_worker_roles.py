@@ -78,7 +78,7 @@ def _workers(engine, wf):
 def test_exit_flow_v3_runs_end_to_end_with_every_step_on_its_own_worker_role(engine, exit_org, wf):
     tenant, employee = exit_org["tenant"], exit_org["employee"]
     founder_user, hr_user = exit_org["founder_user"], exit_org["hr_user"]
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "exit-intake", tenant) as conn:
         instance_id = start_exit(conn, wf, employee_id=employee, termination_type="voluntary",
                                  reason_code="resignation", notice_date=date(2026, 6, 1),
                                  last_working_day=date(2026, 6, 30), initiated_by_user_id=hr_user)
@@ -129,13 +129,13 @@ def test_the_old_combined_closeout_cannot_run_under_one_worker_role(engine, exit
     """Why the split exists: employee_closeout needs termination, employee and vesting access at once."""
     from daydor.exit.closeout import handle_employee_closeout
     tenant = exit_org["tenant"]
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "exit-intake", tenant) as conn:
         instance_id = start_exit(conn, wf, employee_id=exit_org["employee"], termination_type="voluntary",
                                  reason_code="resignation", notice_date=date(2026, 6, 1),
                                  last_working_day=date(2026, 6, 30), initiated_by_user_id=exit_org["hr_user"])
     w = Worker(engine, "hr", "w-old")
     w.register("employee_closeout", worker="employee-record-writer", fn=handle_employee_closeout(wf))
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "workflow-engine", tenant) as conn:
         from daydor.queue import enqueue
         jid = enqueue(conn, "hr", "employee_closeout", {
             "workflow_instance_id": str(instance_id),

@@ -6,6 +6,9 @@ SET ROLE daydor_schema_owner;
 -- Irreversible external effect, no hard gate, no flow yet: disabled until reviewed (ADR-006).
 UPDATE app.worker_definition SET enabled = false WHERE worker IN ('device-purchase-initiator', 'in-country-tax-remitter');
 
+-- Insert-only platform tables (the model's "every worker (insert only)"): safe to replay.
+GRANT INSERT (actor_user_id, actor_kind, agent_task_run_id, event_type, subject_table, subject_id, before_value, after_value, occurred_at) ON public.audit_log TO worker_platform;
+
 -- Guarded columns: only the named owners hold them.
 GRANT INSERT (notice_sent_at) ON public.cobra_event TO worker_cobra_notice_generator;
 GRANT UPDATE (notice_sent_at) ON public.cobra_event TO worker_cobra_notice_generator;

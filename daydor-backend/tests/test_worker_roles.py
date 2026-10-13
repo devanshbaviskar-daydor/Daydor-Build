@@ -257,7 +257,10 @@ def test_column_grants_match_registry_and_model(engine, org):
                 for p, ok in (("SELECT", c.level("G") >= READ),
                               ("INSERT", c.level("G") >= WRITE and c.name not in SYSTEM_MANAGED and not c.derived))
                 if ok}
-    expected = _expected_worker_privileges() | platform
+    audit = {(t, c.name, "worker_platform", "INSERT") for t in W.PLATFORM_INSERT_ONLY
+             for c in load_model().table(t).columns
+             if not c.encrypted and c.level("G") >= WRITE and c.name not in SYSTEM_MANAGED and not c.derived}
+    expected = _expected_worker_privileges() | platform | audit
     actual = {p for p in _actual_column_privileges(engine) if p[2].startswith("worker_")}
     assert not expected - actual, f"{len(expected - actual)} missing, e.g. {sorted(expected - actual)[:5]}"
     assert not actual - expected, f"{len(actual - expected)} unexpected, e.g. {sorted(actual - expected)[:5]}"
@@ -368,7 +371,7 @@ def test_a_worker_still_sees_only_its_tenant(engine, org):
 
 
 def _enqueue_for(engine, tenant, queue, kind):
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "workflow-engine", tenant) as conn:
         return enqueue(conn, queue, kind)
 
 
@@ -389,7 +392,7 @@ def test_register_needs_exactly_one_of_role_or_worker(engine):
     with pytest.raises(TypeError):
         w.register("k", fn=lambda c, j: None)
     with pytest.raises(TypeError):
-        w.register("k", role="agent_hr", worker="gl-poster", fn=lambda c, j: None)
+        w.register("k", role="tenant_hr", worker="gl-poster", fn=lambda c, j: None)
     with pytest.raises(KeyError):
         w.register("k", worker="no-such-worker", fn=lambda c, j: None)
 
@@ -467,12 +470,10 @@ def test_the_disburser_still_needs_an_approved_gate(engine, seeded_run):
 
 
 # ---------------------------------------------------------------- the PII role-check fix (0027, 0028)
-def test_agent_and_worker_roles_can_now_collect_and_decrypt_pii(engine, org):
+def test_worker_roles_can_collect_and_decrypt_pii(engine, org):
     """Regression: app.current_app_role() is 'agent_runtime' for every agent, so the registries naming
-    agent_hr / agent_pay never matched. They match the real role name now."""
+    agent_hr / agent_pay never matched. Worker roles are matched by their real role name."""
     _grant_consent(engine, org.tenant_a, org.emp["deep_report"], "pan")
-    with tenant_session(engine, "agent_hr", org.tenant_a) as conn:
-        encrypt_pii(conn, "employee", "pan_encrypted", org.emp["deep_report"], "ABCDE1234F")
     with worker_session(engine, "employee-record-writer", org.tenant_a) as conn:
         encrypt_pii(conn, "employee", "pan_encrypted", org.emp["deep_report"], "ABCDE1234G")
         assert decrypt_pii(conn, "employee", "pan_encrypted", org.emp["deep_report"],
@@ -556,3 +557,51 @@ def test_unbuilt_irreversible_workers_start_disabled_and_fail_closed(engine, org
             pass
     with worker_session(engine, "gl-poster", org.tenant_a):      # an enabled worker is unaffected
         pass
+
+
+# ---------------------------------------------------------------- the domain roles are gone (0034)
+DOMAIN_ROLES = ("ro", "priv", "ref", "hr", "ta", "ob", "it", "pay", "ben", "time", "comp", "perf", "learn", "fin", "er")
+
+
+def test_the_agent_domain_roles_are_dropped_and_agent_runtime_is_inert(engine, org):
+    with engine.connect() as conn:
+        left = conn.execute(text("SELECT rolname FROM pg_roles WHERE rolname = ANY(:r)"),
+                            {"r": [f"agent_{d}" for d in DOMAIN_ROLES]}).scalars().all()
+        members = conn.execute(text("""SELECT m.rolname FROM pg_auth_members am JOIN pg_roles g ON g.oid = am.roleid
+                                       JOIN pg_roles m ON m.oid = am.member WHERE g.rolname = 'agent_runtime'""")).all()
+    assert left == [] and members == []
+
+
+def test_sessions_refuse_the_dropped_domain_roles():
+    from daydor.db.session import APP_ROLES
+    assert not [r for r in APP_ROLES if r.startswith("agent_")]
+    for d in DOMAIN_ROLES:
+        with pytest.raises(ValueError, match="unknown role"):
+            SessionContext(f"agent_{d}")
+
+
+def test_pii_registries_name_no_agent_roles(engine, org):
+    with engine.connect() as conn:
+        roles = conn.execute(text("""SELECT unnest(collect_roles) FROM app.pii_column
+                                     UNION ALL SELECT unnest(allowed_roles) FROM app.pii_purpose""")).scalars().all()
+    assert roles and not [r for r in roles if r.startswith("agent_")]
+    assert "worker_employee_record_writer" in roles and "tenant_hr" in roles
+
+
+def test_dropping_the_roles_is_refused_while_a_version_2_exit_is_running(engine, org):
+    """The migration's own guard, run against a real in-flight version 2 instance (rolled back after)."""
+    sql = (W.SQL_DIR / "0034_drop_agent_domain_roles.sql").read_text()
+    conn = engine.raw_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT set_config('app.tenant_id', %s, true)", (str(org.tenant_a),))
+        cur.execute("SET LOCAL ROLE daydor_schema_owner")
+        cur.execute("INSERT INTO app.workflow_instance (tenant_id, definition_name, definition_version, subject_table, "
+                    "subject_id, state, status) VALUES (%s, 'exit', 2, 'termination', gen_random_uuid(), "
+                    "'s10_closeout', 'running')", (str(org.tenant_a),))
+        cur.execute("RESET ROLE")
+        with pytest.raises(Exception, match="still running"):
+            cur.execute(sql)
+    finally:
+        conn.rollback()
+        conn.close()

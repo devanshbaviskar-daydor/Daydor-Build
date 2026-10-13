@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import text
 
+from daydor.agents.session import worker_session
 from daydor.db.session import tenant_session
 from daydor.gates.hard import resolve
 from daydor.queue import Worker
@@ -52,7 +53,7 @@ def run(engine, org):
 
 
 def agent(engine, org):
-    return tenant_session(engine, "agent_pay", org.tenant_a)
+    return worker_session(engine, "payroll-anomaly-detector", org.tenant_a)
 
 
 def founder(engine, org):
@@ -66,7 +67,7 @@ def instance(engine, org, wid):
 
 def drain_workflow_queue(engine, wf=None):
     w = Worker(engine, "workflow", "wf-1")
-    w.register("workflow.gate_resolved", "agent_ro", gate_resolved_handler(wf or WorkflowEngine()))
+    w.register("workflow.gate_resolved", worker="workflow-engine", fn=gate_resolved_handler(wf or WorkflowEngine()))
     return w.tick()
 
 
@@ -219,7 +220,7 @@ def test_instances_are_tenant_isolated(engine, org, run):
     wf = WorkflowEngine()
     with agent(engine, org) as conn:
         wid = wf.start(conn, "demo", "payroll_run", run)
-    with tenant_session(engine, "agent_pay", org.tenant_b) as conn:
+    with worker_session(engine, "payroll-anomaly-detector", org.tenant_b) as conn:
         assert conn.execute(text("SELECT count(*) FROM app.workflow_instance WHERE id = :i"),
                             {"i": wid}).scalar_one() == 0
 
@@ -237,7 +238,7 @@ def test_end_to_end_generated_payroll_flow(engine, org, run):
 
     # The disburser cannot jump ahead of the gate.
     with pytest.raises(Exception, match="needs an approved g_pay_disburse"):
-        with agent(engine, org) as conn:
+        with worker_session(engine, "direct-deposit-disburser", org.tenant_a) as conn:
             conn.execute(text("UPDATE payroll_run SET approval_request_id = :a, disbursed_at = now() "
                               "WHERE id = :r"), {"a": r.approval_request_id, "r": run})
 
@@ -246,7 +247,7 @@ def test_end_to_end_generated_payroll_flow(engine, org, run):
     drain_workflow_queue(engine)
     assert instance(engine, org, wid).state == "s10_approval_request"
 
-    with agent(engine, org) as conn:
+    with worker_session(engine, "direct-deposit-disburser", org.tenant_a) as conn:
         conn.execute(text("UPDATE payroll_run SET approval_request_id = :a, disbursed_at = now() "
                           "WHERE id = :r"), {"a": r.approval_request_id, "r": run})
     with engine.connect() as conn:

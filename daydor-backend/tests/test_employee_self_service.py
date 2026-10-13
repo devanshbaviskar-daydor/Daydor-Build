@@ -10,6 +10,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
 
+from daydor.agents.session import worker_session
 from daydor.db.session import tenant_session
 from daydor.model import load_model
 from daydor.model.loader import ROLE_DB, WRITE
@@ -67,7 +68,7 @@ def test_hr_and_agents_can_still_edit_hr_owned_columns(engine, org):
     with tenant_session(engine, "tenant_hr", org.tenant_a) as conn:
         assert conn.execute(text("UPDATE employee SET employment_type = employment_type WHERE id = :e"),
                             {"e": org.emp["peer"]}).rowcount == 1
-    with tenant_session(engine, "agent_hr", org.tenant_a) as conn:
+    with worker_session(engine, "employee-record-writer", org.tenant_a) as conn:
         assert conn.execute(text("UPDATE employee SET is_active = is_active WHERE id = :e"),
                             {"e": org.emp["peer"]}).rowcount == 1
 

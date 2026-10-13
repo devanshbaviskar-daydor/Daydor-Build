@@ -112,6 +112,7 @@ SET ROLE daydor_schema_owner;
 -- worker_platform: approvals can be opened by the engine inside any worker's job
 GRANT SELECT (id, tenant_id, gate_type, subject_table, subject_id, required_approver_role, status, resolved_by_user_id, resolved_at, escalated_at, deadline_at, idempotency_key, requested_by_user_id, requested_by_agent_run_id, decision_note, created_at, updated_at) ON public.approval_request TO worker_platform;
 GRANT INSERT (gate_type, subject_table, subject_id, required_approver_role, status, resolved_by_user_id, resolved_at, escalated_at, deadline_at, idempotency_key, requested_by_user_id, requested_by_agent_run_id, decision_note) ON public.approval_request TO worker_platform;
+GRANT INSERT (actor_user_id, actor_kind, agent_task_run_id, event_type, subject_table, subject_id, before_value, after_value, occurred_at) ON public.audit_log TO worker_platform;
 
 -- 409a-trigger-monitor (monitor, default autonomy auto)
 GRANT SELECT (id, tenant_id, employee_id, grant_type, shares, strike_price, grant_date, valuation_409a_id, board_approved_at, approval_request_id, created_at, updated_at) ON public.equity_grant TO worker_409a_trigger_monitor;

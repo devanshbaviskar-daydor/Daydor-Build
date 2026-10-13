@@ -12,6 +12,7 @@ from decimal import Decimal
 
 import pytest
 
+from daydor.agents.session import worker_session
 from daydor.db.session import tenant_session
 from daydor.payroll.compute import compute_gross_to_net
 from daydor.payroll.garnishment import compute_garnishments
@@ -65,7 +66,7 @@ def test_india_gross_to_net_uses_real_slab_and_rate_rows(engine, payroll_tenant)
         insert(conn, "statutory_rate_rule", scheme="tds", jurisdiction_code="IN",
               effective_from="2026-01-01", employee_rate="0.10", employer_rate="0")
 
-    with tenant_session(engine, "agent_pay", tenant) as conn:
+    with worker_session(engine, "payroll-run-builder", tenant) as conn:
         result = compute_gross_to_net(conn, employee_id=employee_id, as_of=date(2026, 3, 1))
 
     assert result.gross == Decimal("100000.00")
@@ -89,7 +90,7 @@ def test_us_gross_to_net_uses_real_rate_rows(engine, payroll_tenant):
         insert(conn, "statutory_rate_rule", scheme="state_wh", jurisdiction_code=f"US-{state_code}",
               effective_from="2026-01-01", employee_rate="0.05", employer_rate="0")
 
-    with tenant_session(engine, "agent_pay", tenant) as conn:
+    with worker_session(engine, "payroll-run-builder", tenant) as conn:
         result = compute_gross_to_net(conn, employee_id=employee_id, as_of=date(2026, 3, 1))
 
     assert result.gross == Decimal("10000.00")
@@ -113,7 +114,7 @@ def test_withholding_is_effective_dated(engine, payroll_tenant):
         insert(conn, "statutory_rate_rule", scheme="fed_wh", jurisdiction_code="US",
               effective_from="2026-01-01", employee_rate="0.12", employer_rate="0")
 
-    with tenant_session(engine, "agent_pay", tenant) as conn:
+    with worker_session(engine, "payroll-run-builder", tenant) as conn:
         old = compute_withholding(conn, employee_id=employee_id, gross=Decimal("10000"),
                                   as_of=date(2024, 6, 1))
         new = compute_withholding(conn, employee_id=employee_id, gross=Decimal("10000"),
@@ -125,7 +126,7 @@ def test_withholding_is_effective_dated(engine, payroll_tenant):
 def test_unsupported_jurisdiction_raises_rather_than_silently_skipping(engine, payroll_tenant):
     employee_id = _make_employee(engine, payroll_tenant, country_code="FR", state_code="IDF",
                                  ctc_annual=Decimal("60000"))
-    with tenant_session(engine, "agent_pay", payroll_tenant["tenant"]) as conn:
+    with worker_session(engine, "payroll-run-builder", payroll_tenant["tenant"]) as conn:
         with pytest.raises(UnsupportedJurisdiction):
             compute_withholding(conn, employee_id=employee_id, gross=Decimal("5000"), as_of=date(2026, 3, 1))
 
@@ -142,7 +143,7 @@ def test_garnishments_apply_in_priority_order_and_never_exceed_base(engine, payr
                        issuing_authority="Court B", order_type="percentage", amount_or_pct="0.50",
                        priority=2, effective_from="2026-01-01")
 
-    with tenant_session(engine, "agent_pay", tenant) as conn:
+    with worker_session(engine, "payroll-run-builder", tenant) as conn:
         lines = compute_garnishments(conn, employee_id=employee_id, base=Decimal("4000"),
                                      as_of=date(2026, 3, 1))
 
