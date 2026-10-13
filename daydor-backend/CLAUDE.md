@@ -20,8 +20,7 @@ Context for Claude Code. Read `docs/backend-plan.md`, `docs/model-findings.md` a
    - Workflows: `python -m daydor.workflow.definitions`
 2. **Migrations are forward-only.** Never edit an applied migration; add a new one (see 0008).
 3. **Hard human gates stay human.** Agents must never be able to resolve an approval. The soft-gate
-   engine (Laya, behind `DeciderClient`; ADR-005. Today the code still has the Jev stub) runs only on soft
-   gates, fails closed, starts in shadow mode, cannot enforce without a fitted calibration, and never
+   engine (Laya, behind `DeciderClient`; ADR-005) runs only on soft gates, fails closed, starts in shadow mode, cannot enforce without a fitted calibration, and never
    receives C3/C4 or encrypted columns.
 4. **Enforce in the database.** Tenant isolation, column access, maker-checker and guarded writes live in
    Postgres. Application checks are extra, never the only check.
@@ -40,7 +39,7 @@ Context for Claude Code. Read `docs/backend-plan.md`, `docs/model-findings.md` a
 ## Where things are
 - Session context: `src/daydor/db/session.py` (`tenant_session`)
 - Queue / outbox / timers: `src/daydor/queue/`, SQL in `migrations/sql/0005_queue.sql`
-- Gates: `src/daydor/gates/` (hard, soft, decider client: currently `jev.py`, to become `DeciderClient`/`LayaClient` per ADR-005), SQL in `0006_gates.sql`
+- Gates: `src/daydor/gates/` (hard, soft, `decider.py`: `DeciderClient` and `LayaClient`; see `docs/laya-runbook.md`), SQL in `0006_gates.sql`
 - Privacy: `src/daydor/privacy/pii.py` (`encrypt_pii`/`decrypt_pii`), SQL in `0011_privacy.sql`
 - Hire flow (complete, steps 1-18; step 19/payslip is out of scope, see finding 15):
   `src/daydor/hire/` (`employee_record.py`, `requisition.py`, `approvals.py`, `posting.py`,

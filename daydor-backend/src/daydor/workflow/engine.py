@@ -1,6 +1,6 @@
 """State-machine runner over app.workflow_definition / app.workflow_instance.
 
-    engine = WorkflowEngine(soft_gates={...}, jev=client)
+    engine = WorkflowEngine(soft_gates={...}, decider=client)
     wid = engine.start(conn, "hire", "job_requisition", req_id, {"requires_g_offer_band": False})
     engine.fire(conn, wid, "advance", event_id="evt-123")
 
@@ -27,8 +27,8 @@ from uuid import UUID
 
 from sqlalchemy import Connection, text
 
+from daydor.gates.decider import DeciderClient
 from daydor.gates.hard import request_approval
-from daydor.gates.jev import JevClient
 from daydor.gates.soft import SoftGate, run_soft_gate
 from daydor.queue import enqueue
 
@@ -51,9 +51,9 @@ class TransitionResult:
 
 
 class WorkflowEngine:
-    def __init__(self, soft_gates: dict[str, SoftGate] | None = None, jev: JevClient | None = None) -> None:
+    def __init__(self, soft_gates: dict[str, SoftGate] | None = None, decider: DeciderClient | None = None) -> None:
         self.soft_gates = soft_gates or {}
-        self.jev = jev
+        self.decider = decider
 
     # ------------------------------------------------------------------ helpers
     @staticmethod
@@ -155,10 +155,10 @@ class WorkflowEngine:
             gate = None   # conditional gate not required for this instance
         if transition.get("soft_gate"):
             sg = self.soft_gates.get(transition["soft_gate"])
-            if sg is None or self.jev is None:
+            if sg is None or self.decider is None:
                 raise WorkflowError(f"soft gate {transition['soft_gate']} is not configured")
-            outcome = run_soft_gate(conn, sg, inst.subject_table, inst.subject_id, self.jev)
-            approval_id = outcome.approval_request_id     # None when Jev passed
+            outcome = run_soft_gate(conn, sg, inst.subject_table, inst.subject_id, self.decider)
+            approval_id = outcome.approval_request_id     # None when the soft gate passed
         elif gate:
             approval_id = request_approval(conn, gate, inst.subject_table, inst.subject_id,
                                            idempotency_key=f"wf:{inst.id}:{inst.state}:{event}:{gate}")

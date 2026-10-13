@@ -479,8 +479,8 @@ and the reviewed scope additions (`docs/registry-scope-proposal.md`). 276 tests 
 - Shadow-mode comparison report: for every soft gate run in shadow mode so far (`g_aedt`,
   `g_pay_anomaly`), compare `app.gate_evaluation.model_decision` against the human's actual
   decision, so there is real data for Laya calibration (ADR-005)
-- **Laya adoption (ADR-005), unscheduled:** `DeciderClient`/`LayaClient`, a `calibration_version` migration
-  (0025+), pinned/vendored checkpoint and smoke test, labelled-example store, calibration pipeline
+- **Laya adoption (ADR-005):** `DeciderClient`/`LayaClient` and the `calibration_version` migration are done (0030, Oct 13);
+  still to do: pinned/vendored checkpoint and smoke test, labelled-example store, calibration pipeline
 - **Model artifact sync:** push every local deviation back into `model/source_artifact.html` and
   re-export, in one pass, now that they've all stabilized: finding 1's `approval_request` columns,
   finding 10's nullable PII columns, Sprint 6's `g_timecard`/`g_expense` gates, and whatever Sprint

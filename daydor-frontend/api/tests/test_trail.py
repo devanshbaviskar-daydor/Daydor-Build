@@ -94,7 +94,7 @@ def test_precheck_results_are_recorded_by_agents_and_shown_to_the_five_roles(cli
     with engine.begin() as conn:
         tenant = conn.execute(text("SELECT id FROM tenant WHERE legal_name = 'Acme Technologies'")).scalar_one()
     with tenant_session(engine, "agent_pay", tenant) as conn:
-        conn.execute(text("SELECT app.record_gate_evaluation('sg_payroll_anomaly_precheck', 'payroll_run', :s, 'jev', "
+        conn.execute(text("SELECT app.record_gate_evaluation('sg_payroll_anomaly_precheck', 'payroll_run', :s, 'laya', "
                           "'0.1', '1', 'hash', ARRAY['gross_total'], CAST('{}' AS jsonb), 0.42, 'escalate', 12, NULL, NULL)"),
                      {"s": subject})
     got = client.get("/api/evaluations", headers=people["payroll"], params={"subject_id": str(subject)}).json()["evaluations"]

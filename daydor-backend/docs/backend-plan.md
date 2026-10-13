@@ -27,7 +27,7 @@ the 82-table model in `model/daydor_model.json`. Sprint-by-sprint plan and statu
 | 3 | Queue and timers | Postgres: `FOR UPDATE SKIP LOCKED` leases, retries with backoff, dead-letter (ADR-001) |
 | 4 | State machines | Definitions and transitions stored as data, guarded by gates |
 | 5 | Gate service | Registry of the 20 hard gates, `approval_request` as the record, DB-enforced maker-checker |
-| 6 | Soft gates (Laya, ADR-005) | `DeciderClient` interface, typed questions, thresholds on `answer_confidence` only, calibration required to enforce, `gate_evaluation` log, shadow mode first, fail closed. Code still has the Jev stub |
+| 6 | Soft gates (Laya, ADR-005) | `DeciderClient` interface, typed questions, thresholds on `answer_confidence` only, calibration required to enforce (`0030`), `gate_evaluation` log, shadow mode first, fail closed. Built; `LayaClient` not yet run against a real checkpoint (`docs/laya-runbook.md`) |
 | 7 | Privacy | `app.decrypt_pii(column, purpose)` checks consent and writes `audit_log`; per-tenant keys. Role checks use `app.current_actor_role()` (finding 24) |
 | 8 | Jurisdiction packs | Effective-dated `statutory_rate_rule` / `pt_slab_rule`; deterministic payroll code |
 | 8b | Worker registry and roles | 89 workers + 2 platform actors in `app.worker_definition`; per-tenant `worker_tenant_policy` (a tenant may only lower autonomy); one `worker_<name>` role per worker with derived column grants; `worker_platform` group; fail-closed `app.assert_worker_enabled` (ADR-004, `0025`-`0029`) |
@@ -70,7 +70,7 @@ human-only service): `job_profile`, `comp_band`, `skill`, `benefit_plan`, `leave
 | 12. Payroll flow, Sprint 9 of docs/sprint-plan.md (complete) | Done: `tax-filing-submitter` files one `filing_record` per statutory scheme (IN/US packs), idempotent, raises on an unregistered jurisdiction; `gl-poster` posts one summary `gl_journal_entry` per run, gated by `g_close` with the same create-then-gate shape as `g_pay_disburse` (`src/daydor/payroll/tax_filing.py`, `gl_posting.py`, `src/daydor/adapters/tax_filing.py`, `gl.py`). **Payroll flow is complete end to end**: accrue/punch/elect → compute → build run → anomaly screen → founder-approve → disburse → issue payslips → file → post to GL. |
 | 13. Exit flow, Sprints 10-11 of docs/sprint-plan.md (complete) | Done: termination intake (HR admin), legal-hold check (`g_legalhold`, blocks IT deprovisioning while a hold is active), termination checklist, identity deprovisioning + access revocation (`g_it_deprov`), device return, final settlement calculation (`g_finalpay`) + creation + disbursal (`g_pay_disburse`, reusing Sprint 8's pattern), COBRA (`g_cobra`, US only), close-out (`src/daydor/exit/`, `0022_exit_gate_guards.sql`, `0023_exit_workflow.sql`). Driven by `WorkflowEngine` like the hire flow (long-lived, multi-week journey), with `g_it_deprov`/`g_pay_disburse`/`g_cobra` as direct guarded-column calls rather than engine-level gates -- see `daydor.exit.workflow`'s module docstring. Fixed finding 20 (`final_settlement`'s NOT NULL/derived-column gap, same shape as finding 19). **Exit flow is complete end to end.** |
 
-## Soft gates with Laya (ADR-005, decided Oct 12 2026, not yet built)
+## Soft gates with Laya (ADR-005, decided Oct 12 2026; interface and database rules built Oct 13)
 
 Laya (Convai Innovations, Apache-2.0, `pip install laya`) is a bidirectional encoder (ModernBERT-large 421M or
 mmBERT-base 322M) plus a decision head. It reads a state and typed questions and returns typed answers with
@@ -156,9 +156,9 @@ Miscellaneous items below aren't yet scheduled to a specific sprint:
 2. ~~Finding 2~~ closed in Sprint 12a (`grant_caps`, `0024`); finding 23 (the same over-grant on other tables' workflow-owned columns) closed in Sprint 12b. **Finding 9** (manager-approval gates,
    partly resolved for timecards in sprint-plan.md Sprint 6; `g_expense` still open) — both in
    Sprint 12.
-3. **Replace Jev with Laya** (ADR-005; see "Soft gates with Laya" below): `DeciderClient` + `LayaClient`,
-   a forward-only migration (0025+) for `calibration_version`, then a smoke test against a pinned real
-   checkpoint. Until then soft gates stay in shadow mode (Sprint 13 builds the shadow-vs-human report).
+3. **Laya**: interface, runner and `calibration_version` migration are done (0030). Remaining: the smoke test against a
+   pinned real checkpoint (`docs/laya-runbook.md`), then the labelled-example store, calibration and the
+   shadow-vs-human report (Sprint 13).
 4. **Enum value lists** in the model, then generated CHECK constraints (finding 5) — Sprint 12.
 5. **Ops tenant assignment** (finding 6) and k ≥ 5 aggregate views starting with EEO-1
    (finding 7) — Sprint 13.

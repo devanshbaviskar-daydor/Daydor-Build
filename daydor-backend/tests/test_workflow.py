@@ -15,7 +15,7 @@ from daydor.workflow import WorkflowEngine, WorkflowError
 from daydor.workflow.definitions import seed_sql
 from daydor.workflow.engine import ConcurrentTransition, gate_resolved_handler
 from tests.factories import insert
-from tests.test_gates import FakeJev, PAYROLL_GATE
+from tests.test_gates import FakeDecider, PAYROLL_GATE
 
 SQL = Path(__file__).resolve().parents[1] / "migrations" / "sql"
 
@@ -187,16 +187,16 @@ def test_concurrent_transitions_one_wins(engine, org, run):
 @pytest.fixture
 def enforce_payroll_soft_gate(engine):
     with engine.begin() as conn:
-        conn.execute(text("UPDATE app.gate_definition SET mode = 'enforce' "
-                          "WHERE gate_id = 'sg_payroll_anomaly_precheck'"))
+        conn.execute(text("UPDATE app.gate_definition SET mode = 'enforce', "
+                          "calibration_version = 'test-cal-1' WHERE gate_id = 'sg_payroll_anomaly_precheck'"))
     yield
     with engine.begin() as conn:
-        conn.execute(text("UPDATE app.gate_definition SET mode = 'shadow' "
-                          "WHERE gate_id = 'sg_payroll_anomaly_precheck'"))
+        conn.execute(text("UPDATE app.gate_definition SET mode = 'shadow', "
+                          "calibration_version = NULL WHERE gate_id = 'sg_payroll_anomaly_precheck'"))
 
 
 def test_soft_gate_pass_moves_without_human(engine, org, run, enforce_payroll_soft_gate):
-    wf = WorkflowEngine({"sg_payroll_anomaly_precheck": PAYROLL_GATE}, FakeJev("normal", 0.98))
+    wf = WorkflowEngine({"sg_payroll_anomaly_precheck": PAYROLL_GATE}, FakeDecider("normal", 0.98))
     with agent(engine, org) as conn:
         wid = wf.start(conn, "demo", "payroll_run", run)
         r = wf.fire(conn, wid, "precheck")
@@ -204,7 +204,7 @@ def test_soft_gate_pass_moves_without_human(engine, org, run, enforce_payroll_so
 
 
 def test_soft_gate_shadow_mode_waits_for_human(engine, org, run):
-    wf = WorkflowEngine({"sg_payroll_anomaly_precheck": PAYROLL_GATE}, FakeJev("normal", 0.99))
+    wf = WorkflowEngine({"sg_payroll_anomaly_precheck": PAYROLL_GATE}, FakeDecider("normal", 0.99))
     with agent(engine, org) as conn:
         wid = wf.start(conn, "demo", "payroll_run", run)
         r = wf.fire(conn, wid, "precheck")

@@ -28,7 +28,7 @@ class SoftGateDef:
     label: str
     escalate_to: str
     tables: tuple[str, ...]
-    max_input_class: str          # highest column class Jev may see: S, C0, C1 or C2
+    max_input_class: str          # highest column class a model may see: S, C0, C1 or C2
     auto_pass_threshold: float
     mode: str = "shadow"          # every soft gate starts in shadow mode
 

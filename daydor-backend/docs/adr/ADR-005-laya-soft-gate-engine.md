@@ -1,8 +1,8 @@
 # ADR-005: Laya as the soft-gate engine
 
 Status: accepted, Oct 12 2026. Supersedes the Jev parts of ADR-003; its hard-gate, fail-closed and
-shadow-mode decisions stand. **Implementation status: not built.** The code still has the Jev stub
-(`src/daydor/gates/jev.py`); see "Implementation" below.
+shadow-mode decisions stand. **Implementation status (Oct 13 2026): interface, runner and database rules
+built; never run against a real checkpoint.** See "Implementation" below.
 
 ## Context
 ADR-003 put Jev (TypeSafe's hosted typed-decision API) in front of hard gates. We are using Laya
@@ -27,12 +27,13 @@ probabilities, with no API key and no data leaving our infrastructure.
   discrimination and purpose-limitation risk; any relaxation for C3 is a separate, per-gate decision.
 - ADR-003's description of Jev and the earlier input-hash-only rule are superseded where they conflict.
 
-## Implementation (repo state when this was adopted)
-- Today: `daydor.gates.jev` (`JevClient`, `HttpJevClient` stub, `JevResult`), `daydor.gates.soft`,
-  `app.gate_evaluation.engine` (documented as `'jev'`), `WorkflowEngine(..., jev=...)`, and
-  `daydor.payroll.anomaly` (the only soft gate wired). Tests use `FakeJev`.
-- To do: rename to `DeciderClient` / `DeciderResult`, add `LayaClient`, and add a **new forward-only
-  migration** (0025 or later; 0011 is the privacy migration) for the `calibration_version` column and the
-  enforce and engine checks. Applied migrations are never edited.
-- ADR-005 originally referred to an ADR-004 (worker classification) that does not exist in this repo.
-  Nothing here depends on it.
+## Implementation (Oct 13 2026)
+- Built: `daydor.gates.decider` (`DeciderClient`, `LayaClient`, typed `Choice`/`Score`/`Truth`), `daydor.gates.soft`
+  and `WorkflowEngine(decider=...)` written against the interface, `0030_laya_decider.sql` (engine, checkpoint and
+  `calibration_version` on `app.gate_definition`; calibration required to enforce; the engine is checked on every
+  evaluation; each evaluation records the calibration that decided it). `jev.py` is removed.
+- Both wired soft gates (`sg_payroll_anomaly_precheck`, `sg_access_request_precheck`) default to `LayaClient()`, which
+  refuses to load without `LAYA_REVISION`, so they fail closed to `escalate` until a checkpoint is pinned.
+- Not done: the smoke test against a real pinned checkpoint (`tests/test_laya_smoke.py`, `docs/laya-runbook.md`),
+  the labelled-example store, calibration and the shadow-versus-human report.
+- Old `app.gate_evaluation` rows may carry engine `jev`; nothing wrote real Jev rows.
