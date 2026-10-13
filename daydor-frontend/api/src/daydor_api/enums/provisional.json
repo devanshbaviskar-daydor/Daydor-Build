@@ -21,7 +21,8 @@
    "values": [
     "employee",
     "founder",
-    "hr"
+    "hr",
+    "ops"
    ],
    "sources": {
     "employee": [
@@ -38,6 +39,12 @@
     "hr": [
      "tests/conftest.py",
      "tests/exit_helpers.py"
+    ],
+    "ops": [
+     "tests/conftest.py",
+     "tests/test_aggregate_reports.py",
+     "tests/test_ops_scope.py",
+     "tests/test_statutory_clocks.py"
     ]
    }
   },
@@ -140,6 +147,7 @@
    ],
    "sources": {
     "pending": [
+     "migrations/sql/0039_statutory_clocks.sql",
      "src/daydor/exit/cobra.py"
     ]
    }
@@ -228,6 +236,7 @@
    "sources": {
     "exempt": [
      "tests/exit_helpers.py",
+     "tests/test_aggregate_reports.py",
      "tests/test_payroll_compute.py",
      "tests/test_payroll_filing_gl.py",
      "tests/test_payroll_run.py"
@@ -241,6 +250,7 @@
    "sources": {
     "new": [
      "tests/exit_helpers.py",
+     "tests/test_aggregate_reports.py",
      "tests/test_payroll_compute.py",
      "tests/test_payroll_filing_gl.py",
      "tests/test_payroll_run.py"
@@ -284,6 +294,7 @@
     "exempt": [
      "tests/conftest.py",
      "tests/exit_helpers.py",
+     "tests/test_aggregate_reports.py",
      "tests/test_payroll_compute.py",
      "tests/test_payroll_filing_gl.py",
      "tests/test_payroll_run.py"
@@ -391,6 +402,36 @@
     ]
    }
   },
+  "self_identification.collection_context": {
+   "values": [
+    "voluntary"
+   ],
+   "sources": {
+    "voluntary": [
+     "tests/test_aggregate_reports.py"
+    ]
+   }
+  },
+  "self_identification.disability_status": {
+   "values": [
+    "no"
+   ],
+   "sources": {
+    "no": [
+     "tests/test_aggregate_reports.py"
+    ]
+   }
+  },
+  "self_identification.veteran_status": {
+   "values": [
+    "no"
+   ],
+   "sources": {
+    "no": [
+     "tests/test_aggregate_reports.py"
+    ]
+   }
+  },
   "statutory_rate_rule.scheme": {
    "values": [
     "fed_wh",
@@ -429,9 +470,11 @@
     "active": [
      "tests/conftest.py",
      "tests/exit_helpers.py",
+     "tests/test_aggregate_reports.py",
      "tests/test_payroll_compute.py",
      "tests/test_payroll_filing_gl.py",
-     "tests/test_payroll_run.py"
+     "tests/test_payroll_run.py",
+     "tests/test_statutory_clocks.py"
     ]
    }
   },
@@ -511,11 +554,8 @@
   "review_cycle.calibration_status",
   "role_assignment.role",
   "role_assignment.scope_type",
-  "self_identification.collection_context",
-  "self_identification.disability_status",
   "self_identification.gender",
   "self_identification.race_ethnicity",
-  "self_identification.veteran_status",
   "tenant.plan_tier",
   "termination.reason_code",
   "termination.rehire_eligible",
