@@ -1,0 +1,21 @@
+[
+ {
+  "actor": "workflow-engine",
+  "description": "Queue handler workflow.gate_resolved: moves workflow instances when a hard gate resolves. Platform tables only; no model-table writes.",
+  "owner": "ops",
+  "reads": [],
+  "writes": []
+ },
+ {
+  "actor": "root-orchestrator",
+  "description": "The model's 'root orchestrator': legal_hold_checker and the i9_section2_due timer. Reads only; moves workflow instances.",
+  "owner": "ops",
+  "reads": [
+   "legal_hold",
+   "termination",
+   "employee",
+   "work_authorization"
+  ],
+  "writes": []
+ }
+]

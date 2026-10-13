@@ -1,0 +1,1413 @@
+[
+ {
+  "worker": "requisition-drafter",
+  "home_domain": "ta",
+  "kind": "llm",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Drafts the requisition and job description from the hiring manager's input and the job profile.",
+  "llm_tier": "medium"
+ },
+ {
+  "worker": "requisition-approval-router",
+  "home_domain": "ro",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Routes budget sign-off for a requisition."
+ },
+ {
+  "worker": "job-posting-publisher",
+  "home_domain": "ta",
+  "kind": "integration",
+  "effect": "external_reversible",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Publishes to job boards; pay range must come from comp_band (pay transparency laws).",
+  "flags": [
+   "pay-transparency"
+  ]
+ },
+ {
+  "worker": "candidate-screener",
+  "home_domain": "ta",
+  "kind": "decider",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Recommendation only, never auto-reject. Resume content is C3, so no model may read it until the policy decision is made.",
+  "assist": [
+   {
+    "type": "llm",
+    "use": "resume field extraction"
+   }
+  ],
+  "flags": [
+   "regulated-aedt",
+   "needs-policy-decision"
+  ],
+  "decision": {
+   "role_fit": [
+    "strong",
+    "moderate",
+    "weak"
+   ]
+  }
+ },
+ {
+  "worker": "aedt-candidate-notifier",
+  "home_domain": "ta",
+  "kind": "rule",
+  "effect": "external_notify",
+  "autonomy": "review",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Template notice that an automated tool is used; sent before screening.",
+  "flags": [
+   "regulated-aedt"
+  ]
+ },
+ {
+  "worker": "aedt-audit-monitor",
+  "home_domain": "ta",
+  "kind": "monitor",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Periodic bias audit (selection and impact ratios) on screening results. Statistics only.",
+  "flags": [
+   "regulated-aedt"
+  ]
+ },
+ {
+  "worker": "interview-scheduler",
+  "home_domain": "ta",
+  "kind": "llm",
+  "effect": "external_notify",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Negotiates slots with candidates over email using calendar tools. Candidate email is untrusted input. Downgrade to self-serve scheduling links if conversation is not needed.",
+  "flags": [
+   "untrusted-input",
+   "outbound-allowlist"
+  ],
+  "llm_tier": "small"
+ },
+ {
+  "worker": "background-check-initiator",
+  "home_domain": "ta",
+  "kind": "integration",
+  "effect": "external_reversible",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Orders the check from the vendor after candidate consent.",
+  "flags": [
+   "fcra-consent"
+  ]
+ },
+ {
+  "worker": "background-check-flagger",
+  "home_domain": "ta",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Tracks adverse-action stages and notice clocks. Findings are C4, so it never interprets them; HR decides via g_bg_adverse.",
+  "flags": [
+   "C4-no-models",
+   "fcra-consent"
+  ]
+ },
+ {
+  "worker": "offer-letter-generator",
+  "home_domain": "ta",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Merges approved offer terms into the legal template. No free text generation."
+ },
+ {
+  "worker": "offer-approval-router",
+  "home_domain": "ro",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Requests g_offer_band only when the offer is outside the band."
+ },
+ {
+  "worker": "headcount-planner",
+  "home_domain": "hr",
+  "kind": "monitor",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "step",
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Confirms a budgeted vacant position exists before a requisition opens; tracks headcount thresholds."
+ },
+ {
+  "worker": "aca-affordability-monitor",
+  "home_domain": "hr",
+  "kind": "monitor",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "timer",
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Computes ACA affordability and thresholds; founder decides via g_aca.",
+  "flags": [
+   "us-pack"
+  ]
+ },
+ {
+  "worker": "employee-record-writer",
+  "home_domain": "hr",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "step",
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Sole writer of employee core records; validates commands and is idempotent on hire_event_id. Wage structure changes need the gate.",
+  "flags": [
+   "single-writer"
+  ],
+  "extra_scope": {
+   "reads": [
+    "job_profile",
+    "job_requisition"
+   ],
+   "writes": [
+    "job_requisition"
+   ],
+   "why": "Opens the seat from the requisition and job profile, and fill_seat marks the requisition filled (hire/employee_record.py). Column access for job_requisition is capped by the model's G access."
+  }
+ },
+ {
+  "worker": "org-chart-updater",
+  "home_domain": "hr",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Applies reporting changes and rejects cycles. reporting_line drives manager visibility, so every edit changes who can see whom.",
+  "flags": [
+   "changes-visibility-scope"
+  ]
+ },
+ {
+  "worker": "i9-e-verify-initiator",
+  "home_domain": "hr",
+  "kind": "integration",
+  "effect": "external_irreversible",
+  "autonomy": "approve",
+  "triggers": [
+   "step",
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Runs the I-9 clock and E-Verify case. Section 2 verification stays with a human.",
+  "flags": [
+   "us-pack",
+   "statutory-deadline",
+   "no-gate-on-irreversible"
+  ],
+  "extra_scope": {
+   "reads": [
+    "employee",
+    "legal_entity"
+   ],
+   "writes": [],
+   "why": "US-only check reads the employee's legal entity country (hire/work_authorization.py initiate_work_authorization); the section 2 timer reads the employee."
+  }
+ },
+ {
+  "worker": "eeo-report-builder",
+  "home_domain": "hr",
+  "kind": "rule",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "timer",
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Reads only the aggregate view of self_identification (k >= 5). Never row-level, never a model.",
+  "flags": [
+   "aggregate-only",
+   "C4-no-models"
+  ]
+ },
+ {
+  "worker": "onboarding-checklist-builder",
+  "home_domain": "ob",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Builds the checklist from templates by role, location and jurisdiction. LLM personalisation can be added later as an assist."
+ },
+ {
+  "worker": "new-hire-doc-collector",
+  "home_domain": "ob",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Chases and tracks required documents by type. Identity documents are C3, so no model reads them.",
+  "flags": [
+   "C3-no-models"
+  ]
+ },
+ {
+  "worker": "first-day-notifier",
+  "home_domain": "ob",
+  "kind": "rule",
+  "effect": "external_notify",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Templated first-day logistics."
+ },
+ {
+  "worker": "knowledge-transfer-coordinator",
+  "home_domain": "ob",
+  "kind": "llm",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Drafts a handoff plan from the job profile and open tasks.",
+  "llm_tier": "medium"
+ },
+ {
+  "worker": "termination-checklist-builder",
+  "home_domain": "ob",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Template checklist by termination type and jurisdiction; honours legal holds.",
+  "extra_scope": {
+   "reads": [],
+   "writes": [
+    "checklist_task"
+   ],
+   "why": "Writes the termination tasks as well as the checklist (exit/checklist.py)."
+  }
+ },
+ {
+  "worker": "sso-identity-provisioner",
+  "home_domain": "it",
+  "kind": "integration",
+  "effect": "external_reversible",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "it",
+  "note": "Creates the directory account at hire."
+ },
+ {
+  "worker": "app-access-granter",
+  "home_domain": "it",
+  "kind": "rule",
+  "effect": "external_reversible",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "it",
+  "note": "On-template grants go through; off-template goes to g_it_offtemplate.",
+  "extra_scope": {
+   "reads": [
+    "employee",
+    "identity_account",
+    "position",
+    "job_requisition"
+   ],
+   "writes": [],
+   "why": "Grant state compares the employee, identity, seat and requisition to the role template (hire/access_grant.py _grant_state)."
+  }
+ },
+ {
+  "worker": "app-access-exception-flagger",
+  "home_domain": "it",
+  "kind": "decider",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "it",
+  "note": "Soft-gate pre-check on access requests.",
+  "decision": {
+   "grant_fits_role": [
+    "consistent",
+    "inconsistent"
+   ]
+  },
+  "soft_gate": "sg_access_request_precheck"
+ },
+ {
+  "worker": "access-compliance-auditor",
+  "home_domain": "it",
+  "kind": "monitor",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "it",
+  "note": "Periodic access review against role templates."
+ },
+ {
+  "worker": "password-vault-sharer",
+  "home_domain": "it",
+  "kind": "integration",
+  "effect": "external_reversible",
+  "autonomy": "approve",
+  "triggers": [
+   "step"
+  ],
+  "owner": "it",
+  "note": "Shares vault item references only; never reads secrets.",
+  "flags": [
+   "secrets"
+  ]
+ },
+ {
+  "worker": "deprovisioning-agent",
+  "home_domain": "it",
+  "kind": "integration",
+  "effect": "external_irreversible",
+  "autonomy": "approve",
+  "triggers": [
+   "step"
+  ],
+  "owner": "it",
+  "note": "Revokes accounts after g_it_deprov; checks legal holds first.",
+  "flags": [
+   "legal-hold-check"
+  ]
+ },
+ {
+  "worker": "device-inventory-allocator",
+  "home_domain": "it",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "it",
+  "note": "Assigns devices from inventory."
+ },
+ {
+  "worker": "device-purchase-initiator",
+  "home_domain": "it",
+  "kind": "integration",
+  "effect": "external_irreversible",
+  "autonomy": "approve",
+  "triggers": [
+   "event"
+  ],
+  "owner": "it",
+  "note": "Creates purchase orders. Spend has no hard gate in the model.",
+  "flags": [
+   "no-gate-on-irreversible"
+  ]
+ },
+ {
+  "worker": "device-shipment-tracker",
+  "home_domain": "it",
+  "kind": "integration",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "it",
+  "note": "Polls carrier tracking."
+ },
+ {
+  "worker": "equipment-return-tracker",
+  "home_domain": "it",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "event",
+   "timer"
+  ],
+  "owner": "it",
+  "note": "Tracks device returns at exit."
+ },
+ {
+  "worker": "jurisdiction-classifier",
+  "home_domain": "pay",
+  "kind": "rule",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "payroll",
+  "note": "Derives work and tax residency and the jurisdiction pack to apply (tax residency fields from the gap analysis).",
+  "flags": [
+   "jurisdiction-packs"
+  ]
+ },
+ {
+  "worker": "timecard-aggregator",
+  "home_domain": "time",
+  "kind": "rule",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "payroll",
+  "note": "Aggregates approved hours into payroll inputs."
+ },
+ {
+  "worker": "gross-pay-calculator",
+  "home_domain": "pay",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "payroll",
+  "note": "Deterministic gross pay from effective-dated records.",
+  "flags": [
+   "jurisdiction-packs"
+  ]
+ },
+ {
+  "worker": "tax-withholding-calculator",
+  "home_domain": "pay",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "payroll",
+  "note": "Deterministic withholding from rule tables (PT slabs, statutory rates).",
+  "flags": [
+   "jurisdiction-packs"
+  ],
+  "extra_scope": {
+   "reads": [
+    "employee",
+    "legal_entity"
+   ],
+   "writes": [],
+   "why": "Jurisdiction comes from the employee's legal entity (payroll/tax_withholding.py compute_withholding)."
+  }
+ },
+ {
+  "worker": "garnishment-processor",
+  "home_domain": "pay",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "payroll",
+  "note": "Applies garnishment orders within legal limits and priority.",
+  "flags": [
+   "legal-limits"
+  ]
+ },
+ {
+  "worker": "deduction-reconciler",
+  "home_domain": "pay",
+  "kind": "monitor",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "payroll",
+  "note": "Compares deductions with benefit elections and flags mismatches."
+ },
+ {
+  "worker": "payroll-run-builder",
+  "home_domain": "pay",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "step",
+   "timer"
+  ],
+  "owner": "payroll",
+  "note": "Assembles the run. Must not set disbursed_at; needs per-worker column grants.",
+  "flags": [
+   "combined-scope-until-split",
+   "jurisdiction-packs"
+  ],
+  "extra_scope": {
+   "reads": [
+    "employee",
+    "employment_record",
+    "legal_entity",
+    "payslip",
+    "payroll_run",
+    "payroll_profile",
+    "statutory_rate_rule",
+    "pt_slab_rule",
+    "garnishment_order",
+    "benefit_election",
+    "timecard",
+    "leave_balance"
+   ],
+   "writes": [
+    "payslip",
+    "payslip_line"
+   ],
+   "why": "COMBINED SCOPE until payroll/run_builder.py is split: build_payroll_run persists the work of gross-pay-calculator, tax-withholding-calculator and garnishment-processor in one transaction. Never gets payroll_run.disbursed_at (guarded; owner direct-deposit-disburser)."
+  }
+ },
+ {
+  "worker": "payroll-anomaly-detector",
+  "home_domain": "pay",
+  "kind": "decider",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "payroll",
+  "note": "Soft-gate pre-check on a built run, fed by statistical features.",
+  "decision": {
+   "run_looks": [
+    "normal",
+    "unusual"
+   ]
+  },
+  "soft_gate": "sg_payroll_anomaly_precheck"
+ },
+ {
+  "worker": "direct-deposit-disburser",
+  "home_domain": "pay",
+  "kind": "integration",
+  "effect": "external_irreversible",
+  "autonomy": "approve",
+  "triggers": [
+   "step"
+  ],
+  "owner": "payroll",
+  "note": "The only worker allowed to set disbursed_at. Runs only after the approved gate.",
+  "flags": [
+   "guarded-write",
+   "legal-hold-check"
+  ]
+ },
+ {
+  "worker": "payslip-issuer",
+  "home_domain": "pay",
+  "kind": "rule",
+  "effect": "external_notify",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "payroll",
+  "note": "Renders and delivers payslips.",
+  "extra_scope": {
+   "reads": [
+    "payroll_run"
+   ],
+   "writes": [],
+   "why": "Refuses to issue until payroll_run.disbursed_at is set (payroll/payslip_issuer.py)."
+  }
+ },
+ {
+  "worker": "contractor-invoice-processor",
+  "home_domain": "pay",
+  "kind": "llm",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "event"
+  ],
+  "owner": "payroll",
+  "note": "Extracts typed fields from invoices. Payment goes through the router and g_pay_disburse.",
+  "assist": [
+   {
+    "type": "decider",
+    "use": "invoice matches contract"
+   }
+  ],
+  "flags": [
+   "untrusted-documents"
+  ],
+  "llm_tier": "small"
+ },
+ {
+  "worker": "multi-currency-payment-router",
+  "home_domain": "pay",
+  "kind": "integration",
+  "effect": "external_irreversible",
+  "autonomy": "approve",
+  "triggers": [
+   "step"
+  ],
+  "owner": "payroll",
+  "note": "Executes contractor payments after the gate.",
+  "flags": [
+   "guarded-write",
+   "jurisdiction-packs"
+  ]
+ },
+ {
+  "worker": "in-country-tax-remitter",
+  "home_domain": "pay",
+  "kind": "integration",
+  "effect": "external_irreversible",
+  "autonomy": "approve",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "payroll",
+  "note": "Remits statutory taxes. Money moves without a hard gate in the model.",
+  "flags": [
+   "no-gate-on-irreversible",
+   "statutory-deadline",
+   "jurisdiction-packs"
+  ]
+ },
+ {
+  "worker": "tax-filing-submitter",
+  "home_domain": "pay",
+  "kind": "integration",
+  "effect": "external_irreversible",
+  "autonomy": "approve",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "payroll",
+  "note": "Submits statutory filings. No hard gate in the model.",
+  "flags": [
+   "no-gate-on-irreversible",
+   "statutory-deadline",
+   "jurisdiction-packs"
+  ],
+  "extra_scope": {
+   "reads": [
+    "legal_entity",
+    "payroll_run"
+   ],
+   "writes": [],
+   "why": "Scheme list comes from the legal entity's country; the filing period comes from the run (payroll/tax_filing.py)."
+  }
+ },
+ {
+  "worker": "w2-1099-generator",
+  "home_domain": "pay",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "payroll",
+  "note": "Generates year-end forms from payslips and contractor invoices.",
+  "flags": [
+   "jurisdiction-packs"
+  ]
+ },
+ {
+  "worker": "eligibility-calculator",
+  "home_domain": "ben",
+  "kind": "rule",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Plan eligibility from rules."
+ },
+ {
+  "worker": "enrollment-window-notifier",
+  "home_domain": "ben",
+  "kind": "rule",
+  "effect": "external_notify",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Templated enrolment reminders."
+ },
+ {
+  "worker": "qle-validator",
+  "home_domain": "ben",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Deterministic window and type check. event_type is C4, so no model; HR reviews documents.",
+  "flags": [
+   "C4-no-models"
+  ]
+ },
+ {
+  "worker": "election-processor",
+  "home_domain": "ben",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Validates elections against plan rules and windows.",
+  "flags": [
+   "C3-no-models"
+  ]
+ },
+ {
+  "worker": "carrier-file-transmitter",
+  "home_domain": "ben",
+  "kind": "integration",
+  "effect": "external_reversible",
+  "autonomy": "review",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Sends enrolment files; corrections go in follow-up files."
+ },
+ {
+  "worker": "cobra-trigger-detector",
+  "home_domain": "ben",
+  "kind": "monitor",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Detects qualifying events from terminations and hours changes.",
+  "flags": [
+   "us-pack",
+   "statutory-deadline"
+  ],
+  "extra_scope": {
+   "reads": [
+    "employee",
+    "legal_entity"
+   ],
+   "writes": [],
+   "why": "US-only check reads the employee's legal entity country (exit/cobra.py detect_cobra_event)."
+  }
+ },
+ {
+  "worker": "cobra-notice-generator",
+  "home_domain": "ben",
+  "kind": "rule",
+  "effect": "external_notify",
+  "autonomy": "approve",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Statutory notice from template; HR approves via g_cobra.",
+  "flags": [
+   "us-pack",
+   "statutory-deadline"
+  ]
+ },
+ {
+  "worker": "punch-validator",
+  "home_domain": "time",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Missing, overlapping and over-long punch checks. time_punch carries C3 geo data, so no model.",
+  "flags": [
+   "C3-no-models"
+  ]
+ },
+ {
+  "worker": "pto-accrual-calculator",
+  "home_domain": "time",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Accrual from leave policy and jurisdiction rules.",
+  "flags": [
+   "jurisdiction-packs"
+  ],
+  "extra_scope": {
+   "reads": [
+    "employee"
+   ],
+   "writes": [],
+   "why": "Accrual starts from the employee's joining date (timekeeping/leave.py accrue_leave)."
+  }
+ },
+ {
+  "worker": "timecard-approval-router",
+  "home_domain": "ro",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Routes timecards to the manager. No manager gate exists in the model.",
+  "flags": [
+   "needs-manager-gate"
+  ],
+  "extra_scope": {
+   "reads": [
+    "approval_request",
+    "time_punch"
+   ],
+   "writes": [],
+   "why": "Runs the g_timecard resolution handler, which reads the approval and the punches (timekeeping/timecard.py)."
+  }
+ },
+ {
+  "worker": "fmla-eligibility-checker",
+  "home_domain": "time",
+  "kind": "rule",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Deterministic FMLA tests (12 months, 1,250 hours, employer size).",
+  "flags": [
+   "us-pack",
+   "C4-no-models"
+  ]
+ },
+ {
+  "worker": "leave-request-processor",
+  "home_domain": "time",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Applies leave policy; HR designates via g_fmla. reason_detail is C4.",
+  "flags": [
+   "C4-no-models",
+   "us-pack"
+  ]
+ },
+ {
+  "worker": "leave-return-coordinator",
+  "home_domain": "time",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Return-to-work scheduling and reminders.",
+  "flags": [
+   "C4-no-models"
+  ]
+ },
+ {
+  "worker": "comp-band-validator",
+  "home_domain": "comp",
+  "kind": "rule",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "founder",
+  "note": "Checks proposed comp against the band. Blocked until job_profile and comp_band have an owner.",
+  "flags": [
+   "needs-reference-data-owner"
+  ]
+ },
+ {
+  "worker": "merit-cycle-calculator",
+  "home_domain": "comp",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "step"
+  ],
+  "owner": "founder",
+  "note": "Proposes increases from a guidelines matrix; founder approves via g_offer_band."
+ },
+ {
+  "worker": "bonus-calculator",
+  "home_domain": "comp",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "step",
+   "event"
+  ],
+  "owner": "founder",
+  "note": "Deterministic bonus calculation; gated like other compensation events."
+ },
+ {
+  "worker": "grant-drafter",
+  "home_domain": "comp",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "step"
+  ],
+  "owner": "founder",
+  "note": "Fills the grant template; g_409a applies."
+ },
+ {
+  "worker": "vesting-schedule-tracker",
+  "home_domain": "comp",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "founder",
+  "note": "Creates vesting events from the schedule."
+ },
+ {
+  "worker": "exercise-processor",
+  "home_domain": "comp",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "event"
+  ],
+  "owner": "founder",
+  "note": "Computes exercise value and tax withholding; g_409a applies."
+ },
+ {
+  "worker": "409a-trigger-monitor",
+  "home_domain": "comp",
+  "kind": "monitor",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "founder",
+  "note": "Flags stale valuations and material events for g_409a."
+ },
+ {
+  "worker": "review-cycle-launcher",
+  "home_domain": "perf",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Opens review cycles on schedule."
+ },
+ {
+  "worker": "self-review-reminder",
+  "home_domain": "perf",
+  "kind": "monitor",
+  "effect": "external_notify",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Nudges people with missing self-reviews."
+ },
+ {
+  "worker": "calibration-data-aggregator",
+  "home_domain": "perf",
+  "kind": "rule",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Aggregates ratings and skills for calibration."
+ },
+ {
+  "worker": "pip-tracker",
+  "home_domain": "perf",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "event",
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Tracks milestones and dates. Employment-decision data, so no model drafting.",
+  "flags": [
+   "employment-decision"
+  ]
+ },
+ {
+  "worker": "training-assignment-engine",
+  "home_domain": "learn",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Maps role and skill gaps to courses."
+ },
+ {
+  "worker": "completion-tracker",
+  "home_domain": "learn",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Records completions into skills."
+ },
+ {
+  "worker": "overdue-escalator",
+  "home_domain": "learn",
+  "kind": "monitor",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Escalates overdue training to the manager."
+ },
+ {
+  "worker": "certification-expiry-monitor",
+  "home_domain": "learn",
+  "kind": "monitor",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Raises renewals before expiry."
+ },
+ {
+  "worker": "expense-approval-router",
+  "home_domain": "fin",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "founder",
+  "note": "Routes expenses to the manager. No manager gate exists in the model.",
+  "flags": [
+   "needs-manager-gate"
+  ]
+ },
+ {
+  "worker": "expense-policy-checker",
+  "home_domain": "fin",
+  "kind": "decider",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "event"
+  ],
+  "owner": "founder",
+  "note": "Policy and duplicate checks on structured fields; receipts are extracted first.",
+  "assist": [
+   {
+    "type": "llm",
+    "use": "receipt field extraction"
+   }
+  ],
+  "flags": [
+   "needs-manager-gate",
+   "untrusted-documents"
+  ],
+  "decision": {
+   "within_policy": [
+    "yes",
+    "no",
+    "unclear"
+   ],
+   "duplicate_suspect": [
+    "yes",
+    "no"
+   ]
+  },
+  "soft_gate": "sg_expense_policy_precheck (proposed)"
+ },
+ {
+  "worker": "corporate-card-controller",
+  "home_domain": "fin",
+  "kind": "integration",
+  "effect": "external_reversible",
+  "autonomy": "approve",
+  "triggers": [
+   "event"
+  ],
+  "owner": "founder",
+  "note": "Card limits and freezes at the issuer."
+ },
+ {
+  "worker": "vendor-bill-processor",
+  "home_domain": "fin",
+  "kind": "llm",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "event"
+  ],
+  "owner": "founder",
+  "note": "Extracts bill fields from PDFs; PO matching and g_ap stay deterministic and human.",
+  "assist": [
+   {
+    "type": "decider",
+    "use": "bill matches purchase order"
+   }
+  ],
+  "flags": [
+   "untrusted-documents"
+  ],
+  "llm_tier": "small"
+ },
+ {
+  "worker": "bank-reconciler",
+  "home_domain": "fin",
+  "kind": "rule",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "founder",
+  "note": "Matches bank lines to the ledger; fuzzy leftovers get a typed Laya match decision.",
+  "assist": [
+   {
+    "type": "decider",
+    "use": "ambiguous bank-line match"
+   }
+  ]
+ },
+ {
+  "worker": "gl-poster",
+  "home_domain": "fin",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "step"
+  ],
+  "owner": "founder",
+  "note": "Maps payroll and expenses to journals; posting needs g_close.",
+  "flags": [
+   "guarded-write"
+  ]
+ },
+ {
+  "worker": "period-close-runner",
+  "home_domain": "fin",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "founder",
+  "note": "Runs the close checklist and accruals.",
+  "flags": [
+   "guarded-write"
+  ]
+ },
+ {
+  "worker": "cost-center-report-builder",
+  "home_domain": "fin",
+  "kind": "rule",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "founder",
+  "note": "Cost-centre reports from the ledger."
+ },
+ {
+  "worker": "case-intake-router",
+  "home_domain": "er",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Routes cases by form fields and conflict of interest. Category and outcome are C4, so no model.",
+  "flags": [
+   "C4-no-models"
+  ]
+ },
+ {
+  "worker": "investigation-tracker",
+  "home_domain": "er",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "event",
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Deadlines and status. Investigation stays human-led.",
+  "flags": [
+   "C4-no-models"
+  ]
+ },
+ {
+  "worker": "exit-interview-scheduler",
+  "home_domain": "er",
+  "kind": "integration",
+  "effect": "external_reversible",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Books the exit interview through the calendar."
+ },
+ {
+  "worker": "final-pay-calculator",
+  "home_domain": "er",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "step"
+  ],
+  "owner": "payroll",
+  "note": "Deterministic final settlement (wages, gratuity, leave encashment, recoveries); g_finalpay applies.",
+  "flags": [
+   "jurisdiction-packs"
+  ]
+ },
+ {
+  "worker": "rehire-eligibility-flagger",
+  "home_domain": "er",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Applies the rehire policy table to the termination record. Employment-decision data.",
+  "flags": [
+   "employment-decision"
+  ]
+ },
+ {
+  "worker": "document-vault-manager",
+  "home_domain": "priv",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "event",
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Classifies documents by class into retention rules; handles erasure with legal-hold checks."
+ }
+]

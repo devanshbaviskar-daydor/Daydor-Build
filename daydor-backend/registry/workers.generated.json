@@ -1,0 +1,3179 @@
+[
+ {
+  "worker": "employee-record-writer",
+  "home_domain": "hr",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "step",
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Sole writer of employee core records; validates commands and is idempotent on hire_event_id. Wage structure changes need the gate.",
+  "flags": [
+   "single-writer"
+  ],
+  "extra_scope": {
+   "reads": [
+    "job_profile",
+    "job_requisition"
+   ],
+   "writes": [
+    "job_requisition"
+   ],
+   "why": "Opens the seat from the requisition and job profile, and fill_seat marks the requisition filled (hire/employee_record.py). Column access for job_requisition is capped by the model's G access."
+  },
+  "writes": [
+   "emergency_contact",
+   "employee",
+   "employment_record",
+   "job_requisition",
+   "payroll_profile",
+   "position"
+  ],
+  "reads": [
+   "consent_record",
+   "job_profile",
+   "job_requisition"
+  ],
+  "domains_touched": [
+   "hr",
+   "pay",
+   "priv",
+   "ta"
+  ],
+  "restricted_tables": [
+   "emergency_contact",
+   "employee",
+   "payroll_profile"
+  ],
+  "gates_on_written_tables": [
+   "wage_structure_change"
+  ],
+  "gates_in_flows": [
+   "wage_structure_change"
+  ],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "hire",
+   "exit",
+   "erasure",
+   "merit"
+  ],
+  "wave": 1
+ },
+ {
+  "worker": "headcount-planner",
+  "home_domain": "hr",
+  "kind": "monitor",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "step",
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Confirms a budgeted vacant position exists before a requisition opens; tracks headcount thresholds.",
+  "writes": [
+   "threshold_obligation"
+  ],
+  "reads": [
+   "employee",
+   "job_requisition",
+   "position"
+  ],
+  "domains_touched": [
+   "hr",
+   "ta"
+  ],
+  "restricted_tables": [
+   "employee"
+  ],
+  "gates_on_written_tables": [
+   "g_aca",
+   "threshold_crossing"
+  ],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "hire",
+   "threshold"
+  ],
+  "wave": 1
+ },
+ {
+  "worker": "i9-e-verify-initiator",
+  "home_domain": "hr",
+  "kind": "integration",
+  "effect": "external_irreversible",
+  "autonomy": "approve",
+  "triggers": [
+   "step",
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Runs the I-9 clock and E-Verify case. Section 2 verification stays with a human.",
+  "flags": [
+   "us-pack",
+   "statutory-deadline",
+   "no-gate-on-irreversible"
+  ],
+  "extra_scope": {
+   "reads": [
+    "employee",
+    "legal_entity"
+   ],
+   "writes": [],
+   "why": "US-only check reads the employee's legal entity country (hire/work_authorization.py initiate_work_authorization); the section 2 timer reads the employee."
+  },
+  "writes": [
+   "work_authorization"
+  ],
+  "reads": [
+   "employee",
+   "legal_entity"
+  ],
+  "domains_touched": [
+   "hr",
+   "ro"
+  ],
+  "restricted_tables": [
+   "employee",
+   "work_authorization"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "hire"
+  ],
+  "wave": 1
+ },
+ {
+  "worker": "app-access-granter",
+  "home_domain": "it",
+  "kind": "rule",
+  "effect": "external_reversible",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "it",
+  "note": "On-template grants go through; off-template goes to g_it_offtemplate.",
+  "extra_scope": {
+   "reads": [
+    "employee",
+    "identity_account",
+    "position",
+    "job_requisition"
+   ],
+   "writes": [],
+   "why": "Grant state compares the employee, identity, seat and requisition to the role template (hire/access_grant.py _grant_state)."
+  },
+  "writes": [
+   "app_access_grant"
+  ],
+  "reads": [
+   "access_role_template",
+   "employee",
+   "identity_account",
+   "job_profile",
+   "job_requisition",
+   "position"
+  ],
+  "domains_touched": [
+   "hr",
+   "it",
+   "ta"
+  ],
+  "restricted_tables": [
+   "employee"
+  ],
+  "gates_on_written_tables": [
+   "g_it_offtemplate"
+  ],
+  "gates_in_flows": [
+   "g_it_offtemplate"
+  ],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "hire"
+  ],
+  "wave": 1
+ },
+ {
+  "worker": "sso-identity-provisioner",
+  "home_domain": "it",
+  "kind": "integration",
+  "effect": "external_reversible",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "it",
+  "note": "Creates the directory account at hire.",
+  "writes": [
+   "identity_account"
+  ],
+  "reads": [
+   "employee"
+  ],
+  "domains_touched": [
+   "hr",
+   "it"
+  ],
+  "restricted_tables": [
+   "employee"
+  ],
+  "gates_on_written_tables": [
+   "g_it_deprov"
+  ],
+  "gates_in_flows": [],
+  "guarded_tables_written": [
+   "identity_account"
+  ],
+  "requests_approvals": false,
+  "flows": [
+   "hire"
+  ],
+  "wave": 1
+ },
+ {
+  "worker": "new-hire-doc-collector",
+  "home_domain": "ob",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Chases and tracks required documents by type. Identity documents are C3, so no model reads them.",
+  "flags": [
+   "C3-no-models"
+  ],
+  "writes": [
+   "checklist_task",
+   "document"
+  ],
+  "reads": [
+   "work_authorization"
+  ],
+  "domains_touched": [
+   "hr",
+   "ob",
+   "priv"
+  ],
+  "restricted_tables": [
+   "document",
+   "work_authorization"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "hire"
+  ],
+  "wave": 1
+ },
+ {
+  "worker": "onboarding-checklist-builder",
+  "home_domain": "ob",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Builds the checklist from templates by role, location and jurisdiction. LLM personalisation can be added later as an assist.",
+  "writes": [
+   "checklist",
+   "checklist_task"
+  ],
+  "reads": [
+   "employee"
+  ],
+  "domains_touched": [
+   "hr",
+   "ob"
+  ],
+  "restricted_tables": [
+   "employee"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "hire",
+   "threshold"
+  ],
+  "wave": 1
+ },
+ {
+  "worker": "payslip-issuer",
+  "home_domain": "pay",
+  "kind": "rule",
+  "effect": "external_notify",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "payroll",
+  "note": "Renders and delivers payslips.",
+  "extra_scope": {
+   "reads": [
+    "payroll_run"
+   ],
+   "writes": [],
+   "why": "Refuses to issue until payroll_run.disbursed_at is set (payroll/payslip_issuer.py)."
+  },
+  "writes": [
+   "document",
+   "payslip"
+  ],
+  "reads": [
+   "payroll_run"
+  ],
+  "domains_touched": [
+   "pay",
+   "priv"
+  ],
+  "restricted_tables": [
+   "document"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "hire",
+   "payroll"
+  ],
+  "wave": 1
+ },
+ {
+  "worker": "requisition-approval-router",
+  "home_domain": "ro",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Routes budget sign-off for a requisition.",
+  "writes": [
+   "approval_request"
+  ],
+  "reads": [
+   "job_requisition"
+  ],
+  "domains_touched": [
+   "ro",
+   "ta"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": true,
+  "flows": [
+   "hire"
+  ],
+  "wave": 1
+ },
+ {
+  "worker": "background-check-initiator",
+  "home_domain": "ta",
+  "kind": "integration",
+  "effect": "external_reversible",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Orders the check from the vendor after candidate consent.",
+  "flags": [
+   "fcra-consent"
+  ],
+  "writes": [
+   "background_check"
+  ],
+  "reads": [
+   "candidate"
+  ],
+  "domains_touched": [
+   "ta"
+  ],
+  "restricted_tables": [
+   "background_check",
+   "candidate"
+  ],
+  "gates_on_written_tables": [
+   "g_bg_adverse"
+  ],
+  "gates_in_flows": [
+   "g_bg_adverse"
+  ],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "hire"
+  ],
+  "wave": 1
+ },
+ {
+  "worker": "candidate-screener",
+  "home_domain": "ta",
+  "kind": "decider",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Recommendation only, never auto-reject. Resume content is C3, so no model may read it until the policy decision is made.",
+  "assist": [
+   {
+    "type": "llm",
+    "use": "resume field extraction"
+   }
+  ],
+  "flags": [
+   "regulated-aedt",
+   "needs-policy-decision"
+  ],
+  "decision": {
+   "role_fit": [
+    "strong",
+    "moderate",
+    "weak"
+   ]
+  },
+  "writes": [
+   "application",
+   "candidate",
+   "screening_result"
+  ],
+  "reads": [
+   "aedt_audit"
+  ],
+  "domains_touched": [
+   "ta"
+  ],
+  "restricted_tables": [
+   "candidate"
+  ],
+  "gates_on_written_tables": [
+   "g_aedt"
+  ],
+  "gates_in_flows": [
+   "g_aedt"
+  ],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "hire"
+  ],
+  "wave": 1
+ },
+ {
+  "worker": "interview-scheduler",
+  "home_domain": "ta",
+  "kind": "llm",
+  "effect": "external_notify",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Negotiates slots with candidates over email using calendar tools. Candidate email is untrusted input. Downgrade to self-serve scheduling links if conversation is not needed.",
+  "flags": [
+   "untrusted-input",
+   "outbound-allowlist"
+  ],
+  "llm_tier": "small",
+  "writes": [
+   "application",
+   "interview"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "ta"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "hire"
+  ],
+  "wave": 1
+ },
+ {
+  "worker": "job-posting-publisher",
+  "home_domain": "ta",
+  "kind": "integration",
+  "effect": "external_reversible",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Publishes to job boards; pay range must come from comp_band (pay transparency laws).",
+  "flags": [
+   "pay-transparency"
+  ],
+  "writes": [
+   "job_posting"
+  ],
+  "reads": [
+   "comp_band",
+   "job_requisition"
+  ],
+  "domains_touched": [
+   "hr",
+   "ta"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "hire"
+  ],
+  "wave": 1
+ },
+ {
+  "worker": "offer-letter-generator",
+  "home_domain": "ta",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Merges approved offer terms into the legal template. No free text generation.",
+  "writes": [
+   "document",
+   "offer"
+  ],
+  "reads": [
+   "comp_band",
+   "job_profile"
+  ],
+  "domains_touched": [
+   "hr",
+   "priv",
+   "ta"
+  ],
+  "restricted_tables": [
+   "document"
+  ],
+  "gates_on_written_tables": [
+   "g_offer_band"
+  ],
+  "gates_in_flows": [
+   "g_offer_band"
+  ],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "hire"
+  ],
+  "wave": 1
+ },
+ {
+  "worker": "requisition-drafter",
+  "home_domain": "ta",
+  "kind": "llm",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Drafts the requisition and job description from the hiring manager's input and the job profile.",
+  "llm_tier": "medium",
+  "writes": [
+   "job_requisition"
+  ],
+  "reads": [
+   "position"
+  ],
+  "domains_touched": [
+   "hr",
+   "ta"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "hire"
+  ],
+  "wave": 1
+ },
+ {
+  "worker": "cobra-trigger-detector",
+  "home_domain": "ben",
+  "kind": "monitor",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Detects qualifying events from terminations and hours changes.",
+  "flags": [
+   "us-pack",
+   "statutory-deadline"
+  ],
+  "extra_scope": {
+   "reads": [
+    "employee",
+    "legal_entity"
+   ],
+   "writes": [],
+   "why": "US-only check reads the employee's legal entity country (exit/cobra.py detect_cobra_event)."
+  },
+  "writes": [
+   "cobra_event"
+  ],
+  "reads": [
+   "employee",
+   "legal_entity",
+   "termination"
+  ],
+  "domains_touched": [
+   "ben",
+   "er",
+   "hr",
+   "ro"
+  ],
+  "restricted_tables": [
+   "employee"
+  ],
+  "gates_on_written_tables": [
+   "g_cobra"
+  ],
+  "gates_in_flows": [
+   "g_cobra"
+  ],
+  "guarded_tables_written": [
+   "cobra_event"
+  ],
+  "requests_approvals": false,
+  "flows": [
+   "exit"
+  ],
+  "wave": 2
+ },
+ {
+  "worker": "vesting-schedule-tracker",
+  "home_domain": "comp",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "founder",
+  "note": "Creates vesting events from the schedule.",
+  "writes": [
+   "vesting_event"
+  ],
+  "reads": [
+   "equity_grant"
+  ],
+  "domains_touched": [
+   "comp"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "exit"
+  ],
+  "wave": 2
+ },
+ {
+  "worker": "final-pay-calculator",
+  "home_domain": "er",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "step"
+  ],
+  "owner": "payroll",
+  "note": "Deterministic final settlement (wages, gratuity, leave encashment, recoveries); g_finalpay applies.",
+  "flags": [
+   "jurisdiction-packs"
+  ],
+  "writes": [
+   "final_settlement"
+  ],
+  "reads": [
+   "employment_record",
+   "gratuity_accrual_balance",
+   "leave_balance",
+   "termination"
+  ],
+  "domains_touched": [
+   "er",
+   "hr",
+   "pay",
+   "time"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [
+   "g_finalpay",
+   "g_pay_disburse"
+  ],
+  "gates_in_flows": [
+   "g_finalpay"
+  ],
+  "guarded_tables_written": [
+   "final_settlement"
+  ],
+  "requests_approvals": false,
+  "flows": [
+   "exit"
+  ],
+  "wave": 2
+ },
+ {
+  "worker": "rehire-eligibility-flagger",
+  "home_domain": "er",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Applies the rehire policy table to the termination record. Employment-decision data.",
+  "flags": [
+   "employment-decision"
+  ],
+  "writes": [
+   "termination"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "er"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "exit"
+  ],
+  "wave": 2
+ },
+ {
+  "worker": "gl-poster",
+  "home_domain": "fin",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "step"
+  ],
+  "owner": "founder",
+  "note": "Maps payroll and expenses to journals; posting needs g_close.",
+  "flags": [
+   "guarded-write"
+  ],
+  "writes": [
+   "gl_journal_entry"
+  ],
+  "reads": [
+   "expense",
+   "payroll_run"
+  ],
+  "domains_touched": [
+   "fin",
+   "pay"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [
+   "g_close"
+  ],
+  "gates_in_flows": [
+   "g_close"
+  ],
+  "guarded_tables_written": [
+   "gl_journal_entry"
+  ],
+  "requests_approvals": false,
+  "flows": [
+   "payroll"
+  ],
+  "wave": 2
+ },
+ {
+  "worker": "deprovisioning-agent",
+  "home_domain": "it",
+  "kind": "integration",
+  "effect": "external_irreversible",
+  "autonomy": "approve",
+  "triggers": [
+   "step"
+  ],
+  "owner": "it",
+  "note": "Revokes accounts after g_it_deprov; checks legal holds first.",
+  "flags": [
+   "legal-hold-check"
+  ],
+  "writes": [
+   "app_access_grant",
+   "identity_account"
+  ],
+  "reads": [
+   "legal_hold",
+   "termination"
+  ],
+  "domains_touched": [
+   "er",
+   "it",
+   "priv"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [
+   "g_it_deprov",
+   "g_it_offtemplate"
+  ],
+  "gates_in_flows": [
+   "g_it_deprov"
+  ],
+  "guarded_tables_written": [
+   "identity_account"
+  ],
+  "requests_approvals": false,
+  "flows": [
+   "exit"
+  ],
+  "wave": 2
+ },
+ {
+  "worker": "equipment-return-tracker",
+  "home_domain": "it",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "event",
+   "timer"
+  ],
+  "owner": "it",
+  "note": "Tracks device returns at exit.",
+  "writes": [
+   "checklist_task",
+   "device_assignment"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "it",
+   "ob"
+  ],
+  "restricted_tables": [
+   "device_assignment"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "exit"
+  ],
+  "wave": 2
+ },
+ {
+  "worker": "termination-checklist-builder",
+  "home_domain": "ob",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Template checklist by termination type and jurisdiction; honours legal holds.",
+  "extra_scope": {
+   "reads": [],
+   "writes": [
+    "checklist_task"
+   ],
+   "why": "Writes the termination tasks as well as the checklist (exit/checklist.py)."
+  },
+  "writes": [
+   "checklist",
+   "checklist_task"
+  ],
+  "reads": [
+   "termination"
+  ],
+  "domains_touched": [
+   "er",
+   "ob"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "exit"
+  ],
+  "wave": 2
+ },
+ {
+  "worker": "deduction-reconciler",
+  "home_domain": "pay",
+  "kind": "monitor",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "payroll",
+  "note": "Compares deductions with benefit elections and flags mismatches.",
+  "writes": [],
+  "reads": [
+   "benefit_election",
+   "payslip"
+  ],
+  "domains_touched": [
+   "ben",
+   "pay"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "payroll"
+  ],
+  "wave": 2
+ },
+ {
+  "worker": "direct-deposit-disburser",
+  "home_domain": "pay",
+  "kind": "integration",
+  "effect": "external_irreversible",
+  "autonomy": "approve",
+  "triggers": [
+   "step"
+  ],
+  "owner": "payroll",
+  "note": "The only worker allowed to set disbursed_at. Runs only after the approved gate.",
+  "flags": [
+   "guarded-write",
+   "legal-hold-check"
+  ],
+  "writes": [
+   "final_settlement",
+   "payroll_run"
+  ],
+  "reads": [
+   "consent_record",
+   "legal_hold"
+  ],
+  "domains_touched": [
+   "er",
+   "pay",
+   "priv"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [
+   "g_finalpay",
+   "g_pay_anomaly",
+   "g_pay_disburse"
+  ],
+  "gates_in_flows": [],
+  "guarded_tables_written": [
+   "final_settlement",
+   "payroll_run"
+  ],
+  "requests_approvals": false,
+  "flows": [
+   "exit",
+   "payroll"
+  ],
+  "wave": 2
+ },
+ {
+  "worker": "garnishment-processor",
+  "home_domain": "pay",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "payroll",
+  "note": "Applies garnishment orders within legal limits and priority.",
+  "flags": [
+   "legal-limits"
+  ],
+  "writes": [
+   "payslip_line"
+  ],
+  "reads": [
+   "garnishment_order"
+  ],
+  "domains_touched": [
+   "pay"
+  ],
+  "restricted_tables": [
+   "garnishment_order"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "payroll"
+  ],
+  "wave": 2
+ },
+ {
+  "worker": "gross-pay-calculator",
+  "home_domain": "pay",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "payroll",
+  "note": "Deterministic gross pay from effective-dated records.",
+  "flags": [
+   "jurisdiction-packs"
+  ],
+  "writes": [
+   "payslip",
+   "payslip_line"
+  ],
+  "reads": [
+   "employment_record",
+   "statutory_rate_rule"
+  ],
+  "domains_touched": [
+   "hr",
+   "pay",
+   "ref"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "payroll"
+  ],
+  "wave": 2
+ },
+ {
+  "worker": "payroll-anomaly-detector",
+  "home_domain": "pay",
+  "kind": "decider",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "payroll",
+  "note": "Soft-gate pre-check on a built run, fed by statistical features.",
+  "decision": {
+   "run_looks": [
+    "normal",
+    "unusual"
+   ]
+  },
+  "soft_gate": "sg_payroll_anomaly_precheck",
+  "writes": [],
+  "reads": [
+   "payroll_run"
+  ],
+  "domains_touched": [
+   "pay"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [
+   "g_pay_anomaly"
+  ],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "payroll"
+  ],
+  "wave": 2
+ },
+ {
+  "worker": "payroll-run-builder",
+  "home_domain": "pay",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "step",
+   "timer"
+  ],
+  "owner": "payroll",
+  "note": "Assembles the run. Must not set disbursed_at; needs per-worker column grants.",
+  "flags": [
+   "combined-scope-until-split",
+   "jurisdiction-packs"
+  ],
+  "extra_scope": {
+   "reads": [
+    "employee",
+    "employment_record",
+    "legal_entity",
+    "payslip",
+    "payroll_run",
+    "payroll_profile",
+    "statutory_rate_rule",
+    "pt_slab_rule",
+    "garnishment_order",
+    "benefit_election",
+    "timecard",
+    "leave_balance"
+   ],
+   "writes": [
+    "payslip",
+    "payslip_line"
+   ],
+   "why": "COMBINED SCOPE until payroll/run_builder.py is split: build_payroll_run persists the work of gross-pay-calculator, tax-withholding-calculator and garnishment-processor in one transaction. Never gets payroll_run.disbursed_at (guarded; owner direct-deposit-disburser)."
+  },
+  "writes": [
+   "gratuity_accrual_balance",
+   "payroll_run",
+   "payslip",
+   "payslip_line"
+  ],
+  "reads": [
+   "benefit_election",
+   "employee",
+   "employment_record",
+   "garnishment_order",
+   "leave_balance",
+   "legal_entity",
+   "payroll_profile",
+   "payroll_run",
+   "payslip",
+   "pt_slab_rule",
+   "statutory_rate_rule",
+   "timecard"
+  ],
+  "domains_touched": [
+   "ben",
+   "hr",
+   "pay",
+   "ref",
+   "ro",
+   "time"
+  ],
+  "restricted_tables": [
+   "employee",
+   "garnishment_order",
+   "payroll_profile"
+  ],
+  "gates_on_written_tables": [
+   "g_pay_anomaly",
+   "g_pay_disburse"
+  ],
+  "gates_in_flows": [],
+  "guarded_tables_written": [
+   "payroll_run"
+  ],
+  "requests_approvals": false,
+  "flows": [
+   "payroll"
+  ],
+  "wave": 2
+ },
+ {
+  "worker": "tax-filing-submitter",
+  "home_domain": "pay",
+  "kind": "integration",
+  "effect": "external_irreversible",
+  "autonomy": "approve",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "payroll",
+  "note": "Submits statutory filings. No hard gate in the model.",
+  "flags": [
+   "no-gate-on-irreversible",
+   "statutory-deadline",
+   "jurisdiction-packs"
+  ],
+  "extra_scope": {
+   "reads": [
+    "legal_entity",
+    "payroll_run"
+   ],
+   "writes": [],
+   "why": "Scheme list comes from the legal entity's country; the filing period comes from the run (payroll/tax_filing.py)."
+  },
+  "writes": [
+   "document",
+   "filing_record"
+  ],
+  "reads": [
+   "consent_record",
+   "legal_entity",
+   "payroll_run"
+  ],
+  "domains_touched": [
+   "pay",
+   "priv",
+   "ro"
+  ],
+  "restricted_tables": [
+   "document"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "payroll",
+   "threshold"
+  ],
+  "wave": 2
+ },
+ {
+  "worker": "tax-withholding-calculator",
+  "home_domain": "pay",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "payroll",
+  "note": "Deterministic withholding from rule tables (PT slabs, statutory rates).",
+  "flags": [
+   "jurisdiction-packs"
+  ],
+  "extra_scope": {
+   "reads": [
+    "employee",
+    "legal_entity"
+   ],
+   "writes": [],
+   "why": "Jurisdiction comes from the employee's legal entity (payroll/tax_withholding.py compute_withholding)."
+  },
+  "writes": [
+   "payslip_line"
+  ],
+  "reads": [
+   "employee",
+   "legal_entity",
+   "payroll_profile",
+   "pt_slab_rule",
+   "statutory_rate_rule"
+  ],
+  "domains_touched": [
+   "hr",
+   "pay",
+   "ref",
+   "ro"
+  ],
+  "restricted_tables": [
+   "employee",
+   "payroll_profile"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "payroll"
+  ],
+  "wave": 2
+ },
+ {
+  "worker": "pto-accrual-calculator",
+  "home_domain": "time",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Accrual from leave policy and jurisdiction rules.",
+  "flags": [
+   "jurisdiction-packs"
+  ],
+  "extra_scope": {
+   "reads": [
+    "employee"
+   ],
+   "writes": [],
+   "why": "Accrual starts from the employee's joining date (timekeeping/leave.py accrue_leave)."
+  },
+  "writes": [
+   "leave_balance"
+  ],
+  "reads": [
+   "employee",
+   "leave_policy"
+  ],
+  "domains_touched": [
+   "hr",
+   "time"
+  ],
+  "restricted_tables": [
+   "employee"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "payroll"
+  ],
+  "wave": 2
+ },
+ {
+  "worker": "timecard-aggregator",
+  "home_domain": "time",
+  "kind": "rule",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "payroll",
+  "note": "Aggregates approved hours into payroll inputs.",
+  "writes": [],
+  "reads": [
+   "timecard"
+  ],
+  "domains_touched": [
+   "time"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "payroll"
+  ],
+  "wave": 2
+ },
+ {
+  "worker": "comp-band-validator",
+  "home_domain": "comp",
+  "kind": "rule",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "founder",
+  "note": "Checks proposed comp against the band. Blocked until job_profile and comp_band have an owner.",
+  "flags": [
+   "needs-reference-data-owner"
+  ],
+  "writes": [],
+  "reads": [
+   "comp_band",
+   "compensation_event",
+   "employment_record",
+   "job_profile",
+   "offer"
+  ],
+  "domains_touched": [
+   "comp",
+   "hr",
+   "ta"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [
+   "g_offer_band"
+  ],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "merit"
+  ],
+  "wave": 3
+ },
+ {
+  "worker": "grant-drafter",
+  "home_domain": "comp",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "step"
+  ],
+  "owner": "founder",
+  "note": "Fills the grant template; g_409a applies.",
+  "writes": [
+   "equity_grant"
+  ],
+  "reads": [
+   "valuation_409a"
+  ],
+  "domains_touched": [
+   "comp"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [
+   "g_409a"
+  ],
+  "gates_in_flows": [
+   "g_409a"
+  ],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "merit"
+  ],
+  "wave": 3
+ },
+ {
+  "worker": "merit-cycle-calculator",
+  "home_domain": "comp",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "step"
+  ],
+  "owner": "founder",
+  "note": "Proposes increases from a guidelines matrix; founder approves via g_offer_band.",
+  "writes": [
+   "compensation_event"
+  ],
+  "reads": [
+   "comp_band",
+   "employment_record",
+   "performance_review"
+  ],
+  "domains_touched": [
+   "comp",
+   "hr",
+   "perf"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [
+   "g_offer_band"
+  ],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "merit"
+  ],
+  "wave": 3
+ },
+ {
+  "worker": "eeo-report-builder",
+  "home_domain": "hr",
+  "kind": "rule",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "timer",
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Reads only the aggregate view of self_identification (k >= 5). Never row-level, never a model.",
+  "flags": [
+   "aggregate-only",
+   "C4-no-models"
+  ],
+  "writes": [],
+  "reads": [
+   "self_identification"
+  ],
+  "domains_touched": [
+   "hr"
+  ],
+  "restricted_tables": [
+   "self_identification"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "threshold"
+  ],
+  "wave": 3
+ },
+ {
+  "worker": "calibration-data-aggregator",
+  "home_domain": "perf",
+  "kind": "rule",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Aggregates ratings and skills for calibration.",
+  "writes": [],
+  "reads": [
+   "employee_skill",
+   "performance_review"
+  ],
+  "domains_touched": [
+   "hr",
+   "perf"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "merit"
+  ],
+  "wave": 3
+ },
+ {
+  "worker": "review-cycle-launcher",
+  "home_domain": "perf",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Opens review cycles on schedule.",
+  "writes": [
+   "review_cycle"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "perf"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "merit"
+  ],
+  "wave": 3
+ },
+ {
+  "worker": "document-vault-manager",
+  "home_domain": "priv",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "event",
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Classifies documents by class into retention rules; handles erasure with legal-hold checks.",
+  "writes": [
+   "document"
+  ],
+  "reads": [
+   "retention_policy"
+  ],
+  "domains_touched": [
+   "priv"
+  ],
+  "restricted_tables": [
+   "document"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [
+   "erasure"
+  ],
+  "wave": 3
+ },
+ {
+  "worker": "carrier-file-transmitter",
+  "home_domain": "ben",
+  "kind": "integration",
+  "effect": "external_reversible",
+  "autonomy": "review",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Sends enrolment files; corrections go in follow-up files.",
+  "writes": [
+   "benefit_election"
+  ],
+  "reads": [
+   "dependent"
+  ],
+  "domains_touched": [
+   "ben"
+  ],
+  "restricted_tables": [
+   "dependent"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "cobra-notice-generator",
+  "home_domain": "ben",
+  "kind": "rule",
+  "effect": "external_notify",
+  "autonomy": "approve",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Statutory notice from template; HR approves via g_cobra.",
+  "flags": [
+   "us-pack",
+   "statutory-deadline"
+  ],
+  "writes": [
+   "cobra_event"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "ben"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [
+   "g_cobra"
+  ],
+  "gates_in_flows": [],
+  "guarded_tables_written": [
+   "cobra_event"
+  ],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "election-processor",
+  "home_domain": "ben",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Validates elections against plan rules and windows.",
+  "flags": [
+   "C3-no-models"
+  ],
+  "writes": [
+   "benefit_election",
+   "dependent"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "ben"
+  ],
+  "restricted_tables": [
+   "dependent"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "eligibility-calculator",
+  "home_domain": "ben",
+  "kind": "rule",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Plan eligibility from rules.",
+  "writes": [],
+  "reads": [
+   "benefit_plan",
+   "employee",
+   "threshold_obligation"
+  ],
+  "domains_touched": [
+   "ben",
+   "hr"
+  ],
+  "restricted_tables": [
+   "employee"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "enrollment-window-notifier",
+  "home_domain": "ben",
+  "kind": "rule",
+  "effect": "external_notify",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Templated enrolment reminders.",
+  "writes": [
+   "life_event"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "ben"
+  ],
+  "restricted_tables": [
+   "life_event"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "qle-validator",
+  "home_domain": "ben",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Deterministic window and type check. event_type is C4, so no model; HR reviews documents.",
+  "flags": [
+   "C4-no-models"
+  ],
+  "writes": [
+   "life_event"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "ben"
+  ],
+  "restricted_tables": [
+   "life_event"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "409a-trigger-monitor",
+  "home_domain": "comp",
+  "kind": "monitor",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "founder",
+  "note": "Flags stale valuations and material events for g_409a.",
+  "writes": [],
+  "reads": [
+   "equity_grant",
+   "valuation_409a"
+  ],
+  "domains_touched": [
+   "comp"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "bonus-calculator",
+  "home_domain": "comp",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "step",
+   "event"
+  ],
+  "owner": "founder",
+  "note": "Deterministic bonus calculation; gated like other compensation events.",
+  "writes": [
+   "compensation_event"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "comp"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [
+   "g_offer_band"
+  ],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "exercise-processor",
+  "home_domain": "comp",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "event"
+  ],
+  "owner": "founder",
+  "note": "Computes exercise value and tax withholding; g_409a applies.",
+  "writes": [
+   "option_exercise"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "comp"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [
+   "g_409a"
+  ],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "case-intake-router",
+  "home_domain": "er",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Routes cases by form fields and conflict of interest. Category and outcome are C4, so no model.",
+  "flags": [
+   "C4-no-models"
+  ],
+  "writes": [
+   "er_case"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "er"
+  ],
+  "restricted_tables": [
+   "er_case"
+  ],
+  "gates_on_written_tables": [
+   "g_er_adjud"
+  ],
+  "gates_in_flows": [],
+  "guarded_tables_written": [
+   "er_case"
+  ],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "exit-interview-scheduler",
+  "home_domain": "er",
+  "kind": "integration",
+  "effect": "external_reversible",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Books the exit interview through the calendar.",
+  "writes": [
+   "termination"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "er"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "investigation-tracker",
+  "home_domain": "er",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "event",
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Deadlines and status. Investigation stays human-led.",
+  "flags": [
+   "C4-no-models"
+  ],
+  "writes": [
+   "er_case"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "er"
+  ],
+  "restricted_tables": [
+   "er_case"
+  ],
+  "gates_on_written_tables": [
+   "g_er_adjud"
+  ],
+  "gates_in_flows": [],
+  "guarded_tables_written": [
+   "er_case"
+  ],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "bank-reconciler",
+  "home_domain": "fin",
+  "kind": "rule",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "founder",
+  "note": "Matches bank lines to the ledger; fuzzy leftovers get a typed Laya match decision.",
+  "assist": [
+   {
+    "type": "decider",
+    "use": "ambiguous bank-line match"
+   }
+  ],
+  "writes": [],
+  "reads": [
+   "gl_journal_entry",
+   "vendor_bill"
+  ],
+  "domains_touched": [
+   "fin"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "corporate-card-controller",
+  "home_domain": "fin",
+  "kind": "integration",
+  "effect": "external_reversible",
+  "autonomy": "approve",
+  "triggers": [
+   "event"
+  ],
+  "owner": "founder",
+  "note": "Card limits and freezes at the issuer.",
+  "writes": [
+   "corporate_card"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "fin"
+  ],
+  "restricted_tables": [
+   "corporate_card"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "cost-center-report-builder",
+  "home_domain": "fin",
+  "kind": "rule",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "founder",
+  "note": "Cost-centre reports from the ledger.",
+  "writes": [],
+  "reads": [
+   "gl_journal_entry"
+  ],
+  "domains_touched": [
+   "fin"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "expense-approval-router",
+  "home_domain": "fin",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "founder",
+  "note": "Routes expenses to the manager. No manager gate exists in the model.",
+  "flags": [
+   "needs-manager-gate"
+  ],
+  "writes": [
+   "approval_request",
+   "expense"
+  ],
+  "reads": [
+   "reporting_line"
+  ],
+  "domains_touched": [
+   "fin",
+   "hr",
+   "ro"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": true,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "expense-policy-checker",
+  "home_domain": "fin",
+  "kind": "decider",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "event"
+  ],
+  "owner": "founder",
+  "note": "Policy and duplicate checks on structured fields; receipts are extracted first.",
+  "assist": [
+   {
+    "type": "llm",
+    "use": "receipt field extraction"
+   }
+  ],
+  "flags": [
+   "needs-manager-gate",
+   "untrusted-documents"
+  ],
+  "decision": {
+   "within_policy": [
+    "yes",
+    "no",
+    "unclear"
+   ],
+   "duplicate_suspect": [
+    "yes",
+    "no"
+   ]
+  },
+  "soft_gate": "sg_expense_policy_precheck (proposed)",
+  "writes": [
+   "expense"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "fin"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "period-close-runner",
+  "home_domain": "fin",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "founder",
+  "note": "Runs the close checklist and accruals.",
+  "flags": [
+   "guarded-write"
+  ],
+  "writes": [
+   "gl_journal_entry"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "fin"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [
+   "g_close"
+  ],
+  "gates_in_flows": [],
+  "guarded_tables_written": [
+   "gl_journal_entry"
+  ],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "vendor-bill-processor",
+  "home_domain": "fin",
+  "kind": "llm",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "event"
+  ],
+  "owner": "founder",
+  "note": "Extracts bill fields from PDFs; PO matching and g_ap stay deterministic and human.",
+  "assist": [
+   {
+    "type": "decider",
+    "use": "bill matches purchase order"
+   }
+  ],
+  "flags": [
+   "untrusted-documents"
+  ],
+  "llm_tier": "small",
+  "writes": [
+   "vendor_bill"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "fin"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [
+   "g_ap"
+  ],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "aca-affordability-monitor",
+  "home_domain": "hr",
+  "kind": "monitor",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "timer",
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Computes ACA affordability and thresholds; founder decides via g_aca.",
+  "flags": [
+   "us-pack"
+  ],
+  "writes": [
+   "threshold_obligation"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "hr"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [
+   "g_aca",
+   "threshold_crossing"
+  ],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "org-chart-updater",
+  "home_domain": "hr",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Applies reporting changes and rejects cycles. reporting_line drives manager visibility, so every edit changes who can see whom.",
+  "flags": [
+   "changes-visibility-scope"
+  ],
+  "writes": [
+   "reporting_line"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "hr"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "access-compliance-auditor",
+  "home_domain": "it",
+  "kind": "monitor",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "it",
+  "note": "Periodic access review against role templates.",
+  "writes": [],
+  "reads": [
+   "access_role_template",
+   "app_access_grant",
+   "identity_account"
+  ],
+  "domains_touched": [
+   "it"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "app-access-exception-flagger",
+  "home_domain": "it",
+  "kind": "decider",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "it",
+  "note": "Soft-gate pre-check on access requests.",
+  "decision": {
+   "grant_fits_role": [
+    "consistent",
+    "inconsistent"
+   ]
+  },
+  "soft_gate": "sg_access_request_precheck",
+  "writes": [],
+  "reads": [
+   "app_access_grant"
+  ],
+  "domains_touched": [
+   "it"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "device-inventory-allocator",
+  "home_domain": "it",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "it",
+  "note": "Assigns devices from inventory.",
+  "writes": [
+   "device",
+   "device_assignment"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "it"
+  ],
+  "restricted_tables": [
+   "device_assignment"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "device-purchase-initiator",
+  "home_domain": "it",
+  "kind": "integration",
+  "effect": "external_irreversible",
+  "autonomy": "approve",
+  "triggers": [
+   "event"
+  ],
+  "owner": "it",
+  "note": "Creates purchase orders. Spend has no hard gate in the model.",
+  "flags": [
+   "no-gate-on-irreversible"
+  ],
+  "writes": [
+   "device"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "it"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "device-shipment-tracker",
+  "home_domain": "it",
+  "kind": "integration",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "it",
+  "note": "Polls carrier tracking.",
+  "writes": [
+   "device_assignment"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "it"
+  ],
+  "restricted_tables": [
+   "device_assignment"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "password-vault-sharer",
+  "home_domain": "it",
+  "kind": "integration",
+  "effect": "external_reversible",
+  "autonomy": "approve",
+  "triggers": [
+   "step"
+  ],
+  "owner": "it",
+  "note": "Shares vault item references only; never reads secrets.",
+  "flags": [
+   "secrets"
+  ],
+  "writes": [
+   "app_access_grant"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "it"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [
+   "g_it_offtemplate"
+  ],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "certification-expiry-monitor",
+  "home_domain": "learn",
+  "kind": "monitor",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Raises renewals before expiry.",
+  "writes": [],
+  "reads": [
+   "certification"
+  ],
+  "domains_touched": [
+   "learn"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "completion-tracker",
+  "home_domain": "learn",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Records completions into skills.",
+  "writes": [
+   "employee_skill",
+   "training_assignment"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "hr",
+   "learn"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "overdue-escalator",
+  "home_domain": "learn",
+  "kind": "monitor",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Escalates overdue training to the manager.",
+  "writes": [
+   "training_assignment"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "learn"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "training-assignment-engine",
+  "home_domain": "learn",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Maps role and skill gaps to courses.",
+  "writes": [
+   "training_assignment"
+  ],
+  "reads": [
+   "course",
+   "employee_skill",
+   "job_profile",
+   "skill"
+  ],
+  "domains_touched": [
+   "hr",
+   "learn"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "first-day-notifier",
+  "home_domain": "ob",
+  "kind": "rule",
+  "effect": "external_notify",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Templated first-day logistics.",
+  "writes": [
+   "checklist_task"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "ob"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "knowledge-transfer-coordinator",
+  "home_domain": "ob",
+  "kind": "llm",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Drafts a handoff plan from the job profile and open tasks.",
+  "llm_tier": "medium",
+  "writes": [
+   "checklist_task"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "ob"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "contractor-invoice-processor",
+  "home_domain": "pay",
+  "kind": "llm",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "event"
+  ],
+  "owner": "payroll",
+  "note": "Extracts typed fields from invoices. Payment goes through the router and g_pay_disburse.",
+  "assist": [
+   {
+    "type": "decider",
+    "use": "invoice matches contract"
+   }
+  ],
+  "flags": [
+   "untrusted-documents"
+  ],
+  "llm_tier": "small",
+  "writes": [
+   "contractor_invoice"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "pay"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [
+   "g_pay_disburse",
+   "g_pay_newjuris"
+  ],
+  "gates_in_flows": [],
+  "guarded_tables_written": [
+   "contractor_invoice"
+  ],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "in-country-tax-remitter",
+  "home_domain": "pay",
+  "kind": "integration",
+  "effect": "external_irreversible",
+  "autonomy": "approve",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "payroll",
+  "note": "Remits statutory taxes. Money moves without a hard gate in the model.",
+  "flags": [
+   "no-gate-on-irreversible",
+   "statutory-deadline",
+   "jurisdiction-packs"
+  ],
+  "writes": [
+   "filing_record"
+  ],
+  "reads": [
+   "statutory_rate_rule"
+  ],
+  "domains_touched": [
+   "pay",
+   "ref"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "jurisdiction-classifier",
+  "home_domain": "pay",
+  "kind": "rule",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "payroll",
+  "note": "Derives work and tax residency and the jurisdiction pack to apply (tax residency fields from the gap analysis).",
+  "flags": [
+   "jurisdiction-packs"
+  ],
+  "writes": [],
+  "reads": [
+   "employee",
+   "payroll_profile"
+  ],
+  "domains_touched": [
+   "hr",
+   "pay"
+  ],
+  "restricted_tables": [
+   "employee",
+   "payroll_profile"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "multi-currency-payment-router",
+  "home_domain": "pay",
+  "kind": "integration",
+  "effect": "external_irreversible",
+  "autonomy": "approve",
+  "triggers": [
+   "step"
+  ],
+  "owner": "payroll",
+  "note": "Executes contractor payments after the gate.",
+  "flags": [
+   "guarded-write",
+   "jurisdiction-packs"
+  ],
+  "writes": [
+   "contractor_invoice"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "pay"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [
+   "g_pay_disburse",
+   "g_pay_newjuris"
+  ],
+  "gates_in_flows": [],
+  "guarded_tables_written": [
+   "contractor_invoice"
+  ],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "w2-1099-generator",
+  "home_domain": "pay",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "payroll",
+  "note": "Generates year-end forms from payslips and contractor invoices.",
+  "flags": [
+   "jurisdiction-packs"
+  ],
+  "writes": [
+   "filing_record"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "pay"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "pip-tracker",
+  "home_domain": "perf",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "event",
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Tracks milestones and dates. Employment-decision data, so no model drafting.",
+  "flags": [
+   "employment-decision"
+  ],
+  "writes": [
+   "pip"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "perf"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "self-review-reminder",
+  "home_domain": "perf",
+  "kind": "monitor",
+  "effect": "external_notify",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Nudges people with missing self-reviews.",
+  "writes": [],
+  "reads": [
+   "performance_review",
+   "reporting_line",
+   "review_cycle"
+  ],
+  "domains_touched": [
+   "hr",
+   "perf"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "offer-approval-router",
+  "home_domain": "ro",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "step"
+  ],
+  "owner": "hr",
+  "note": "Requests g_offer_band only when the offer is outside the band.",
+  "writes": [
+   "approval_request"
+  ],
+  "reads": [
+   "offer"
+  ],
+  "domains_touched": [
+   "ro",
+   "ta"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": true,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "timecard-approval-router",
+  "home_domain": "ro",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Routes timecards to the manager. No manager gate exists in the model.",
+  "flags": [
+   "needs-manager-gate"
+  ],
+  "extra_scope": {
+   "reads": [
+    "approval_request",
+    "time_punch"
+   ],
+   "writes": [],
+   "why": "Runs the g_timecard resolution handler, which reads the approval and the punches (timekeeping/timecard.py)."
+  },
+  "writes": [
+   "approval_request",
+   "timecard"
+  ],
+  "reads": [
+   "approval_request",
+   "reporting_line",
+   "time_punch"
+  ],
+  "domains_touched": [
+   "hr",
+   "ro",
+   "time"
+  ],
+  "restricted_tables": [
+   "time_punch"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": true,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "aedt-audit-monitor",
+  "home_domain": "ta",
+  "kind": "monitor",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Periodic bias audit (selection and impact ratios) on screening results. Statistics only.",
+  "flags": [
+   "regulated-aedt"
+  ],
+  "writes": [
+   "aedt_audit"
+  ],
+  "reads": [
+   "screening_result"
+  ],
+  "domains_touched": [
+   "ta"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [
+   "g_aedt"
+  ],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "aedt-candidate-notifier",
+  "home_domain": "ta",
+  "kind": "rule",
+  "effect": "external_notify",
+  "autonomy": "review",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Template notice that an automated tool is used; sent before screening.",
+  "flags": [
+   "regulated-aedt"
+  ],
+  "writes": [
+   "screening_result"
+  ],
+  "reads": [
+   "application"
+  ],
+  "domains_touched": [
+   "ta"
+  ],
+  "restricted_tables": [],
+  "gates_on_written_tables": [
+   "g_aedt"
+  ],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "background-check-flagger",
+  "home_domain": "ta",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Tracks adverse-action stages and notice clocks. Findings are C4, so it never interprets them; HR decides via g_bg_adverse.",
+  "flags": [
+   "C4-no-models",
+   "fcra-consent"
+  ],
+  "writes": [
+   "background_check"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "ta"
+  ],
+  "restricted_tables": [
+   "background_check"
+  ],
+  "gates_on_written_tables": [
+   "g_bg_adverse"
+  ],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "fmla-eligibility-checker",
+  "home_domain": "time",
+  "kind": "rule",
+  "effect": "read_only",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Deterministic FMLA tests (12 months, 1,250 hours, employer size).",
+  "flags": [
+   "us-pack",
+   "C4-no-models"
+  ],
+  "writes": [],
+  "reads": [
+   "leave_request"
+  ],
+  "domains_touched": [
+   "time"
+  ],
+  "restricted_tables": [
+   "leave_request"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "leave-request-processor",
+  "home_domain": "time",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "approve",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Applies leave policy; HR designates via g_fmla. reason_detail is C4.",
+  "flags": [
+   "C4-no-models",
+   "us-pack"
+  ],
+  "writes": [
+   "leave_request"
+  ],
+  "reads": [
+   "leave_policy"
+  ],
+  "domains_touched": [
+   "time"
+  ],
+  "restricted_tables": [
+   "leave_request"
+  ],
+  "gates_on_written_tables": [
+   "g_fmla"
+  ],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "leave-return-coordinator",
+  "home_domain": "time",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "review",
+  "triggers": [
+   "timer"
+  ],
+  "owner": "hr",
+  "note": "Return-to-work scheduling and reminders.",
+  "flags": [
+   "C4-no-models"
+  ],
+  "writes": [
+   "leave_request"
+  ],
+  "reads": [],
+  "domains_touched": [
+   "time"
+  ],
+  "restricted_tables": [
+   "leave_request"
+  ],
+  "gates_on_written_tables": [
+   "g_fmla"
+  ],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ },
+ {
+  "worker": "punch-validator",
+  "home_domain": "time",
+  "kind": "rule",
+  "effect": "internal_write",
+  "autonomy": "auto",
+  "triggers": [
+   "event"
+  ],
+  "owner": "hr",
+  "note": "Missing, overlapping and over-long punch checks. time_punch carries C3 geo data, so no model.",
+  "flags": [
+   "C3-no-models"
+  ],
+  "writes": [
+   "timecard"
+  ],
+  "reads": [
+   "time_punch"
+  ],
+  "domains_touched": [
+   "time"
+  ],
+  "restricted_tables": [
+   "time_punch"
+  ],
+  "gates_on_written_tables": [],
+  "gates_in_flows": [],
+  "guarded_tables_written": [],
+  "requests_approvals": false,
+  "flows": [],
+  "wave": 4
+ }
+]
