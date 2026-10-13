@@ -14,6 +14,9 @@ Context for Claude Code. Read `docs/backend-plan.md`, `docs/model-findings.md` a
    - Grant caps (`grant_caps` in `model/extensions.json`, e.g. finding 2) are generated into
      `0024_model_grant_caps.sql` by the same `python -m daydor.model.ddl` run; `0003` stays the uncapped baseline
    - Gates: `python -m daydor.gates.registry`
+   - Worker registry outputs: `python -m daydor.agents.registry` (from `registry/worker_classification.json`,
+     `registry/platform_actors.json` and the model); worker definitions and roles
+     (`0025_worker_definition.sql`, `0028_worker_roles.sql`): `python -m daydor.agents.roles`
    - Workflows: `python -m daydor.workflow.definitions`
 2. **Migrations are forward-only.** Never edit an applied migration; add a new one (see 0008).
 3. **Hard human gates stay human.** Agents must never be able to resolve an approval. The soft-gate
@@ -26,7 +29,11 @@ Context for Claude Code. Read `docs/backend-plan.md`, `docs/model-findings.md` a
    idempotency key or event id.
 6. **Every function in `app` is opt-in.** New functions need explicit `GRANT EXECUTE`;
    `test_no_app_function_is_executable_by_public` enforces this.
-7. **Roles:** business objects are owned by `daydor_schema_owner` (non-superuser, subject to FORCE RLS).
+7. **Worker roles:** a worker's powers come from its registry scope, not from code. Never grant a worker role
+   `agent_runtime` or a people role, never a guarded column unless it is in `GUARD_OWNERS`, never an
+   encrypted column, and never EXECUTE on `app.resolve_approval`. Scope changes go in `extra_scope` in the
+   registry (reviewed), then regenerate. A model-using worker (decider, llm) never appears in the PII lists.
+8. **Roles:** business objects are owned by `daydor_schema_owner` (non-superuser, subject to FORCE RLS).
    Only functions that must see a whole tenant are owned by `daydor_system` (BYPASSRLS), and they must
    filter by tenant explicitly.
 
@@ -57,7 +64,13 @@ Context for Claude Code. Read `docs/backend-plan.md`, `docs/model-findings.md` a
   `gl_posting.py`; adapters in `src/daydor/adapters/tax_filing.py`, `gl.py`. `gl-poster` uses the
   same create-the-row-then-gate-the-UPDATE shape as `g_pay_disburse`, for `g_close`.
 - Adapters (external vendors, mocked until wired for real): `src/daydor/adapters/`
-- Agentic worker harness (placeholder, not wired in yet): `src/daydor/agents/`
+- Agentic worker harness (placeholder, not wired in yet): `src/daydor/agents/base.py`
+- Worker registry and per-worker roles (ADR-004): `registry/`, `src/daydor/agents/registry.py` (classification,
+  rules, reviewed `extra_scope`), `src/daydor/agents/roles.py` (generates `app.worker_definition` and one NOLOGIN
+  `worker_<name>` role per worker with column grants derived from scope and the model's agent access),
+  `src/daydor/agents/session.py` (`worker_session`: role from the registry, fails closed if disabled). SQL in
+  `0025`-`0029`. Queue handlers can register with `worker=`; the old `agent_<domain>` roles still work and are
+  removed later. `DAYDOR_TEST_ROLES=worker pytest` runs the queue handlers on worker roles.
 - Exit flow (complete, steps 1-14): `src/daydor/exit/` (`termination.py`, `legal_hold.py`,
   `checklist.py`, `deprovisioning.py`, `device_return.py`, `final_settlement.py`, `cobra.py`,
   `closeout.py`, `workflow.py`), SQL in `0022_exit_gate_guards.sql`, `0023_exit_workflow.sql`.

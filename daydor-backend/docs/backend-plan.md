@@ -1,7 +1,7 @@
 # Backend plan
 
-Status: v1.4, Oct 11 2026. Build steps 1-7 done; Hire flow complete (Sprints 1-5); Payroll flow
-complete (Sprints 6-9); Exit flow complete (Sprints 10-11), findings 2 and 23 closed (Sprints 12a-12b), 187 tests passing. Validated against
+Status: v1.5, Oct 13 2026. Worker registry and per-worker roles built (Phase 1, below). Build steps 1-7 done; Hire flow complete (Sprints 1-5); Payroll flow
+complete (Sprints 6-9); Exit flow complete (Sprints 10-11), findings 2 and 23 closed (Sprints 12a-12b), 276 tests passing. Validated against
 the 82-table model in `model/daydor_model.json`. Sprint-by-sprint plan and status:
 `docs/sprint-plan.md`.
 
@@ -28,8 +28,9 @@ the 82-table model in `model/daydor_model.json`. Sprint-by-sprint plan and statu
 | 4 | State machines | Definitions and transitions stored as data, guarded by gates |
 | 5 | Gate service | Registry of the 20 hard gates, `approval_request` as the record, DB-enforced maker-checker |
 | 6 | Soft gates (Laya, ADR-005) | `DeciderClient` interface, typed questions, thresholds on `answer_confidence` only, calibration required to enforce, `gate_evaluation` log, shadow mode first, fail closed. Code still has the Jev stub |
-| 7 | Privacy | `app.decrypt_pii(column, purpose)` checks consent and writes `audit_log`; per-tenant keys |
+| 7 | Privacy | `app.decrypt_pii(column, purpose)` checks consent and writes `audit_log`; per-tenant keys. Role checks use `app.current_actor_role()` (finding 24) |
 | 8 | Jurisdiction packs | Effective-dated `statutory_rate_rule` / `pt_slab_rule`; deterministic payroll code |
+| 8b | Worker registry and roles | 89 workers + 2 platform actors in `app.worker_definition`; per-tenant `worker_tenant_policy` (a tenant may only lower autonomy); one `worker_<name>` role per worker with derived column grants; `worker_platform` group; fail-closed `app.assert_worker_enabled` (ADR-004, `0025`-`0029`) |
 | 9 | Derived structures | `reporting_closure`, `employee_directory`, threshold recompute |
 | 10 | Adapters | IdP, carriers, bank, E-Verify, tax filing, background checks, GL via outbox and webhook inbox |
 
@@ -127,6 +128,22 @@ shadow-only candidate screener (regulated, resume is C3; `g_aedt` stays human).
 Young project (0.4.x, one organisation, self-reported benchmarks): mitigated by `DeciderClient`, pinned and
 vendored weights, and our own evals. Weights come from Hugging Face (supply chain). Confirm base encoder
 licences in legal review. Known upstream issues on `noul` and `act_probability`.
+
+### Worker roles (Phase 1, built Oct 13 2026)
+
+| Step | Status |
+|---|---|
+| 1. `app.worker_definition`, generated from `registry/` | Done (`0025`) |
+| 2. `app.worker_tenant_policy`, autonomy trigger, `app.assert_worker_enabled` | Done (`0026`) |
+| 3. Per-worker NOLOGIN roles, derived column grants, `worker_platform` group | Done (`0027`, `0028`) |
+| 4. Guarded columns only to named owners (`GUARD_OWNERS`) | Done (in `0028`) |
+| 5. `worker_session`, queue `Worker.register(worker=...)`, `SessionContext` accepts worker roles | Done |
+| 6. Remove the `agent_<domain>` roles | **Postponed**: the frontend API (`worker.py`, `sessions.py`, 18 `agent_session` calls) still runs on them. Follow-up: move the API, then drop them and `agent_runtime`'s duplicate platform grants |
+| Exit close-out split into one handler per worker | Done, staged inactive (`0029`, finding 27) |
+
+Still open from the reconciliation (`docs/worker-roles-reconciliation.md`): the API must adopt `worker_session` /
+`worker=`; `payroll/run_builder.py` is split later (combined scope until then); the Laya adoption takes the next
+free migration number after `0029`.
 
 ## Next steps
 

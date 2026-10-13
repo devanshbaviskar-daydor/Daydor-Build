@@ -390,6 +390,23 @@ tracker`) — treat an employee with no equity as a normal case, not a bug.
 
 ---
 
+## Phase 1: worker registry and per-worker roles (Done Oct 13 2026)
+
+Built from `docs/claude-code-kickoff.md` after the Phase 0 reconciliation (`docs/worker-roles-reconciliation.md`)
+and the reviewed scope additions (`docs/registry-scope-proposal.md`). 276 tests pass, also with
+`DAYDOR_TEST_ROLES=worker` (queue handlers on worker roles).
+
+- `registry/worker_classification.json` gained a reviewed `extra_scope` per worker, plus
+  `registry/platform_actors.json` (workflow-engine, root-orchestrator); `daydor.agents.registry` merges and validates.
+- `0025` `app.worker_definition` (generated), `0026` `app.worker_tenant_policy` and `app.assert_worker_enabled`,
+  `0027` `worker_platform`, worker-aware role functions and the PII role-check fix (finding 24), `0028` one NOLOGIN
+  role per worker with derived column grants and the PII registry seeds, `0029` exit workflow version 3 (inactive).
+- `daydor.agents.roles` (generator and rules), `daydor.agents.session.worker_session`, `Worker.register(worker=...)`.
+- **Postponed:** removing `agent_<domain>` roles (step 6), because the frontend API still runs on them.
+  **Staged:** exit workflow version 3 needs the API to register three new handler kinds before it is activated.
+
+---
+
 ## Cross-cutting hardening (Sprints 12-13)
 
 ### Sprint 12a — Employee write scope, finding 2 (Done)

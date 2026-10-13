@@ -110,6 +110,37 @@ EXIT_DEFINITION = {
 }
 
 
+# Version 3 splits s10 (`employee_closeout`, three workers in one transaction) into one step per worker, so
+# each runs under its own database role (docs/worker-roles-reconciliation.md). It is inserted INACTIVE by
+# 0029: new exits keep using version 2 until the handlers below are registered by whatever runs the queue
+# (the API's worker.py), then ops activates it. Instances already running stay on their own version.
+EXIT_DEFINITION_V3 = {
+    **EXIT_DEFINITION,
+    "title": "Termination to full and final (hand-written, steps 1-14, one close-out step per worker)",
+    "states": {
+        **{k: v for k, v in EXIT_DEFINITION["states"].items() if k not in ("s10_closeout", "done")},
+        "s10_vesting": {
+            "terminal": False,
+            "enter_jobs": [{"queue": "hr", "kind": "vesting_schedule_tracker"}],
+            "on": {"advance": {"to": "s11_rehire_flag"}},
+        },
+        "s11_rehire_flag": {
+            "terminal": False,
+            "enter_jobs": [{"queue": "hr", "kind": "rehire_eligibility_flagger"}],
+            "on": {"advance": {"to": "s12_employee_closeout"}},
+        },
+        "s12_employee_closeout": {
+            "terminal": False,
+            "enter_jobs": [{"queue": "hr", "kind": "employee_record_writer_closeout"}],
+            "on": {"advance": {"to": "done"}},
+        },
+        "done": {"terminal": True},
+    },
+}
+EXIT_DEFINITION_V3["states"]["s09_cobra"] = {
+    **EXIT_DEFINITION["states"]["s09_cobra"], "on": {"advance": {"to": "s10_vesting"}}}
+
+
 def start_exit(conn: Connection, engine: WorkflowEngine, *, employee_id: UUID, termination_type: str,
               reason_code: str, notice_date: date, last_working_day: date,
               initiated_by_user_id: UUID) -> UUID:
@@ -146,7 +177,28 @@ def seed_sql(version: int) -> str:
     ])
 
 
+def seed_sql_v3() -> str:
+    """0029: version 3 is inserted inactive; activating it is a deliberate, separate step."""
+    body = json.dumps(EXIT_DEFINITION_V3, sort_keys=True).replace("'", "''")
+    return "\n".join([
+        "-- Hand-written, NOT generated: see daydor.exit.workflow.EXIT_DEFINITION_V3.",
+        "-- Inserted INACTIVE. Version 2 stays the active 'exit' definition until the queue runner",
+        "-- registers vesting_schedule_tracker, rehire_eligibility_flagger and",
+        "-- employee_record_writer_closeout; then:",
+        "--   UPDATE app.workflow_definition SET active = false WHERE name = 'exit' AND version = 2;",
+        "--   UPDATE app.workflow_definition SET active = true  WHERE name = 'exit' AND version = 3;",
+        "SET ROLE daydor_schema_owner;",
+        "",
+        "INSERT INTO app.workflow_definition (name, version, definition, source, active) "
+        f"VALUES ('exit', 3, '{body}'::jsonb, 'hand-written', false);",
+        "",
+        "RESET ROLE;",
+        "",
+    ])
+
+
 if __name__ == "__main__":  # pragma: no cover
     from pathlib import Path
     Path("migrations/sql/0023_exit_workflow.sql").write_text(seed_sql(2))
-    print("wrote migrations/sql/0023_exit_workflow.sql")
+    Path("migrations/sql/0029_exit_workflow_v3.sql").write_text(seed_sql_v3())
+    print("wrote migrations/sql/0023_exit_workflow.sql and 0029_exit_workflow_v3.sql")
