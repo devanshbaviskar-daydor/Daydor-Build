@@ -15,7 +15,7 @@
 | Tailwind | Design tokens as CSS variables and plain CSS | One fewer build dependency; carries the mockup look |
 | Playwright end-to-end | Not yet | No browser could be installed in the build environment. The live test exercises the same client without a browser |
 | API confirms the `app_user` row on every sign-in | Done for roles that can read `app_user`; payroll and managers (no read access) are confirmed when the identity is provisioned | The database gives those two roles no access to the table |
-| "Always the caller's role" | Flow starts run as the `agent_ta` role with the person's user id in the session | Workflow instances can only be inserted by agent roles. No owner or bypass role is used |
+| "Always the caller's role" | Flow starts run as the `hire-intake` platform actor (a `worker_*` role) with the person's user id in the session | Workflow instances can only be inserted by worker roles. No owner or bypass role is used |
 
 ## Found in the backend (no change requested; the frontend works around each)
 

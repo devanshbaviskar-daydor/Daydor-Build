@@ -2,9 +2,9 @@
 
 `time_punch` is employee self-service by design (direct write, see access.py's DIRECT_WRITE_TABLES)
 and needs no endpoint here. `validate_timecard` (punches -> a timecard) and `accrue_leave` are
-plain functions run as `agent_time`, same as the backend's own tests, not queue handlers -- there
-is no domain agent to register in worker.py for either. `elect_benefit` is real backend logic
-(`agent_ben`), despite `benefit_election`'s table grant looking like self-service (finding 16: the
+plain functions run as their own workers (`punch-validator`, `pto-accrual-calculator`), not queue
+handlers -- there is nothing to register in worker.py for either. `elect_benefit` is real backend logic
+(`election-processor`), despite `benefit_election`'s table grant looking like self-service (finding 16: the
 employee's own column access on `coverage_tier`/`employee_cost` is READ, not WRITE).
 
 `expense` has no backend service at all: the model names workers
@@ -13,7 +13,7 @@ though the table carries a real `E: WRITE` grant and `g_expense` is a registered
 (`docs/model-findings.md` finding 9's `g_timecard` fix went in; `g_expense` was added at the same
 time but nothing was ever built to raise it). `approval_request`'s own grant doesn't give an
 employee INSERT access, so this endpoint does both the insert and the gate request in one
-`agent_hr` session, the same shape as `daydor.hire.consent.request_consent`'s gap-fill.
+`expense-approval-router` session (the worker the model names for this table).
 """
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ from .. import access, idempotency
 from ..deps import get_identity, idempotency_key
 from ..errors import ApiError
 from ..identity import Identity
-from ..sessions import agent_session
+from ..sessions import worker_session
 
 router = APIRouter(tags=["timekeeping"])
 
@@ -59,9 +59,10 @@ def create_timecard(body: TimecardBody, ident: Identity = Depends(get_identity),
         raise ApiError(403, "forbidden", "You can only build your own timecard.")
 
     def run() -> dict:
-        with agent_session(ident, "agent_time") as conn:
+        with worker_session(ident, "punch-validator") as conn:
             timecard_id = validate_timecard(conn, employee_id=body.employee_id,
                                             period_start=body.period_start, period_end=body.period_end)
+        with worker_session(ident, "timecard-approval-router") as conn:
             approval_id = route_for_approval(conn, timecard_id=timecard_id)
         return {"timecard_id": str(timecard_id), "approval_request_id": str(approval_id)}
 
@@ -78,7 +79,7 @@ class AccrueBody(BaseModel):
 def accrue(body: AccrueBody, ident: Identity = Depends(get_identity)):
     if ident.role not in ("tenant_hr", "tenant_founder", "daydor_ops"):
         raise ApiError(403, "forbidden", "Your role cannot run leave accrual.")
-    with agent_session(ident, "agent_time") as conn:
+    with worker_session(ident, "pto-accrual-calculator") as conn:
         balance_id = accrue_leave(conn, employee_id=body.employee_id, leave_policy_id=body.leave_policy_id,
                                   as_of=body.as_of)
     return {"leave_balance_id": str(balance_id)}
@@ -94,14 +95,14 @@ class ElectBody(BaseModel):
 
 @router.post("/benefits/elections", status_code=201)
 def elect(body: ElectBody, ident: Identity = Depends(get_identity), key: str | None = Depends(idempotency_key)):
-    """The employee chooses a plan through this endpoint, but the write runs as agent_ben, not
-    their own session -- finding 16: coverage_tier/employee_cost are C2-class, READ-only for the
+    """The employee chooses a plan through this endpoint, but the write runs as the
+    election-processor worker, not their own session -- finding 16: coverage_tier/employee_cost are C2-class, READ-only for the
     employee's own column access despite the table-level grant looking like self-service."""
     if not _self_or_manages(ident, body.employee_id):
         raise ApiError(403, "forbidden", "You can only elect your own benefits.")
 
     def run() -> dict:
-        with agent_session(ident, "agent_ben") as conn:
+        with worker_session(ident, "election-processor") as conn:
             election_id = elect_benefit(conn, employee_id=body.employee_id, benefit_plan_id=body.benefit_plan_id,
                                         coverage_tier=body.coverage_tier, employee_cost=body.employee_cost,
                                         effective_from=body.effective_from)
@@ -125,7 +126,7 @@ def submit_expense(body: ExpenseBody, ident: Identity = Depends(get_identity),
         raise ApiError(403, "forbidden", "Your role cannot submit expenses.")
 
     def run() -> dict:
-        with agent_session(ident, "agent_hr") as conn:
+        with worker_session(ident, "expense-approval-router") as conn:
             expense_id = conn.execute(text(
                 "INSERT INTO expense (employee_id, amount, category, receipt_document_id, policy_flags) "
                 "VALUES (:e, :a, :c, :r, '{}'::jsonb) RETURNING id"),

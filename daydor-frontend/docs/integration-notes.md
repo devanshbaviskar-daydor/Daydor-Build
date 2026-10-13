@@ -25,22 +25,22 @@ Workflow `hire`, version 6 (was version 3 when FE-6 shipped), terminal state `s1
 
 | State | Queue | Kind (handler) | Role | Gate |
 |---|---|---|---|---|
-| s03_approval_request | platform | requisition_approval_router | agent_ro | `g_requisition_budget` (outgoing) |
-| s04_job_posting | ta | job_posting_publisher | agent_ta | |
-| s05_application | ta | candidate_screener_intake | agent_ta | |
-| s06_screening_result | ta | candidate_screener_assess | agent_ta | `g_aedt` (outgoing) |
-| s07_interview | ta | interview_scheduler | agent_ta | |
-| s08_offer | ta | offer_letter_generator | agent_ta | `g_offer_band` (outgoing, conditional on out-of-band) |
-| s09_background_check | ta | background_check_initiator | agent_ta | `g_bg_adverse` (outgoing, conditional on adverse finding) |
-| s10_employee | hr | employee_record_writer_create | agent_hr | |
-| s11_employment_record | hr | employee_record_writer_open | agent_hr | |
+| s03_approval_request | platform | requisition_approval_router | requisition-approval-router | `g_requisition_budget` (outgoing) |
+| s04_job_posting | ta | job_posting_publisher | job-posting-publisher | |
+| s05_application | ta | candidate_screener_intake | candidate-screener | |
+| s06_screening_result | ta | candidate_screener_assess | candidate-screener | `g_aedt` (outgoing) |
+| s07_interview | ta | interview_scheduler | interview-scheduler | |
+| s08_offer | ta | offer_letter_generator | offer-letter-generator | `g_offer_band` (outgoing, conditional on out-of-band) |
+| s09_background_check | ta | background_check_initiator | background-check-initiator | `g_bg_adverse` (outgoing, conditional on adverse finding) |
+| s10_employee | hr | employee_record_writer_create | employee-record-writer | |
+| s11_employment_record | hr | employee_record_writer_open | employee-record-writer | |
 | s12_consent_record | -- | (no agent writer; employee-triggered via `daydor.hire.consent.request_consent`) | -- | `dpdp_consent` |
-| s13_document | privacy | new_hire_doc_collector | agent_priv | |
-| s14_work_authorization | hr | i9_e_verify_initiator (US only; no-op for India) | agent_hr | schedules `app.timer` for I-9 §2 deadline |
-| s15_checklist_task | ob | onboarding_checklist_builder | agent_ob | |
-| s16_identity_account | it | sso_identity_provisioner | agent_it | |
-| s17_app_access_grant | it | app_access_granter | agent_it | `g_it_offtemplate` (outgoing, conditional on off-template) |
-| s18_payroll_profile (terminal) | pay | employee_record_writer_payroll | agent_pay | |
+| s13_document | privacy | new_hire_doc_collector | new-hire-doc-collector | |
+| s14_work_authorization | hr | i9_e_verify_initiator (US only; no-op for India) | i9-e-verify-initiator | schedules `app.timer` for I-9 §2 deadline |
+| s15_checklist_task | ob | onboarding_checklist_builder | onboarding-checklist-builder | |
+| s16_identity_account | it | sso_identity_provisioner | sso-identity-provisioner | |
+| s17_app_access_grant | it | app_access_granter | app-access-granter | `g_it_offtemplate` (outgoing, conditional on off-template) |
+| s18_payroll_profile (terminal) | pay | employee_record_writer_payroll | employee-record-writer | |
 
 Every gate approval is still raised against the requisition (`job_requisition`, the workflow
 instance's fixed subject), never against the screening/offer/background-check row that actually
@@ -60,9 +60,9 @@ functions directly.
 | Leave accrual | `accrue_leave` | `daydor.timekeeping.leave` | (caller's role; on-demand, no scheduler) |
 | Timecard from punches | `validate_timecard` | `daydor.timekeeping.timecard` | (caller's role) |
 | Timecard approval routing | `route_for_approval` | `daydor.timekeeping.timecard` | raises `g_timecard` (approver: `tenant_manager`) |
-| Timecard gate resolution | `handle_timekeeping_gate_resolved` (queue handler, kind `timekeeping.gate_resolved`) | `daydor.timekeeping.timecard` | agent_time |
-| Benefit election | `elect_benefit` | `daydor.benefits.election` | agent_ben (not the employee's own session -- finding 16) |
-| Build payroll run | `build_payroll_run` | `daydor.payroll.run_builder` | agent_pay; idempotent on `(legal_entity_id, period_start, period_end)`; writes `payroll_run`/`payslip`/`payslip_line`/`gratuity_accrual_balance` via the `0021_payroll_run_functions.sql` SECURITY DEFINER functions |
+| Timecard gate resolution | `handle_timekeeping_gate_resolved` (queue handler, kind `timekeeping.gate_resolved`) | `daydor.timekeeping.timecard` | timecard-approval-router |
+| Benefit election | `elect_benefit` | `daydor.benefits.election` | election-processor (not the employee's own session -- finding 16) |
+| Build payroll run | `build_payroll_run` | `daydor.payroll.run_builder` | payroll-run-builder; idempotent on `(legal_entity_id, period_start, period_end)`; writes `payroll_run`/`payslip`/`payslip_line`/`gratuity_accrual_balance` via the `0021_payroll_run_functions.sql` SECURITY DEFINER functions |
 | Anomaly pre-check | `check_payroll_run` | `daydor.payroll.anomaly` | soft gate `sg_payroll_anomaly_precheck`, always escalates to `g_pay_anomaly` in shadow mode (approver: `tenant_payroll`/`daydor_ops`) |
 | Disbursal approval + disburse | `request_disbursal_approval` / `disburse_payroll_run` | `daydor.payroll.disbursement` | `g_pay_disburse` (approver: founder); `FakeBankAdapter` |
 | Issue payslips | `issue_payslips` | `daydor.payroll.payslip_issuer` | raises `PayrollRunNotDisbursed` until `disbursed_at` is set |
@@ -80,15 +80,17 @@ Driven through `WorkflowEngine` like Hire. Workflow `exit`.
 
 | State | Queue | Kind | Role | Gate |
 |---|---|---|---|---|
-| s02_legal_hold_check | hr | legal_hold_checker | agent_hr | `g_legalhold` (conditional -- only if a hold is active) |
-| s03_checklist | hr | termination_checklist_builder | agent_hr | |
-| s04_identity_account | it | deprovisioning_agent | agent_it | `g_it_deprov` (direct guarded-column call, not an engine-level transition gate) |
-| s05_device_assignment | it | equipment_return_tracker | agent_it | |
-| s06_final_settlement_calc | pay | final_pay_calculator | agent_pay | `g_finalpay` (outgoing) |
-| s07_final_settlement_created | pay | final_settlement_opener | agent_pay | |
-| s08_disbursed | pay | direct_deposit_disburser | agent_pay | `g_pay_disburse` (direct guarded-column call, reusing Payroll's pattern) |
-| s09_cobra | hr | cobra_trigger_detector | agent_hr | `g_cobra` (US only, no-op elsewhere) |
-| s10_closeout (terminal) | hr | employee_closeout | agent_hr | sets `employee.is_active = false`, `date_of_exit` |
+| s02_legal_hold_check | hr | legal_hold_checker | root-orchestrator | `g_legalhold` (conditional -- only if a hold is active) |
+| s03_checklist | hr | termination_checklist_builder | termination-checklist-builder | |
+| s04_identity_account | it | deprovisioning_agent | deprovisioning-agent | `g_it_deprov` (direct guarded-column call, not an engine-level transition gate) |
+| s05_device_assignment | it | equipment_return_tracker | equipment-return-tracker | |
+| s06_final_settlement_calc | pay | final_pay_calculator | final-pay-calculator | `g_finalpay` (outgoing) |
+| s07_final_settlement_created | pay | final_settlement_opener | final-pay-calculator | |
+| s08_disbursed | pay | direct_deposit_disburser | direct-deposit-disburser | `g_pay_disburse` (direct guarded-column call, reusing Payroll's pattern) |
+| s09_cobra | hr | cobra_trigger_detector | cobra-trigger-detector | `g_cobra` (US only, no-op elsewhere) |
+| s10_vesting | hr | vesting_schedule_tracker | vesting-schedule-tracker | read-only; none is a normal case |
+| s11_rehire_flag | hr | rehire_eligibility_flagger | rehire-eligibility-flagger | |
+| s12_employee_closeout (terminal) | hr | employee_record_writer_closeout | employee-record-writer | sets `employee.is_active = false`, `date_of_exit` (exit workflow v3; v2 had one `employee_closeout` step on `agent_hr`) |
 
 `legal_hold` and `vesting_event` are read-only inputs (legal_hold is admin-entered by
 `tenant_hr`/`tenant_founder`; vesting_event may legitimately be empty -- equity/vesting is Merit's
@@ -417,3 +419,14 @@ and are they accessible.
   `start_exit()`), but finding 9's suggested fix -- check instance state before firing, inside the
   flow's own `start_*()` function -- would close this for good, and should probably be checked for
   every other flow's `start_*()` too.
+
+## Roles: domain agents to registry workers (Oct 13 2026)
+
+The tables above were written when handlers and actions ran as `agent_<domain>` roles. They now run as the
+backend's per-worker roles (`worker_<name>`, from `registry/` in the backend): the worker queue registers
+handlers with `worker=`, and every action that used `agent_session(ident, "agent_pay")` uses
+`worker_session(ident, "<worker>")` (`daydor_api/sessions.py`). The role column in those tables names the
+worker. Actions a person starts run as the `hire-intake` and `exit-intake` platform actors (start hire, enter
+an application, request consent, start exit); the guarded steps run as the worker that owns them
+(`direct-deposit-disburser`, `gl-poster`, `deprovisioning-agent`, `cobra-notice-generator`). `ALLOWED_AGENT_ROLES`
+is gone with the domain roles. Exit workflow version 3 (one close-out step per worker) is active.

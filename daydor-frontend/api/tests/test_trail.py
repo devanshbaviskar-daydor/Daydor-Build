@@ -89,11 +89,11 @@ def test_trail_for_a_role_without_approval_access_is_empty_not_an_error(client, 
 
 
 def test_precheck_results_are_recorded_by_agents_and_shown_to_the_five_roles(client, people, engine, seeded):
-    from daydor.db.session import tenant_session
+    from daydor.agents.session import worker_session
     subject = uuid.uuid4()
     with engine.begin() as conn:
         tenant = conn.execute(text("SELECT id FROM tenant WHERE legal_name = 'Acme Technologies'")).scalar_one()
-    with tenant_session(engine, "agent_pay", tenant) as conn:
+    with worker_session(engine, "payroll-anomaly-detector", tenant) as conn:
         conn.execute(text("SELECT app.record_gate_evaluation('sg_payroll_anomaly_precheck', 'payroll_run', :s, 'laya', "
                           "'0.1', '1', 'hash', ARRAY['gross_total'], CAST('{}' AS jsonb), 0.42, 'escalate', 12, NULL, NULL)"),
                      {"s": subject})

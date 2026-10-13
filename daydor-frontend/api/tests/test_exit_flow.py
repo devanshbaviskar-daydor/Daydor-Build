@@ -24,10 +24,11 @@ def _hire_test_employee(engine, tenant, legal_entity, department, location, name
     assignment (device return), and a gratuity balance (final settlement reads it)."""
     from sqlalchemy import text
 
+    from daydor.agents.session import worker_session
     from daydor.db.session import tenant_session
     from daydor.hire.employee_record import hire_employee, open_employment_record
 
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "employee-record-writer", tenant) as conn:
         employee_id = hire_employee(
             conn, hire_event_id=f"exit-test-{uuid.uuid4().hex[:10]}", full_name=name,
             work_email=f"{name.split()[0].lower()}.{uuid.uuid4().hex[:6]}@example.test",
@@ -36,7 +37,7 @@ def _hire_test_employee(engine, tenant, legal_entity, department, location, name
             date_of_birth=date(1992, 6, 1), personal_address="1 Test Lane", aadhaar_last4="1234")
     with tenant_session(engine, "tenant_hr", tenant) as conn:
         job_profile = conn.execute(text("SELECT id FROM job_profile LIMIT 1")).scalar_one()
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "employee-record-writer", tenant) as conn:
         open_employment_record(conn, employee_id=employee_id, effective_from=date(2024, 1, 1),
                                job_profile_id=job_profile, fte="1.0", ctc_annual=str(ctc),
                                basic_da_monthly=str(ctc / 24), tax_regime_election="new", flsa_status="exempt")

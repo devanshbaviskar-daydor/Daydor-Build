@@ -2,13 +2,14 @@
 
 Unlike Hire and Exit, Payroll is not driven through `WorkflowEngine` -- `payroll_run.status`
 carries its own bookkeeping, and each step is a plain function in `daydor.payroll` the caller
-invokes directly as `agent_pay`, not a queue-triggered handler reached through a state machine
+invokes directly as the worker that owns it (`payroll-run-builder`, `direct-deposit-disburser`, `gl-poster`, ...),
+not a queue-triggered handler reached through a state machine
 (see `daydor.payroll.run_builder`'s module docstring). There is nothing to register in
 `worker.py` for any of this; these endpoints are the only way these steps run.
 
 `build_payroll_run` always needs to be followed by its own anomaly check before anything else can
 happen (the soft gate is shadow-mode, so it always escalates -- see `daydor.payroll.anomaly`'s
-module docstring), so `POST /runs` runs both in one call rather than making the caller chain two
+module docstring), so `POST /runs` runs both (as two workers, in two transactions) in one call rather than making the caller chain two
 requests with no real decision point in between.
 """
 from __future__ import annotations
@@ -31,7 +32,7 @@ from .. import access, idempotency
 from ..deps import get_identity, idempotency_key
 from ..errors import ApiError
 from ..identity import Identity
-from ..sessions import agent_session
+from ..sessions import worker_session
 
 router = APIRouter(prefix="/payroll", tags=["payroll"])
 
@@ -53,9 +54,11 @@ def create_run(body: CreateRun, ident: Identity = Depends(get_identity), key: st
         raise ApiError(403, "forbidden", "Your role cannot run payroll.")
 
     def run() -> dict:
-        with agent_session(ident, "agent_pay") as conn:
+        with worker_session(ident, "payroll-run-builder") as conn:
             built = build_payroll_run(conn, legal_entity_id=body.legal_entity_id, period_start=body.period_start,
                                       period_end=body.period_end, retention_class_id=body.retention_class_id)
+        # The anomaly pre-check is its own worker (and its own transaction); build is idempotent on the period.
+        with worker_session(ident, "payroll-anomaly-detector") as conn:
             outcome = check_payroll_run(conn, payroll_run_id=built["payroll_run_id"])
         return {
             "payroll_run_id": str(built["payroll_run_id"]), "payslip_ids": [str(p) for p in built["payslip_ids"]],
@@ -72,7 +75,7 @@ def request_disbursal(run_id: UUID, ident: Identity = Depends(get_identity), key
         raise ApiError(403, "forbidden", "Your role cannot request disbursal.")
 
     def run() -> dict:
-        with agent_session(ident, "agent_pay") as conn:
+        with worker_session(ident, "direct-deposit-disburser") as conn:
             approval_id = request_disbursal_approval(conn, payroll_run_id=run_id)
         return {"approval_request_id": str(approval_id)}
 
@@ -89,7 +92,7 @@ def disburse(run_id: UUID, body: Disburse, ident: Identity = Depends(get_identit
         raise ApiError(403, "forbidden", "Your role cannot disburse payroll.")
 
     def run() -> dict:
-        with agent_session(ident, "agent_pay") as conn:
+        with worker_session(ident, "direct-deposit-disburser") as conn:
             try:
                 disburse_payroll_run(conn, payroll_run_id=run_id, approval_request_id=body.approval_request_id)
             except Exception as exc:  # the database enforces this via app.enforce_gate_guard, not a Python check
@@ -106,7 +109,7 @@ def issue(run_id: UUID, ident: Identity = Depends(get_identity), key: str | None
         raise ApiError(403, "forbidden", "Your role cannot issue payslips.")
 
     def run() -> dict:
-        with agent_session(ident, "agent_pay") as conn:
+        with worker_session(ident, "payslip-issuer") as conn:
             try:
                 payslip_ids = issue_payslips(conn, payroll_run_id=run_id)
             except PayrollRunNotDisbursed as exc:
@@ -130,7 +133,7 @@ def file_returns(run_id: UUID, body: FileReturns, ident: Identity = Depends(get_
         raise ApiError(403, "forbidden", "Your role cannot file returns.")
 
     def run() -> dict:
-        with agent_session(ident, "agent_pay") as conn:
+        with worker_session(ident, "tax-filing-submitter") as conn:
             try:
                 filing_ids = file_payroll_run(conn, payroll_run_id=run_id, period=body.period,
                                               retention_class_id=body.retention_class_id)
@@ -150,7 +153,7 @@ def open_gl_entry(run_id: UUID, ident: Identity = Depends(get_identity), key: st
         raise ApiError(403, "forbidden", "Your role cannot post to the ledger.")
 
     def run() -> dict:
-        with agent_session(ident, "agent_pay") as conn:
+        with worker_session(ident, "gl-poster") as conn:
             gl_id = open_journal_entry(conn, payroll_run_id=run_id)
             approval_id = request_gl_close_approval(conn, gl_journal_entry_id=gl_id)
         return {"gl_journal_entry_id": str(gl_id), "approval_request_id": str(approval_id)}
@@ -169,7 +172,7 @@ def post_gl_entry(gl_id: UUID, body: PostGl, ident: Identity = Depends(get_ident
         raise ApiError(403, "forbidden", "Your role cannot post to the ledger.")
 
     def run() -> dict:
-        with agent_session(ident, "agent_pay") as conn:
+        with worker_session(ident, "gl-poster") as conn:
             try:
                 post_journal_entry(conn, gl_journal_entry_id=gl_id, approval_request_id=body.approval_request_id)
             except Exception as exc:  # enforced by app.enforce_gate_guard, not a Python check

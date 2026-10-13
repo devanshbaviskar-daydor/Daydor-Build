@@ -189,6 +189,7 @@
    "sources": {
     "granted": [
      "migrations/sql/0011_privacy.sql",
+     "migrations/sql/0027_worker_platform.sql",
      "tests/hire_helpers.py",
      "tests/test_hire.py",
      "tests/test_hire_onboarding.py",
@@ -304,6 +305,26 @@
     ],
     "rejected": [
      "src/daydor/hire/requisition.py"
+    ]
+   }
+  },
+  "leave_request.fmla_designation": {
+   "values": [
+    "eligible"
+   ],
+   "sources": {
+    "eligible": [
+     "tests/test_expense_leave_guards.py"
+    ]
+   }
+  },
+  "leave_request.status": {
+   "values": [
+    "approved"
+   ],
+   "sources": {
+    "approved": [
+     "tests/test_expense_leave_guards.py"
     ]
    }
   },
@@ -478,8 +499,6 @@
   "filing_record.scheme",
   "interview.recommendation",
   "job_posting.channel",
-  "leave_request.fmla_designation",
-  "leave_request.status",
   "legal_entity.entity_type",
   "life_event.event_type",
   "life_event.status",

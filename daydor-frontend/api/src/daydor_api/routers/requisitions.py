@@ -21,7 +21,7 @@ from .. import access, idempotency
 from ..deps import get_identity, idempotency_key
 from ..errors import ApiError
 from ..identity import WORKFLOW_READER_ROLES, Identity
-from ..sessions import agent_session, human_session
+from ..sessions import human_session, worker_session
 
 router = APIRouter(prefix="/hire", tags=["hire"])
 _ENGINE = WorkflowEngine()
@@ -198,8 +198,9 @@ def enter_application(requisition_id: UUID, body: ApplyBody, ident: Identity = D
 
     def run() -> dict:
         # The backend's trigger is a candidate applying; there is no apply page yet, so HR enters it.
-        # Runs as agent_ta (workflow instances are agent-driven) with the person's user id attached.
-        with agent_session(ident, "agent_ta") as conn:
+        # Runs as the hire-intake platform actor (workflow instances are worker-driven) with the person's
+        # user id attached.
+        with worker_session(ident, "hire-intake") as conn:
             inst = conn.execute(text(
                 "SELECT id, state, status FROM app.workflow_instance WHERE definition_name = 'hire' "
                 "AND subject_table = 'job_requisition' AND subject_id = :r ORDER BY created_at DESC LIMIT 1"),
@@ -234,9 +235,9 @@ def request_consent_approval(requisition_id: UUID, ident: Identity = Depends(get
         raise ApiError(403, "forbidden", "Only HR can request the new hire's consent sign-off.")
 
     def run() -> dict:
-        # request_consent only fires a workflow transition; it runs as agent_hr like the backend's
-        # own tests do, not an elevated role.
-        with agent_session(ident, "agent_hr") as conn:
+        # request_consent only fires a workflow transition; it runs as the hire-intake platform actor,
+        # not an elevated role.
+        with worker_session(ident, "hire-intake") as conn:
             inst = conn.execute(text(
                 "SELECT id, state, status FROM app.workflow_instance WHERE definition_name = 'hire' "
                 "AND subject_table = 'job_requisition' AND subject_id = :r ORDER BY created_at DESC LIMIT 1"),

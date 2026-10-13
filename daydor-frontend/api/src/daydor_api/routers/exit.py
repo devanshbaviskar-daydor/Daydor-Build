@@ -28,7 +28,7 @@ from .. import access, idempotency
 from ..deps import get_identity, idempotency_key
 from ..errors import ApiError
 from ..identity import Identity
-from ..sessions import agent_session
+from ..sessions import worker_session
 
 router = APIRouter(prefix="/exit", tags=["exit"])
 _ENGINE = WorkflowEngine()
@@ -55,7 +55,7 @@ def start(body: StartExit, ident: Identity = Depends(get_identity), key: str | N
         raise ApiError(403, "forbidden", "Your role cannot initiate a termination.")
 
     def run() -> dict:
-        with agent_session(ident, "agent_hr") as conn:
+        with worker_session(ident, "exit-intake") as conn:
             # start_exit's `initiate_termination` is idempotent on employee_id (returns the
             # existing row rather than raising), but start_exit itself is not: it unconditionally
             # fires "advance" twice with no event_id after engine.start(), which for an
@@ -92,7 +92,7 @@ def deprovision(identity_account_id: UUID, body: WithApproval, ident: Identity =
         raise ApiError(403, "forbidden", "Your role cannot deprovision this identity.")
 
     def run() -> dict:
-        with agent_session(ident, "agent_it") as conn:
+        with worker_session(ident, "deprovisioning-agent") as conn:
             employee_id = conn.execute(text("SELECT employee_id FROM identity_account WHERE id = :i"),
                                        {"i": identity_account_id}).scalar_one()
             instance_id = _instance_id_for_employee(conn, employee_id)
@@ -114,7 +114,7 @@ def disburse(final_settlement_id: UUID, body: WithApproval, ident: Identity = De
         raise ApiError(403, "forbidden", "Your role cannot disburse a final settlement.")
 
     def run() -> dict:
-        with agent_session(ident, "agent_pay") as conn:
+        with worker_session(ident, "direct-deposit-disburser") as conn:
             employee_id = conn.execute(text("SELECT employee_id FROM final_settlement WHERE id = :i"),
                                        {"i": final_settlement_id}).scalar_one()
             instance_id = _instance_id_for_employee(conn, employee_id)
@@ -136,7 +136,7 @@ def send_notice(cobra_event_id: UUID, body: WithApproval, ident: Identity = Depe
         raise ApiError(403, "forbidden", "Your role cannot send a COBRA notice.")
 
     def run() -> dict:
-        with agent_session(ident, "agent_hr") as conn:
+        with worker_session(ident, "cobra-notice-generator") as conn:
             employee_id = conn.execute(text("SELECT employee_id FROM cobra_event WHERE id = :i"),
                                        {"i": cobra_event_id}).scalar_one()
             instance_id = _instance_id_for_employee(conn, employee_id)

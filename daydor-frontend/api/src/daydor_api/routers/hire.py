@@ -15,7 +15,7 @@ from .. import access, idempotency
 from ..deps import get_identity, idempotency_key
 from ..errors import ApiError
 from ..identity import Identity
-from ..sessions import agent_session
+from ..sessions import worker_session
 
 router = APIRouter(prefix="/hire", tags=["hire"])
 _ENGINE = WorkflowEngine()
@@ -109,9 +109,9 @@ def start(body: StartHire, ident: Identity = Depends(get_identity), key: str | N
             value = getattr(body, field)
             if value is not None:
                 extra[field] = str(value)
-        # Workflow instances can only be inserted by agent roles, so this runs as agent_ta with the
-        # person's user id in the session. Nothing here uses an elevated role.
-        with agent_session(ident, "agent_ta") as conn:
+        # Workflow instances can only be inserted by worker roles, so this runs as the hire-intake platform
+        # actor with the person's user id in the session. Nothing here uses an elevated role.
+        with worker_session(ident, "hire-intake") as conn:
             # A position can have one hire in progress. A second start (a double click, or two people)
             # gets the existing one back instead of an error.
             existing = conn.execute(text(

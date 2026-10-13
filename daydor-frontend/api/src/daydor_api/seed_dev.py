@@ -13,6 +13,7 @@ from datetime import date
 
 from sqlalchemy import text
 
+from daydor.agents.session import worker_session
 from daydor.db.session import tenant_session
 from daydor.hire.employee_record import hire_employee, open_employment_record
 
@@ -46,7 +47,7 @@ def run() -> dict:
         us_loc = insert(conn, "location", tenant_id=tenant, name="Austin", country_code="US",
                         legal_entity_id=us_legal_entity, state_code="TX")
 
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "employee-record-writer", tenant) as conn:
         def hire(event, name, email):
             return hire_employee(conn, hire_event_id=event, full_name=name, work_email=email,
                                  employment_type="full_time", legal_entity_id=legal_entity, department_id=eng,
@@ -78,7 +79,7 @@ def run() -> dict:
     # Payroll's own run-builder (not a hire-flow step) processes every active employee under a
     # legal entity, not just new hires -- Meera and Arjun need an employment_record (ctc_annual)
     # too, or compute_gross_to_net raises on them the first time a real payroll run is built.
-    with tenant_session(engine, "agent_hr", tenant) as conn:
+    with worker_session(engine, "employee-record-writer", tenant) as conn:
         for employee_id, ctc in ((manager_emp, 2400000), (employee_emp, 1800000)):
             open_employment_record(conn, employee_id=employee_id, effective_from=date(2025, 4, 1),
                                    job_profile_id=profile, fte="1.0", ctc_annual=str(ctc),
