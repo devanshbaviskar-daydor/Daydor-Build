@@ -475,7 +475,7 @@ a test-only switch that ran queue handlers on worker roles (since removed: every
 
 ### Sprint 13 — Ops scoping, aggregate views, remaining timers, shadow report, model sync
 - **13b, done Oct 13 (`0037`):** `daydor_ops` → assigned-tenant table, checked inside `app.tenant_id()` (finding 6)
-- Aggregate-only (k ≥ 5 suppression) views for level-1 access, starting with EEO-1 (finding 7)
+- **13c, done Oct 13 (`0038`):** aggregate-only access with k ≥ 5 suppression, starting with the EEO-1 report (finding 7)
 - Remaining statutory timers not already covered: COBRA follow-ups, 409A staleness, work-
   authorization/certification expiry, threshold-crossing deadlines
 - **13a, done Oct 13 (`0036`):** shadow-mode comparison report (`app.gate_shadow_outcome`, `daydor.gates.report`), the opt-in

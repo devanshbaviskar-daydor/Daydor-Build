@@ -83,8 +83,8 @@ FUNCTION_GRANTS = {
     "app.open_final_settlement(uuid, uuid, numeric, numeric, numeric, numeric)": ["final-pay-calculator"],
 }
 
-# Tables a worker lists as read but only through an aggregate view (k >= 5, finding 7), so no column
-# grant exists or should. The role gets nothing on them until that view is built.
+# Tables a worker lists as read but only through an aggregate function (k >= 5, finding 7), so no column
+# grant exists or should. The worker gets EXECUTE on the function instead (app.eeo1_report, 0038).
 AGGREGATE_ONLY = frozenset({"self_identification"})
 
 # Model tables every worker needs through the platform group: the engine opens approvals when a
