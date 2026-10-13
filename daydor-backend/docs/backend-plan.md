@@ -1,7 +1,7 @@
 # Backend plan
 
 Status: v1.4, Oct 11 2026. Build steps 1-7 done; Hire flow complete (Sprints 1-5); Payroll flow
-complete (Sprints 6-9); Exit flow complete (Sprints 10-11), findings 2 and 23 closed (Sprints 12a-12b), 178 tests passing. Validated against
+complete (Sprints 6-9); Exit flow complete (Sprints 10-11), findings 2 and 23 closed (Sprints 12a-12b), 187 tests passing. Validated against
 the 82-table model in `model/daydor_model.json`. Sprint-by-sprint plan and status:
 `docs/sprint-plan.md`.
 
@@ -15,7 +15,8 @@ the 82-table model in `model/daydor_model.json`. Sprint-by-sprint plan and statu
 3. **Agents never write raw SQL.** Each table has one owning domain service. Agents call services
    as their own database role (`agent_<domain>`).
 4. **Every write is idempotent.** Agents retry, so commands carry an idempotency key.
-5. **Hard gates stay human.** Jev runs only on soft gates, fails closed, and never sees C3/C4 data.
+5. **Hard gates stay human.** The soft-gate engine (Laya, ADR-005) runs only on soft gates, fails closed,
+   starts in shadow mode, cannot enforce without a calibration, and never sees C3/C4 data.
 
 ## Components
 
@@ -26,7 +27,7 @@ the 82-table model in `model/daydor_model.json`. Sprint-by-sprint plan and statu
 | 3 | Queue and timers | Postgres: `FOR UPDATE SKIP LOCKED` leases, retries with backoff, dead-letter (ADR-001) |
 | 4 | State machines | Definitions and transitions stored as data, guarded by gates |
 | 5 | Gate service | Registry of the 20 hard gates, `approval_request` as the record, DB-enforced maker-checker |
-| 6 | Soft gates (Jev) | Typed questions, calibrated thresholds, `gate_evaluation` log, shadow mode first, fail closed |
+| 6 | Soft gates (Laya, ADR-005) | `DeciderClient` interface, typed questions, thresholds on `answer_confidence` only, calibration required to enforce, `gate_evaluation` log, shadow mode first, fail closed. Code still has the Jev stub |
 | 7 | Privacy | `app.decrypt_pii(column, purpose)` checks consent and writes `audit_log`; per-tenant keys |
 | 8 | Jurisdiction packs | Effective-dated `statutory_rate_rule` / `pt_slab_rule`; deterministic payroll code |
 | 9 | Derived structures | `reporting_closure`, `employee_directory`, threshold recompute |
@@ -38,7 +39,7 @@ the 82-table model in `model/daydor_model.json`. Sprint-by-sprint plan and statu
 2. Platform schema: roles, session context functions, RLS, grants
 3. Queue, outbox, timers
 4. State-machine runner
-5. Gate service and Jev soft-gate hook
+5. Gate service and soft-gate hook
 6. Tests: access matrix, maker-checker, queue semantics, model drift
 
 ## Known model gaps (from validation)
@@ -57,9 +58,9 @@ human-only service): `job_profile`, `comp_band`, `skill`, `benefit_plan`, `leave
 | 1. Model export and DDL generator | Done |
 | 2. Platform schema: roles, session context, RLS, grants | Done |
 | 3. Queue, outbox, timers | Done |
-| 4. Gate service: hard gates, write guards, Jev soft gates | Done (Jev HTTP client is a stub) |
+| 4. Gate service: hard gates, write guards, Jev soft gates | Done (Jev HTTP client is a stub; Laya replaces it, ADR-005, not built) |
 | 5. State-machine runner | Done (flow definitions are generated skeletons) |
-| 6. Tests | 178 passing |
+| 6. Tests | 187 passing |
 | 7. Privacy services | Done for the 4 encrypted `employee` columns (`0011_privacy.sql`) |
 | 8. Hire flow, Sprints 1-5 of docs/sprint-plan.md (complete) | Done: position check → requisition → `g_requisition_budget` approval → job posting → application → screening (`g_aedt`) → interview → offer (`g_offer_band`) → background check (`g_bg_adverse`) → employee/employment_record creation → consent (`dpdp_consent`) → new-hire documents → work authorization (US-only, I-9/E-Verify timer) → onboarding checklist → SSO identity → access grant (`g_it_offtemplate`) → payroll profile, driven end to end through `WorkflowEngine` (`src/daydor/hire/`, `0012`-`0018`). Step 19 (payslip) is permanently out of the hire flow's scope -- see finding 15. |
 | 9. Payroll flow, Sprint 6 of docs/sprint-plan.md | Done: leave accrual, timecard capture + manager approval (`g_timecard`, resolving finding 9), benefit elections (`src/daydor/timekeeping/`, `src/daydor/benefits/`, `0019_timecard_gates.sql`) |
@@ -67,6 +68,65 @@ human-only service): `job_profile`, `comp_band`, `skill`, `benefit_plan`, `leave
 | 11. Payroll flow, Sprint 8 of docs/sprint-plan.md | Done: `payroll-run-builder` persists `payroll_run`/`payslip`/`payslip_line`/`gratuity_accrual_balance` (resolving finding 17); `sg_payroll_anomaly_precheck` soft gate always escalates to `g_pay_anomaly` in shadow mode; `g_pay_disburse` hard gate + mock bank adapter make disbursal provably impossible without an approved request; `payslip-issuer` refuses until disbursed (`src/daydor/payroll/run_builder.py`, `anomaly.py`, `disbursement.py`, `payslip_issuer.py`, `src/daydor/adapters/bank.py`). Fixed finding 19 (`derived` columns carry no grant at all; `0021_payroll_run_functions.sql`'s SECURITY DEFINER functions, same pattern as `daydor.privacy.pii`) |
 | 12. Payroll flow, Sprint 9 of docs/sprint-plan.md (complete) | Done: `tax-filing-submitter` files one `filing_record` per statutory scheme (IN/US packs), idempotent, raises on an unregistered jurisdiction; `gl-poster` posts one summary `gl_journal_entry` per run, gated by `g_close` with the same create-then-gate shape as `g_pay_disburse` (`src/daydor/payroll/tax_filing.py`, `gl_posting.py`, `src/daydor/adapters/tax_filing.py`, `gl.py`). **Payroll flow is complete end to end**: accrue/punch/elect → compute → build run → anomaly screen → founder-approve → disburse → issue payslips → file → post to GL. |
 | 13. Exit flow, Sprints 10-11 of docs/sprint-plan.md (complete) | Done: termination intake (HR admin), legal-hold check (`g_legalhold`, blocks IT deprovisioning while a hold is active), termination checklist, identity deprovisioning + access revocation (`g_it_deprov`), device return, final settlement calculation (`g_finalpay`) + creation + disbursal (`g_pay_disburse`, reusing Sprint 8's pattern), COBRA (`g_cobra`, US only), close-out (`src/daydor/exit/`, `0022_exit_gate_guards.sql`, `0023_exit_workflow.sql`). Driven by `WorkflowEngine` like the hire flow (long-lived, multi-week journey), with `g_it_deprov`/`g_pay_disburse`/`g_cobra` as direct guarded-column calls rather than engine-level gates -- see `daydor.exit.workflow`'s module docstring. Fixed finding 20 (`final_settlement`'s NOT NULL/derived-column gap, same shape as finding 19). **Exit flow is complete end to end.** |
+
+## Soft gates with Laya (ADR-005, decided Oct 12 2026, not yet built)
+
+Laya (Convai Innovations, Apache-2.0, `pip install laya`) is a bidirectional encoder (ModernBERT-large 421M or
+mmBERT-base 322M) plus a decision head. It reads a state and typed questions and returns typed answers with
+probabilities in one forward pass (`choice`, `score`, `noul`). It never generates text. It runs in our process
+or in a `laya-serve` service, with no API key. Replaces Jev, which sent data to a third party.
+
+Quality caveats (from Laya's own model card; only our own shadow data counts as evidence): base checkpoints are
+near chance zero-shot (0.36 vs a 0.46 majority baseline) and ship over-confident (ECE 0.47, 0.08 after a
+per-question-type temperature fit). On CPU, latency is 193 to 464 ms, no faster than Jev; 33 to 40 ms on a T4.
+
+### Rules
+1. Threshold on `answer_confidence` only. Ignore `confidence` and `action.act_probability`.
+2. No enforcing without a calibration. Temperatures are fitted per (question type, option count) on held-out
+   labelled data from our domain. The DB refuses `mode='enforce'` without a `calibration_version` and records
+   which calibration decided each evaluation.
+3. Pin the model: refuse to load unless `LAYA_REVISION` is set; production vendors weights, sets
+   `LAYA_SHA256_DIGESTS` and `HF_HUB_OFFLINE=1`. Store repo and revision on every evaluation.
+4. Truncation fails closed: refuse over-long states, treat any truncation report as an error.
+5. Yes/no is sent as a two-option choice with neutral keys (laya issue 156).
+6. At most 20 options per question; split larger sets hierarchically.
+7. Language guard: gates that may see non-English text use the multilingual checkpoint, with a held-out slice per
+   language, and escalate on unsupported languages.
+8. Fine-tuning is the plan, not an option.
+9. A decider must beat a rule baseline (for payroll, a z-score threshold) on held-out data before it may enforce.
+
+### Restricted data (proposal, not implemented)
+Running locally removes the vendor-transfer reason for keeping restricted data from the engine, but the
+discrimination, purpose-limitation and self-identification reasons remain. Proposal: C4 and encrypted columns
+are never inputs; C3 is closed by default and opens per gate only through a recorded decision, local model
+only, with its own bias audit. Today the code refuses both. LLM workers keep the strict rule for C3 and C4.
+
+### Deployment
+Now: in-process `LayaClient` in the few workers that run soft gates (about 0.65 to 0.8 GB of weights per
+checkpoint, preloaded; CPU is fine off the hot path; needs PyTorch via an optional extra). Later: a shared
+`laya-serve`. It binds `0.0.0.0` with no authentication by default, so bind it privately and set `LAYA_API_KEY`.
+
+### Labels and promotion to enforce
+- Labels come from shadow mode: each shadow evaluation is paired with the human outcome on the hard gate it
+  escalated to (`approval_request.status`). Gate inputs are not stored today (hash only), so training needs a
+  separate, access-controlled, retention-limited example store, enabled per gate. Until enough labels exist,
+  every gate escalates.
+- Proposed starting points, set per gate with its owner: at least 300 labelled shadow decisions (50 of the rarer
+  label); held-out ECE of 0.10 or lower per language slice; beats the rule baseline; fewer than 1% human
+  disagreements on auto-passed decisions; two clean weeks in shadow after the last model or calibration change;
+  a named owner signs off, recorded as the `calibration_version`.
+- Open: may one tenant's decisions train a model serving other tenants? Recommended default: no, without an
+  explicit contractual opt-in.
+
+### Soft gates in this repo
+`sg_payroll_anomaly_precheck` (then `g_pay_anomaly`; question `run_looks`: normal or unusual) and `sg_access_request_precheck` (then `g_it_offtemplate`; question `request_looks`) are wired
+today. Candidates: an expense-policy precheck and a
+shadow-only candidate screener (regulated, resume is C3; `g_aedt` stays human).
+
+### Risks
+Young project (0.4.x, one organisation, self-reported benchmarks): mitigated by `DeciderClient`, pinned and
+vendored weights, and our own evals. Weights come from Hugging Face (supply chain). Confirm base encoder
+licences in legal review. Known upstream issues on `noul` and `act_probability`.
 
 ## Next steps
 
@@ -79,9 +139,9 @@ Miscellaneous items below aren't yet scheduled to a specific sprint:
 2. ~~Finding 2~~ closed in Sprint 12a (`grant_caps`, `0024`); finding 23 (the same over-grant on other tables' workflow-owned columns) closed in Sprint 12b. **Finding 9** (manager-approval gates,
    partly resolved for timecards in sprint-plan.md Sprint 6; `g_expense` still open) — both in
    Sprint 12.
-3. **Wire Jev** in `src/daydor/gates/jev.py` from TypeSafe's API docs once real API access
-   exists; until then soft gates stay in shadow mode (Sprint 13 builds the shadow-vs-human
-   comparison report).
+3. **Replace Jev with Laya** (ADR-005; see "Soft gates with Laya" below): `DeciderClient` + `LayaClient`,
+   a forward-only migration (0025+) for `calibration_version`, then a smoke test against a pinned real
+   checkpoint. Until then soft gates stay in shadow mode (Sprint 13 builds the shadow-vs-human report).
 4. **Enum value lists** in the model, then generated CHECK constraints (finding 5) — Sprint 12.
 5. **Ops tenant assignment** (finding 6) and k ≥ 5 aggregate views starting with EEO-1
    (finding 7) — Sprint 13.

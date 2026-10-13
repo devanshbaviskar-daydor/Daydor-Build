@@ -2,7 +2,7 @@
 
 Backend for Daydor, an HR platform for SMEs (50 to 100 employees) that runs HR work through
 domain agents. This repo holds the data model, database access control, the Postgres-based
-job queue and state machines, and the gate service (hard human gates plus Jev soft gates).
+job queue and state machines, and the gate service (hard human gates plus soft gates).
 
 ## Layout
 
@@ -15,7 +15,7 @@ job queue and state machines, and the gate service (hard human gates plus Jev so
 | `src/daydor/db/` | Engine and per-transaction session context (tenant, role, actor, purpose) |
 | `src/daydor/queue/` | Postgres job queue, outbox and timers |
 | `src/daydor/workflow/` | State-machine runner with transitions stored as data |
-| `src/daydor/gates/` | Gate registry, hard-gate service and the Jev soft-gate hook |
+| `src/daydor/gates/` | Gate registry, hard-gate service and the soft-gate hook (Jev stub today, Laya per ADR-005) |
 | `migrations/` | Alembic migrations |
 | `tests/` | Tests run against a real Postgres |
 | `docs/` | Backend plan, model findings and architecture decision records |

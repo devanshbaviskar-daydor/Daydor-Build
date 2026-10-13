@@ -1,6 +1,6 @@
 # Sprint plan
 
-Status: **approved 2026-10-08; Sprints 1-11, 12a and 12b done, Hire, Payroll and Exit flows complete** (178
+Status: **approved 2026-10-08; Sprints 1-11, 12a and 12b done, Hire, Payroll and Exit flows complete** (187
 tests passing). v2: revised after re-reading
 `docs/backend-plan.md` and `docs/model-findings.md` against the actual table `writers`/grants in
 `model/daydor_model.json` — this surfaced real prerequisite work the first draft missed (see
@@ -14,7 +14,7 @@ India + US jurisdictions. Postgres, not the application, enforces tenant isolati
 access by data sensitivity (C0-C4), maker-checker approval, consent-gated PII and full audit, so a
 buggy or compromised agent cannot bypass the rules. The model defines 82 tables, 6 end-to-end
 flows (**hire, payroll, exit, erasure, merit, threshold-crossing**), ~20 hard human gates, and a
-soft AI gate service ("Jev") that may only fast-track a decision, never replace human approval on
+soft AI gate service (originally Jev, now Laya per ADR-005) that may only fast-track a decision, never replace human approval on
 a hard gate. `docs/backend-plan.md`'s 10 components (session context, write services, queue,
 state machines, gates, soft gates, privacy, **jurisdiction packs**, derived structures, adapters)
 are the architecture; the 6 flows are what that architecture is *for*.
@@ -30,7 +30,8 @@ tenant-isolated.
 2. **All adapters are mocks for now** (IdP, bank, carriers, E-Verify, tax filing, background
    checks, GL, job boards). Every sprint that touches an adapter builds it behind a narrow
    interface with a fake implementation.
-3. **Jev stays a stub / shadow mode.** No real TypeSafe API access yet.
+3. **The soft-gate engine stays a stub / shadow mode.** Jev was the original engine; ADR-005 (Oct 12 2026)
+   replaces it with Laya, behind a `DeciderClient` interface. Neither is wired to a real model yet.
 4. **Open-ended, iterate sprint by sprint.** Each sprint is sized to be independently reviewable
    and mergeable; the next sprint gets planned after the current one is approved and merged.
 
@@ -429,6 +430,23 @@ tracker`) — treat an employee with no equity as a normal case, not a bug.
   `leave_request.status`/`fmla_designation` (`g_fmla`). No service writes those columns yet, so a guard
   would be untestable; add it with the expense and leave services.
 
+### Sprint 12c — Hire flow loose ends (Done)
+- **Seat filled at hire completion.** `daydor.hire.employee_record.fill_seat` runs in step 18's handler:
+  `position.status = 'filled'` with `current_employee_id` set (only while still vacant) and
+  `job_requisition.status = 'filled'`. `open_requisition` already refuses a position that is not open and
+  vacant, so a filled seat can no longer be hired for twice. An unfinished hire leaves the position open.
+- **`sg_access_request_precheck` is invoked.** `grant_app_access` runs it on every off-template (manual)
+  grant (inputs: app name, permission level, job title; all C0). It is called with
+  `open_approval=False` (new `run_soft_gate` argument) so one escalation stays one approval: the hire
+  flow still opens `g_it_offtemplate` on leaving step 17, now only if some grant escalated. Shadow mode
+  and a failing or unwired Jev still escalate, so IT reviews every off-template grant until the gate
+  is enforced (needs the Laya calibration work in ADR-005).
+- **`i9_section2_due` has a consumer.** `handle_i9_section2_due` (registered on the API worker's `hr`
+  queue) emits `i9.section2_overdue` when section 2 is still not completed and the employee is still
+  active. The timer fires once, so the event is not repeated. Nothing subscribes to the event yet.
+- No migration. `tests/test_hire_loose_ends.py` (9 tests); 187 backend tests, 59 API, 111 frontend. The API's
+  `provisional.json` enum file was regenerated for the new `filled` values.
+
 ### Sprint 12 — Grants, constraints, CI
 - Narrow `agent_runtime` into per-domain agent roles (finding 3), using the worker → domain map
   that now actually exists from Sprints 1-11
@@ -436,14 +454,16 @@ tracker`) — treat an employee with no equity as a normal case, not a bug.
 - Enum value lists in the model → generated CHECK constraints (finding 5)
 - CI: `alembic upgrade head` + `pytest` against Postgres 16 on every push
 
-### Sprint 13 — Ops scoping, aggregate views, remaining timers, Jev shadow report, model sync
+### Sprint 13 — Ops scoping, aggregate views, remaining timers, shadow report, model sync
 - `daydor_ops` → assigned-tenant table + RLS check (finding 6)
 - Aggregate-only (k ≥ 5 suppression) views for level-1 access, starting with EEO-1 (finding 7)
 - Remaining statutory timers not already covered: COBRA follow-ups, 409A staleness, work-
   authorization/certification expiry, threshold-crossing deadlines
-- Jev shadow-mode comparison report: for every soft gate run in shadow mode so far (`g_aedt`,
+- Shadow-mode comparison report: for every soft gate run in shadow mode so far (`g_aedt`,
   `g_pay_anomaly`), compare `app.gate_evaluation.model_decision` against the human's actual
-  decision, so there's real data whenever Jev access becomes available
+  decision, so there is real data for Laya calibration (ADR-005)
+- **Laya adoption (ADR-005), unscheduled:** `DeciderClient`/`LayaClient`, a `calibration_version` migration
+  (0025+), pinned/vendored checkpoint and smoke test, labelled-example store, calibration pipeline
 - **Model artifact sync:** push every local deviation back into `model/source_artifact.html` and
   re-export, in one pass, now that they've all stabilized: finding 1's `approval_request` columns,
   finding 10's nullable PII columns, Sprint 6's `g_timecard`/`g_expense` gates, and whatever Sprint
