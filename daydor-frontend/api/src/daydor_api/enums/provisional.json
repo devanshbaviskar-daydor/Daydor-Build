@@ -4,15 +4,23 @@
  "enums": {
   "agent_task_run.status": {
    "values": [
+    "failed",
     "pending",
+    "queued",
     "rejected",
     "review_pending",
     "running",
     "succeeded"
    ],
    "sources": {
+    "failed": [
+     "migrations/sql/0046_integrations_ops.sql"
+    ],
     "pending": [
      "migrations/sql/0044_human_surface.sql"
+    ],
+    "queued": [
+     "migrations/sql/0046_integrations_ops.sql"
     ],
     "rejected": [
      "migrations/sql/0040_agent_runs.sql",
@@ -52,12 +60,16 @@
   },
   "app_user.role": {
    "values": [
+    "admin",
     "employee",
     "founder",
     "hr",
     "ops"
    ],
    "sources": {
+    "admin": [
+     "tests/test_integrations_ops.py"
+    ],
     "employee": [
      "tests/conftest.py",
      "tests/hire_helpers.py",
@@ -78,6 +90,7 @@
      "tests/test_agent_safety_ops.py",
      "tests/test_aggregate_reports.py",
      "tests/test_human_surface.py",
+     "tests/test_integrations_ops.py",
      "tests/test_ops_scope.py",
      "tests/test_statutory_clocks.py"
     ]
@@ -112,6 +125,7 @@
     ],
     "pending": [
      "migrations/sql/0044_human_surface.sql",
+     "migrations/sql/0046_integrations_ops.sql",
      "src/daydor/gates/hard.py",
      "tests/test_gates.py"
     ],
@@ -522,6 +536,7 @@
      "tests/exit_helpers.py",
      "tests/test_aggregate_reports.py",
      "tests/test_human_surface.py",
+     "tests/test_integrations_ops.py",
      "tests/test_payroll_compute.py",
      "tests/test_payroll_filing_gl.py",
      "tests/test_payroll_run.py",
