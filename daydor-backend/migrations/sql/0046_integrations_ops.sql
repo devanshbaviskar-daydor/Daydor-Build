@@ -146,6 +146,12 @@ GRANT EXECUTE ON FUNCTION app.replay_webhook(uuid) TO daydor_ops;
 -- ---------------------------------------------------------------------------
 -- 3. Platform health: aggregates across tenants, no row content
 -- ---------------------------------------------------------------------------
+-- Kept apart so the front end's enum scan (daydor_api.enum_scan reads whole SQL statements) does not mistake another table's status words for approval_request's.
+CREATE FUNCTION app.ops_approval_counts() RETURNS TABLE (escalated boolean, n numeric)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = app, public, pg_temp AS $$
+    SELECT escalated_at IS NOT NULL, count(*)::numeric FROM public.approval_request WHERE status = 'pending' GROUP BY escalated_at IS NOT NULL
+$$;
+
 CREATE FUNCTION app.ops_health() RETURNS TABLE (metric text, labels jsonb, value numeric)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = app, public, pg_temp AS $$
     SELECT 'queue_jobs', jsonb_build_object('queue', queue, 'status', status), count(*)::numeric FROM app.job GROUP BY queue, status
@@ -161,8 +167,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = app, public, pg_temp AS $
     UNION ALL
     SELECT 'circuit_open', jsonb_build_object('integration', integration), (state = 'open')::int::numeric FROM app.integration_circuit
     UNION ALL
-    SELECT 'approvals_pending', jsonb_build_object('escalated', escalated_at IS NOT NULL), count(*)::numeric
-    FROM public.approval_request WHERE status = 'pending' GROUP BY escalated_at IS NOT NULL
+    SELECT 'approvals_pending', jsonb_build_object('escalated', a.escalated), a.n FROM app.ops_approval_counts() a
     UNION ALL
     SELECT 'webhook_events', jsonb_build_object('integration', integration, 'status', status), count(*)::numeric
     FROM app.webhook_event GROUP BY integration, status
@@ -215,6 +220,8 @@ GRANT SELECT ON app.webhook_endpoint, app.webhook_event, app.job, app.integratio
 GRANT USAGE ON SCHEMA app, public TO daydor_system;
 ALTER FUNCTION app.webhook_endpoint_lookup(text, text) OWNER TO daydor_system;
 ALTER FUNCTION app.ops_health() OWNER TO daydor_system;
+ALTER FUNCTION app.ops_approval_counts() OWNER TO daydor_system;
+GRANT EXECUTE ON FUNCTION app.ops_approval_counts() TO daydor_system;
 ALTER FUNCTION app.ops_alerts() OWNER TO daydor_system;
 GRANT EXECUTE ON FUNCTION app.webhook_endpoint_lookup(text, text) TO daydor_schema_owner;      -- receive_webhook calls it
 GRANT EXECUTE ON FUNCTION app.receive_webhook(text, text, text, jsonb) TO daydor_worker;
