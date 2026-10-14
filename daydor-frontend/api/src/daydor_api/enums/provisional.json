@@ -4,12 +4,16 @@
  "enums": {
   "agent_task_run.status": {
    "values": [
+    "pending",
     "rejected",
     "review_pending",
     "running",
     "succeeded"
    ],
    "sources": {
+    "pending": [
+     "migrations/sql/0044_human_surface.sql"
+    ],
     "rejected": [
      "migrations/sql/0040_agent_runs.sql",
      "migrations/sql/0041_agent_harness.sql",
@@ -17,7 +21,9 @@
     ],
     "review_pending": [
      "migrations/sql/0040_agent_runs.sql",
-     "migrations/sql/0041_agent_harness.sql"
+     "migrations/sql/0041_agent_harness.sql",
+     "migrations/sql/0044_human_surface.sql",
+     "tests/test_human_surface.py"
     ],
     "running": [
      "migrations/sql/0040_agent_runs.sql"
@@ -71,6 +77,7 @@
      "tests/conftest.py",
      "tests/test_agent_safety_ops.py",
      "tests/test_aggregate_reports.py",
+     "tests/test_human_surface.py",
      "tests/test_ops_scope.py",
      "tests/test_statutory_clocks.py"
     ]
@@ -104,6 +111,7 @@
      "overrides.json"
     ],
     "pending": [
+     "migrations/sql/0044_human_surface.sql",
      "src/daydor/gates/hard.py",
      "tests/test_gates.py"
     ],
@@ -504,17 +512,23 @@
   },
   "tenant.status": {
    "values": [
-    "active"
+    "active",
+    "suspended"
    ],
    "sources": {
     "active": [
+     "migrations/sql/0044_human_surface.sql",
      "tests/conftest.py",
      "tests/exit_helpers.py",
      "tests/test_aggregate_reports.py",
+     "tests/test_human_surface.py",
      "tests/test_payroll_compute.py",
      "tests/test_payroll_filing_gl.py",
      "tests/test_payroll_run.py",
      "tests/test_statutory_clocks.py"
+    ],
+    "suspended": [
+     "tests/test_human_surface.py"
     ]
    }
   },
