@@ -15,7 +15,7 @@ from typing import Any
 HERE = Path(__file__).parent
 AUTHORED, GENERATED = HERE / "commands.json", HERE / "commands.generated.json"
 # Never commands, whatever commands.json says: deciding, paying, filing, posting, removing access, and the platform's own surfaces.
-FORBIDDEN_PATH = re.compile(r"/(approvals|inbox|worker-controls|auth|meta|tables|workflows)\b|/(disburse|post|deprovision|send-notice|file|resolve)\b")
+FORBIDDEN_PATH = re.compile(r"/(approvals|inbox|worker-controls|auth|meta|tables|workflows|webhooks|ops|frontdoor)\b|/(disburse|post|deprovision|send-notice|file|resolve)\b")
 
 
 def _resolve(node: Any, components: dict) -> Any:

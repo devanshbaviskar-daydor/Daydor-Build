@@ -150,3 +150,16 @@ even if tricked. **Operations:** off until Daydor enables it per tenant (`app.fr
 and argument *names* only (`app.frontdoor_turn`), counts against the tenant's AI cap, is gated by the provider circuit and a per-person rate limit (30 an
 hour), and fails to a plain "unavailable". Decisions taken: typed command only, never gates (as you decided earlier); small model tier; ask back one
 thing at a time. Not done: a React command bar and confirm screen, a live eval (open-issues B1), the other lookups beyond ten kinds of record.
+
+## 11. What Phase F changed so far (built Oct 14, migration 0046): the part that needs no vendor credentials
+G10 is partly closed. **Adapter breakers:** one per adapter (`bank`, `tax_filing`, `gl`, `background_check`, `everify`, `idp`, `job_board`) plus the model provider;
+`daydor.adapters.resilient.guard` wraps any adapter, records each outcome in its own transaction, and an open breaker raises `IntegrationUnavailable` (a `Deferred`), which the
+queue worker turns into a deferral that spends no attempt; a vendor that answers "no" (`AdapterRejected`) is not an outage. **Webhook inbox:** `POST /api/webhooks/{integration}/
+{token}`, HMAC-signed (optionally timestamped, five-minute replay window), the URL secret stored only as a hash, events stored once per vendor event id for the endpoint's tenant,
+handed to the handler registered for the integration (`daydor.webhooks.register`; none yet, so events are kept as `ignored` and ops can replay them), a failing handler fails the event,
+not the queue. **Observability:** a request id and one JSON log line per request (route template only), `app.ops_health()` and `app.ops_alerts()` for Daydor admins (aggregates across
+tenants, no row content), `/api/ops/health` and Prometheus text at `/api/ops/metrics`; this closes the "state is visible in tables only" gap for alerts (delivery is still open).
+**Deployment:** `Dockerfile`, `docker-compose.yml`, `.env.example`, CI image build, `docs/deployment.md`; the API refuses to run outside development as the owner or with the
+development password, and `python -m daydor.db.bootstrap` sets a real one. Also fixed: `jsonschema` was imported by the harness but not declared (CI would have failed on a clean install),
+and the API package did not ship the front-door data files. Not done (needs you or a vendor): real adapters (MCP where a vendor ships one), production sign-in, alert delivery,
+cloud, backups and TLS, the Laya production pin. See `open-issues.md`.

@@ -33,6 +33,14 @@ from daydor.db.session import tenant_session
 log = logging.getLogger(__name__)
 
 
+class Deferred(Exception):
+    """Raised by a handler that cannot run yet through no fault of the job (an integration's circuit is open): the job goes back on its
+    queue for `seconds` later without spending an attempt, and an agent run is left open for it."""
+    def __init__(self, seconds: int, reason: str = "deferred") -> None:
+        super().__init__(reason)
+        self.seconds = seconds
+
+
 @dataclass(frozen=True)
 class Job:
     id: UUID
@@ -148,6 +156,9 @@ class Worker:
                 if result.get("_agent_fail"):                              # the agent side failed; the records of why are committed
                     self._finish(handler, job, run, "failed", str(result["_agent_fail"]))
                     return self._fail(job, f"{result['_agent_fail']}: {result.get('error', '')}")
+        except Deferred as d:
+            self._defer(job, d.seconds, str(d))
+            return "deferred"
         except Exception as exc:  # noqa: BLE001 - every failure is recorded on the job
             log.warning("job %s (%s) failed: %s", job.id, job.kind, exc)
             if run is not None:

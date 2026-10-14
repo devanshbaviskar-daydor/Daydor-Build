@@ -20,6 +20,9 @@ Started Oct 14 2026. "Needs you" means the next step is a decision only you can 
 | B1 | **Nothing has run against the real Claude API.** No live eval has ever been run, so no LLM worker can reach general availability. | Needs your API key and a spending decision. Run `python -m daydor.agents.evals --live --tenant T --record`. |
 | B2 | **Laya production pin and vendoring of weights; real shadow data to fit calibrations on.** | Needs real traffic and a place to host the weights (`docs/laya-runbook.md`). |
 | B3 | **All vendor integrations are fakes** (bank, tax filing, GL, background check, e-verify, and so on). | Phase F; each needs vendor credentials and a contract. |
+| B4 | **There is no production sign-in.** | `dev-login` exists only with `DAYDOR_API_ENV=dev`. Real sign-in (SSO/OIDC, sessions, MFA) is not built; the API runs in production mode but nobody can log in. Needs your identity-provider decision. |
+| B5 | **Backups, point-in-time recovery, secrets management, TLS, scaling.** | The platform's, not the code's; needs a hosting decision. `docs/deployment.md` lists what the stack assumes. |
+| B6 | **Alert delivery** (paging, email, chat). | Alerts are computed (`/api/ops/health`); nothing sends them. Needs a channel decision. |
 
 ## C. Built but incomplete
 | # | Issue | Detail |
@@ -39,6 +42,10 @@ Started Oct 14 2026. "Needs you" means the next step is a decision only you can 
 | C13 | **The front door has no live eval and only replay cases.** | Same dependency as B1. |
 | C14 | **Front-door spend is not in `app.ai_usage_daily`.** | It counts against the tenant cap (`tenant_ai_headroom`) but the usage view lists workers only. |
 | C15 | **Front-door lookups cover ten kinds of record, matched by name.** | Ambiguous matches are asked back; no fuzzy matching or synonyms. |
+| C17 | **Adapters are not yet wrapped by the breaker in the flows.** | `guard()` exists and is tested; the flows still build `Fake...Adapter()` directly. Wrap each when its real adapter lands (the registry of integrations is in place). |
+| C18 | **One generic webhook signature scheme** (`X-Signature` HMAC-SHA256, optional `X-Timestamp`). | Each real vendor will need its own header names and verification. |
+| C19 | **Webhook payloads are kept as received, with no retention rule.** | Vendor payloads can hold personal data; they need a retention class and a deletion job (ADR-006 spirit). |
+| C20 | **Docker image runs migrations as the owner in a one-shot job.** | Fine for one host; a real pipeline should run it as a release step with its own credentials. |
 | C16 | **The front door is off for every tenant until ops enables it** (`app.frontdoor_tenant`), and there is no ops screen for that. | A one-row insert today. |
 
 ## D. Deviations and known rough edges
@@ -51,6 +58,8 @@ Started Oct 14 2026. "Needs you" means the next step is a decision only you can 
 | D5 | Clock-scan chains for a *new* tenant start only at the next `ensure_platform_schedules` run (up to 6 h). | Call it from tenant provisioning to close the gap. |
 | D6 | **The dev database is stuck at 0033.** | Migration 0034 refuses to run while exit-workflow instances on version 2 are running. Tests build their own databases, so they are unaffected. |
 | D7 | **`daydor-frontend/api/src/daydor_api/enums/provisional.json` is stale in your working tree.** | HEAD has the regenerated file; the working-tree copy differs, so `test_provisional_enum_file_matches_what_the_backend_writes` fails locally until you `git checkout` it or regenerate (`python scripts/gen_enums.py`). |
+| D9 | **Migration 0001 creates `daydor_app` with the password `dev`.** | Harmless locally; `python -m daydor.db.bootstrap` sets a real one at deploy and the API refuses to start in production with the dev one. Rewriting 0001 would break applied databases, so it is handled at deploy time. |
+| D10 | **`anthropic` was not a declared dependency, and neither was `jsonschema`.** | Fixed in Phase F (`jsonschema` required, `anthropic` as the `claude` extra). Earlier CI runs on a clean install would have failed on the harness import. |
 | D8 | The `anthropic` model ids and tiers are assumptions about what you will run. | Overridable with `DAYDOR_MODEL_SMALL|MEDIUM|LARGE`; no price is built in (`DAYDOR_MODEL_PRICES`). |
 
 ## E. Resolved

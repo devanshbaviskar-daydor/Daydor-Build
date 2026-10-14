@@ -21,7 +21,7 @@ import time
 
 from sqlalchemy import Engine
 
-from daydor import approval_sla, notifications, schedules
+from daydor import approval_sla, notifications, schedules, webhooks
 from daydor.agents.runs import SETTLE_KIND, SETTLE_QUEUE, handle_agent_gate_resolved
 from daydor.clocks import handle_statutory_clock_scan
 from daydor.hire.access_grant import handle_app_access_granter
@@ -92,6 +92,9 @@ def build_workers(engine: Engine | None = None, name: str = "api") -> list[Worke
     # Clock and escalation events become notifications for the role that must act (the inbox reads them).
     notify = Worker(engine, notifications.QUEUE, f"{name}-notify")
     notify.register(notifications.KIND, worker="root-orchestrator", fn=notifications.handle_notify_event)
+    # Inbound vendor webhooks (0046): stored by the API, handed to the handler registered for their integration (none yet: kept, ignored).
+    hooks = Worker(engine, webhooks.QUEUE, f"{name}-webhooks")
+    hooks.register(webhooks.KIND, worker="root-orchestrator", fn=webhooks.handle_webhook_received)
     ta = Worker(engine, "ta", f"{name}-ta")
     ta.register("job_posting_publisher", worker="job-posting-publisher", fn=handle_job_posting_publisher())
     ta.register("candidate_screener_intake", worker="candidate-screener", fn=handle_candidate_screener_intake(wf))
@@ -136,7 +139,7 @@ def build_workers(engine: Engine | None = None, name: str = "api") -> list[Worke
     # and puts the held job back (or stops it).
     agent_runs = Worker(engine, SETTLE_QUEUE, f"{name}-agent-runs")
     agent_runs.register(SETTLE_KIND, worker="workflow-engine", fn=handle_agent_gate_resolved)
-    return [workflow, platform, notify, ta, hr, privacy, ob, it, pay, timekeeping, agent_runs]
+    return [workflow, platform, notify, hooks, ta, hr, privacy, ob, it, pay, timekeeping, agent_runs]
 
 
 def tick_all(workers: list[Worker], rounds: int = 3) -> dict[str, int]:
@@ -151,6 +154,9 @@ def tick_all(workers: list[Worker], rounds: int = 3) -> dict[str, int]:
 
 def run(interval: float = 1.0) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    from daydor.config import database_url
+    from .config import check_database_login, settings
+    check_database_login(database_url(), settings().env)
     workers = build_workers()
     log.info("queue workers started (%d queues)", len(workers))
     last_schedule = 0.0

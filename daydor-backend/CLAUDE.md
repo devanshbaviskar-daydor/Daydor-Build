@@ -74,6 +74,8 @@ Context for Claude Code. Read `docs/backend-plan.md`, `docs/model-findings.md` a
   controls, recurring timers for all tenants (`schedules.py`); API in `daydor-frontend/api` (`routers/inbox.py`, `worker_controls.py`). Escalation only notifies
 - Phase E (`0045`): the front door, in `daydor-frontend/api/src/daydor_api/frontdoor/` (reviewed `commands.json`, `catalogue.py`, `agent.py`, pinned prompt, golden cases).
   It proposes a typed command for a person to confirm, never executes, runs read-only, and no command may decide, pay, file, post or remove access
+- Phase F (`0046`): adapter breakers (`adapters/resilient.py`), webhook inbox (`webhooks.py`, API `routers/webhooks.py`), platform health and alerts (`app.ops_health`,
+  API `routers/ops.py`), request ids and logs (`daydor_api/observability.py`), `db/bootstrap.py`, `Dockerfile`/`docker-compose.yml`, `docs/deployment.md`
 - Open items, decisions waiting and deviations: `docs/open-issues.md` (keep it current)
 - Agent runs and autonomy (`0040`): `src/daydor/agents/runs.py`; every job of a real worker opens an `agent_task_run`, a tenant that
   raises autonomy holds (`g_agent_action`) or flags it. The plan for the rest of the agentic infrastructure is `docs/agentic-infra-plan.md`

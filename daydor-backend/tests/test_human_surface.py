@@ -126,7 +126,14 @@ def test_the_hourly_sweep_chain_runs_from_the_queue_and_schedules_the_next_hour(
 def drain_notify(engine):
     w = Worker(engine, notifications.QUEUE, f"n-{uuid.uuid4().hex[:6]}")
     w.register(notifications.KIND, worker="root-orchestrator", fn=notifications.handle_notify_event)
-    return w.tick()
+    total: dict[str, int] = {}
+    for _ in range(10):                      # other tests leave events too; a tick takes ten jobs
+        out = w.tick()
+        for k, v in out.items():
+            total[k] = total.get(k, 0) + v
+        if not out.get("succeeded"):
+            break
+    return total
 
 
 def notes(engine, own, role):

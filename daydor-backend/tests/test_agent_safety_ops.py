@@ -38,7 +38,7 @@ def closed_circuit(engine):
     def reset():
         with engine.begin() as conn:
             conn.execute(text("UPDATE app.integration_circuit SET state = 'closed', failures = 0, opened_at = NULL, "
-                              "threshold = 5, cooldown_s = 60"))
+                              "threshold = 5, cooldown_s = 60 WHERE integration = 'model_provider'"))
     reset()
     yield
     reset()
@@ -336,13 +336,13 @@ def test_the_circuit_opens_after_the_threshold_refuses_calls_then_probes_and_clo
         gate = circuit.allow(conn, "model_provider")
         assert not gate.allowed and 0 < gate.retry_after_s <= 60
     with engine.begin() as conn:                                         # the cooldown passes
-        conn.execute(text("UPDATE app.integration_circuit SET opened_at = now() - interval '2 minutes'"))
+        conn.execute(text("UPDATE app.integration_circuit SET opened_at = now() - interval '2 minutes' WHERE integration = 'model_provider'"))
     with worker_session(engine, W, req["tenant"]) as conn:
         assert circuit.allow(conn, "model_provider").allowed             # a probe
         assert circuit.record(conn, "model_provider", False, "still down") == "open"      # the probe failed: reopened
         assert not circuit.allow(conn, "model_provider").allowed
     with engine.begin() as conn:
-        conn.execute(text("UPDATE app.integration_circuit SET opened_at = now() - interval '2 minutes'"))
+        conn.execute(text("UPDATE app.integration_circuit SET opened_at = now() - interval '2 minutes' WHERE integration = 'model_provider'"))
     with worker_session(engine, W, req["tenant"]) as conn:
         assert circuit.record(conn, "model_provider", True) == "closed"
     assert tuple(circuit_state(engine)) == ("closed", 0)
@@ -361,7 +361,7 @@ def test_only_registered_integrations_and_only_through_the_functions(engine, req
             circuit.record(conn, "made-up", False)
     with pytest.raises(ProgrammingError, match="permission denied"):
         with worker_session(engine, W, req["tenant"]) as conn:
-            conn.execute(text("UPDATE app.integration_circuit SET state = 'closed'"))
+            conn.execute(text("UPDATE app.integration_circuit SET state = 'closed' WHERE integration = 'model_provider'"))
     with pytest.raises(ProgrammingError, match="permission denied"):
         with tenant_session(engine, "tenant_founder", req["tenant"]) as conn:
             circuit.allow(conn, "model_provider")
@@ -373,7 +373,7 @@ def test_only_registered_integrations_and_only_through_the_functions(engine, req
 def test_model_errors_open_the_circuit_and_an_open_circuit_defers_jobs_without_spending_attempts(engine, req):
     place(engine, req["tenant"], W, "ga")
     with engine.begin() as conn:
-        conn.execute(text("UPDATE app.integration_circuit SET threshold = 2"))
+        conn.execute(text("UPDATE app.integration_circuit SET threshold = 2 WHERE integration = 'model_provider'"))
 
     class Down(ScriptedClient):
         def complete(self, **kw):
@@ -400,7 +400,7 @@ def test_model_errors_open_the_circuit_and_an_open_circuit_defers_jobs_without_s
 def test_a_provider_that_answers_badly_is_not_a_provider_that_is_down(engine, req):
     place(engine, req["tenant"], W, "ga")
     with engine.begin() as conn:
-        conn.execute(text("UPDATE app.integration_circuit SET threshold = 2"))
+        conn.execute(text("UPDATE app.integration_circuit SET threshold = 2 WHERE integration = 'model_provider'"))
     for _ in range(3):
         run_one(engine, req, ScriptedClient([turn(call("submit_proposal", {"title": "x"}, f"t{i}")) for i in range(6)]))
     assert tuple(circuit_state(engine)) == ("closed", 0)

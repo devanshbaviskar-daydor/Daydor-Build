@@ -20,7 +20,7 @@ dev = ["pytest>=8", "httpx>=0.27"]
 where = ["src"]
 
 [tool.setuptools.package-data]
-daydor_api = ["sql/*.sql", "enums/*.json"]
+daydor_api = ["sql/*.sql", "enums/*.json", "frontdoor/*.json", "frontdoor/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

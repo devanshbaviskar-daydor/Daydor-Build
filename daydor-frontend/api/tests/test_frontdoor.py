@@ -113,7 +113,7 @@ def door(engine, tenant):
         with engine.begin() as conn:
             conn.execute(text("DELETE FROM app.frontdoor_tenant WHERE tenant_id = :t"), {"t": tenant})
             conn.execute(text("DELETE FROM app.tenant_ai_budget WHERE tenant_id = :t"), {"t": tenant})
-            conn.execute(text("UPDATE app.integration_circuit SET state = 'closed', failures = 0, opened_at = NULL"))
+            conn.execute(text("UPDATE app.integration_circuit SET state = 'closed', failures = 0, opened_at = NULL WHERE integration = 'model_provider'"))
     reset()
     with engine.begin() as conn:
         conn.execute(text("INSERT INTO app.frontdoor_tenant (tenant_id, enabled) VALUES (:t, true)"), {"t": tenant})
@@ -260,11 +260,11 @@ def test_the_gate_stops_a_budget_a_rate_limit_and_an_open_circuit_before_any_mod
     assert out["reason"] == "budget_used_up" and s.seen == []
     with engine.begin() as conn:
         conn.execute(text("DELETE FROM app.tenant_ai_budget WHERE tenant_id = :t"), {"t": tenant})
-        conn.execute(text("UPDATE app.integration_circuit SET state = 'open', opened_at = now()"))
+        conn.execute(text("UPDATE app.integration_circuit SET state = 'open', opened_at = now() WHERE integration = 'model_provider'"))
     out, s = say_to(client, people["hr"], monkeypatch, ok)
     assert out["reason"] == "provider_unavailable" and out["retry_after_s"] > 0 and s.seen == []
     with engine.begin() as conn:
-        conn.execute(text("UPDATE app.integration_circuit SET state = 'closed', opened_at = NULL"))
+        conn.execute(text("UPDATE app.integration_circuit SET state = 'closed', opened_at = NULL WHERE integration = 'model_provider'"))
         uid = conn.execute(text("SELECT id FROM app_user WHERE tenant_id = :t AND role = 'payroll' LIMIT 1"), {"t": tenant}).scalar_one()
         for _ in range(30):
             conn.execute(text("INSERT INTO app.frontdoor_turn (tenant_id, user_id, role, status, utterance_sha256, utterance_chars) "
@@ -278,7 +278,7 @@ def test_a_failing_provider_opens_the_circuit_and_the_front_door_says_try_again(
         def complete(self, **kw):
             raise ModelError("overloaded_error")
     with engine.begin() as conn:
-        conn.execute(text("UPDATE app.integration_circuit SET threshold = 2"))
+        conn.execute(text("UPDATE app.integration_circuit SET threshold = 2 WHERE integration = 'model_provider'"))
     try:
         for _ in range(2):
             monkeypatch.setattr(agent, "default_client", lambda: Down([]))
@@ -288,7 +288,7 @@ def test_a_failing_provider_opens_the_circuit_and_the_front_door_says_try_again(
             assert conn.execute(text("SELECT state FROM app.integration_circuit WHERE integration = 'model_provider'")).scalar_one() == "open"
     finally:
         with engine.begin() as conn:
-            conn.execute(text("UPDATE app.integration_circuit SET threshold = 5, state = 'closed', failures = 0, opened_at = NULL"))
+            conn.execute(text("UPDATE app.integration_circuit SET threshold = 5, state = 'closed', failures = 0, opened_at = NULL WHERE integration = 'model_provider'"))
 
 
 def test_front_door_spend_counts_against_the_tenants_cap(client, people, engine, tenant, door, monkeypatch):

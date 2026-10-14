@@ -1,0 +1,44 @@
+# A production-shaped stack on one machine: Postgres 16, a one-shot migrate/bootstrap job, the API and the queue worker.
+#   cp .env.example .env     # then fill in every value
+#   docker compose up --build
+# Not a substitute for a managed database and a real deploy pipeline (docs/deployment.md), but it is the same moving parts.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: daydor_owner
+      POSTGRES_PASSWORD: ${DAYDOR_OWNER_PASSWORD:?set DAYDOR_OWNER_PASSWORD in .env}
+      POSTGRES_DB: daydor
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U daydor_owner -d daydor"], interval: 5s, timeout: 5s, retries: 20 }
+
+  migrate:
+    build: .
+    depends_on: { db: { condition: service_healthy } }
+    environment:
+      # Migrations create roles, so they run as the owner. Nothing else ever does.
+      DAYDOR_DATABASE_URL: postgresql+psycopg://daydor_owner:${DAYDOR_OWNER_PASSWORD}@db:5432/daydor
+      DAYDOR_OWNER_URL: postgresql+psycopg://daydor_owner:${DAYDOR_OWNER_PASSWORD}@db:5432/daydor
+      DAYDOR_APP_PASSWORD: ${DAYDOR_APP_PASSWORD:?set DAYDOR_APP_PASSWORD in .env}
+    command: ["sh", "-c", "cd daydor-backend && alembic upgrade head && cd ../daydor-frontend/api && python -m daydor_api.migrate && python -m daydor.db.bootstrap"]
+    restart: "no"
+
+  api:
+    build: .
+    depends_on: { migrate: { condition: service_completed_successfully } }
+    ports: ["8000:8000"]
+    env_file: .env
+    environment:
+      DAYDOR_DATABASE_URL: postgresql+psycopg://daydor_app:${DAYDOR_APP_PASSWORD}@db:5432/daydor
+
+  worker:
+    build: .
+    depends_on: { migrate: { condition: service_completed_successfully } }
+    env_file: .env
+    environment:
+      DAYDOR_DATABASE_URL: postgresql+psycopg://daydor_app:${DAYDOR_APP_PASSWORD}@db:5432/daydor
+    command: ["python", "-m", "daydor_api.worker"]
+    healthcheck: { disable: true }
+
+volumes:
+  pgdata:

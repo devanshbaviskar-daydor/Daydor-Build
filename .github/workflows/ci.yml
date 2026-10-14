@@ -76,3 +76,10 @@ jobs:
       - run: cd daydor-frontend/api && python scripts/gen_enums.py ../../daydor-backend
       - run: cd daydor-frontend/frontend && npm ci && DAYDOR_BACKEND_ROOT=../../daydor-backend npm run contract:sync
       - run: git diff --exit-code
+
+  image:
+    # The deployable image must keep building (Dockerfile at the repository root; see daydor-backend/docs/deployment.md).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t daydor .
