@@ -121,3 +121,18 @@ general availability; a new prompt drops it back to shadow; a tenant can step ba
 `model_provider`, deferring jobs without spending attempts. Decisions taken: canary needs 5 runs; no cap row means no cap; the first cap values
 are Daydor's to set per tenant, none is built in. Not done: a live eval has never been run against the real API (so nothing can reach ga yet),
 per-integration breakers for vendor adapters (none is wired), alerts when a circuit opens or a tenant nears its cap (Phase D).
+
+## 9. What Phase D changed (built Oct 14, migration 0044)
+G7, G8 and G12 are closed for what exists today. **Deadlines and escalation:** every pending approval gets the gate's response window
+(`app.gate_sla`: 48 h by default, 24 h for `g_pay_disburse`, `g_it_deprov`, `g_cobra`); an hourly per-tenant sweep (`daydor.approval_sla`) escalates
+a late one once (`approval.escalated`, `escalated_at`). Escalation only *notifies* the founder: it never changes who may resolve a gate and never
+expires or decides anything. **Consumers:** `clock.due_soon`, `clock.overdue` and `approval.escalated` go to the `notify` queue and become rows in
+`app.notification` for the role that must act (`daydor.notifications`; deduplicated; a role reads only its own, the founder and Daydor staff read all).
+**Inbox:** `app.inbox()` and `GET /api/inbox`: approvals the caller's role may decide, agent runs waiting for review by the worker's owner (the founder
+sees all), notifications; most urgent first; `acknowledge`/`reject` a review and `dismiss` a notification over HTTP. **Tenant controls:**
+`app.tenant_worker_controls()`, `app.set_worker_control()` and `GET/PUT /api/worker-controls` for the founder and HR: more careful, never less, and an off
+switch, with the rollout stage of LLM workers shown (only Daydor moves it forward). **Timers:** `daydor.schedules.ensure_platform_schedules` starts the
+clock scan and the approval sweep for every active tenant (`app.platform_tenants()`); the API worker runs it at start and every 6 hours.
+Decisions taken: the escalation window is 48 h (24 h for the three time-sensitive gates), the escalation target is the founder, one escalation per
+request. Not done: a React screen for the inbox and the controls (the endpoints are the contract), e-mail or chat delivery of notifications, and a
+second escalation level. The "first real cross-domain subscriptions" are the notification consumers; no flow reacts to another flow's events yet.

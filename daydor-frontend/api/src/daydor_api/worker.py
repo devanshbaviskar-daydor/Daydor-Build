@@ -21,6 +21,7 @@ import time
 
 from sqlalchemy import Engine
 
+from daydor import approval_sla, notifications, schedules
 from daydor.agents.runs import SETTLE_KIND, SETTLE_QUEUE, handle_agent_gate_resolved
 from daydor.clocks import handle_statutory_clock_scan
 from daydor.hire.access_grant import handle_app_access_granter
@@ -86,6 +87,11 @@ def build_workers(engine: Engine | None = None, name: str = "api") -> list[Worke
     # The daily statutory-clock scan (COBRA, expiries, 409A, thresholds): raises clock.due_soon / clock.overdue events.
     # A tenant's chain starts with daydor.clocks.start_clock_scan and then reschedules itself.
     platform.register("statutory_clock_scan", worker="root-orchestrator", fn=handle_statutory_clock_scan)
+    # Hourly approval sweep (0044): gives pending approvals a deadline and escalates the late ones (a notification, never a decision).
+    platform.register(approval_sla.KIND, worker="root-orchestrator", fn=approval_sla.handle_approval_sweep)
+    # Clock and escalation events become notifications for the role that must act (the inbox reads them).
+    notify = Worker(engine, notifications.QUEUE, f"{name}-notify")
+    notify.register(notifications.KIND, worker="root-orchestrator", fn=notifications.handle_notify_event)
     ta = Worker(engine, "ta", f"{name}-ta")
     ta.register("job_posting_publisher", worker="job-posting-publisher", fn=handle_job_posting_publisher())
     ta.register("candidate_screener_intake", worker="candidate-screener", fn=handle_candidate_screener_intake(wf))
@@ -130,7 +136,7 @@ def build_workers(engine: Engine | None = None, name: str = "api") -> list[Worke
     # and puts the held job back (or stops it).
     agent_runs = Worker(engine, SETTLE_QUEUE, f"{name}-agent-runs")
     agent_runs.register(SETTLE_KIND, worker="workflow-engine", fn=handle_agent_gate_resolved)
-    return [workflow, platform, ta, hr, privacy, ob, it, pay, timekeeping, agent_runs]
+    return [workflow, platform, notify, ta, hr, privacy, ob, it, pay, timekeeping, agent_runs]
 
 
 def tick_all(workers: list[Worker], rounds: int = 3) -> dict[str, int]:
@@ -147,8 +153,12 @@ def run(interval: float = 1.0) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     workers = build_workers()
     log.info("queue workers started (%d queues)", len(workers))
+    last_schedule = 0.0
     while True:
         try:
+            if time.monotonic() - last_schedule > 6 * 3600:        # start the recurring timers for every active tenant (idempotent)
+                log.info("platform schedules ensured for %d tenants", schedules.ensure_platform_schedules(get_engine()))
+                last_schedule = time.monotonic()
             done = tick_all(workers, rounds=1)
             if done.get("succeeded") or done.get("failed"):
                 log.info("tick: %s", done)

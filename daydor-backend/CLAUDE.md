@@ -70,6 +70,8 @@ Context for Claude Code. Read `docs/backend-plan.md`, `docs/model-findings.md` a
   prompts and output schemas are registry data pinned by hash; CI never calls the network (`ScriptedClient`)
 - Phase C (`0043`): rollout shadow/canary/ga per tenant (`agents/rollout.py`), golden sets and evals (`agents/evals.py`, `registry/evals/`, run by CI),
   tenant AI budgets, circuit breaker (`circuit.py`). A changed prompt needs its golden set reviewed (`check_current`); LLM workers start in shadow
+- Phase D (`0044`): approval deadlines and escalation (`approval_sla.py`, `app.gate_sla`), notifications (`notifications.py`), `app.inbox()`, tenant worker
+  controls, recurring timers for all tenants (`schedules.py`); API in `daydor-frontend/api` (`routers/inbox.py`, `worker_controls.py`). Escalation only notifies
 - Agent runs and autonomy (`0040`): `src/daydor/agents/runs.py`; every job of a real worker opens an `agent_task_run`, a tenant that
   raises autonomy holds (`g_agent_action`) or flags it. The plan for the rest of the agentic infrastructure is `docs/agentic-infra-plan.md`
 - Worker registry and per-worker roles (ADR-004): `registry/`, `src/daydor/agents/registry.py` (classification,
