@@ -1,0 +1,828 @@
+[
+ {
+  "body_schema": {
+   "description": "What the backend's start_hire needs today. Interview time and the offer inputs are read from\nthe workflow context by later steps (a Sprint 2 simplification), so they are collected here.\n\nThe fields below `proposed_equity` are read the same way, later still: by the employee/\nemployment_record writers (steps 10-11) and the payroll-profile writer (step 18). A real system\nwould collect these at offer acceptance, not at the start of the hire; this prototype has no\nsuch step, so -- same simplification, pushed one step further -- they ride in context from the\nstart too (see docs/integration-notes.md). They are declared optional so the 403 for a role that\ncannot open a requisition is decided before field validation, but `start` rejects a request\nmissing any of `REQUIRED_AT_START` with a 422: the interview, offer, employee and payroll-profile\nhandlers read them with bare `ctx[...]` lookups, so a missing one used to surface only later, as\na worker KeyError that retried and dead-lettered while the hire sat at that step.",
+   "properties": {
+    "aadhaar_last4": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "basic_da_monthly": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "channel": {
+     "default": "company_site",
+     "type": "string"
+    },
+    "comp_band_id": {
+     "anyOf": [
+      {
+       "format": "uuid",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "date_of_birth": {
+     "anyOf": [
+      {
+       "format": "date",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "employment_type": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "esic_ip_number": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "hiring_manager_id": {
+     "format": "uuid",
+     "type": "string"
+    },
+    "interviewer_employee_id": {
+     "anyOf": [
+      {
+       "format": "uuid",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "legal_entity_id": {
+     "anyOf": [
+      {
+       "format": "uuid",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "location_id": {
+     "anyOf": [
+      {
+       "format": "uuid",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "pay_frequency": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "pay_range_max": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+       "type": "string"
+      }
+     ]
+    },
+    "pay_range_min": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+       "type": "string"
+      }
+     ]
+    },
+    "payment_method": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "personal_address": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "position_id": {
+     "format": "uuid",
+     "type": "string"
+    },
+    "proposed_base": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "proposed_equity": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "retention_class_id": {
+     "anyOf": [
+      {
+       "format": "uuid",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "scheduled_at": {
+     "anyOf": [
+      {
+       "format": "date-time",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "state_code": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "target_start_date": {
+     "format": "date",
+     "type": "string"
+    },
+    "tax_regime_election": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "tax_state": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "uan_number": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "work_state": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    }
+   },
+   "required": [
+    "position_id",
+    "hiring_manager_id",
+    "target_start_date",
+    "pay_range_min",
+    "pay_range_max"
+   ],
+   "type": "object"
+  },
+  "id": "hire.start",
+  "kind": "action",
+  "method": "POST",
+  "path": "/api/hire/start",
+  "path_params": [],
+  "query_params": [],
+  "required": [
+   "position_id",
+   "hiring_manager_id",
+   "target_start_date",
+   "pay_range_min",
+   "pay_range_max",
+   "aadhaar_last4",
+   "basic_da_monthly",
+   "comp_band_id",
+   "date_of_birth",
+   "employment_type",
+   "interviewer_employee_id",
+   "legal_entity_id",
+   "location_id",
+   "pay_frequency",
+   "payment_method",
+   "personal_address",
+   "proposed_base",
+   "retention_class_id",
+   "scheduled_at",
+   "state_code",
+   "tax_regime_election",
+   "tax_state",
+   "work_state"
+  ],
+  "risk": "medium",
+  "roles": [
+   "tenant_hr",
+   "tenant_founder"
+  ],
+  "summary": "Open a requisition and start hiring for an open position",
+  "when_to_use": "The person wants to hire someone for an open position or seat."
+ },
+ {
+  "body_schema": {
+   "properties": {
+    "email": {
+     "maxLength": 200,
+     "minLength": 3,
+     "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+     "type": "string"
+    },
+    "full_name": {
+     "maxLength": 200,
+     "minLength": 1,
+     "type": "string"
+    },
+    "phone": {
+     "maxLength": 40,
+     "minLength": 3,
+     "type": "string"
+    },
+    "resume_ref": {
+     "default": "entered-by-hr",
+     "type": "string"
+    },
+    "source": {
+     "default": "hr_entry",
+     "type": "string"
+    }
+   },
+   "required": [
+    "full_name",
+    "email",
+    "phone"
+   ],
+   "type": "object"
+  },
+  "id": "hire.enter_application",
+  "kind": "action",
+  "method": "POST",
+  "path": "/api/hire/requisitions/{requisition_id}/applications",
+  "path_params": [
+   {
+    "format": "uuid",
+    "name": "requisition_id",
+    "type": "string"
+   }
+  ],
+  "query_params": [],
+  "required": [
+   "requisition_id",
+   "full_name",
+   "email",
+   "phone"
+  ],
+  "risk": "low",
+  "roles": [
+   "tenant_hr",
+   "tenant_founder"
+  ],
+  "summary": "Enter a candidate's application on a requisition",
+  "when_to_use": "The person has a candidate to add to an open requisition."
+ },
+ {
+  "body_schema": null,
+  "id": "hire.request_consent",
+  "kind": "action",
+  "method": "POST",
+  "path": "/api/hire/requisitions/{requisition_id}/request-consent",
+  "path_params": [
+   {
+    "format": "uuid",
+    "name": "requisition_id",
+    "type": "string"
+   }
+  ],
+  "query_params": [],
+  "required": [
+   "requisition_id"
+  ],
+  "risk": "low",
+  "roles": [
+   "tenant_hr"
+  ],
+  "summary": "Ask a candidate for consent to process their data",
+  "when_to_use": "The person wants the candidate on a requisition to be asked for data-processing consent."
+ },
+ {
+  "body_schema": {
+   "properties": {
+    "employee_id": {
+     "format": "uuid",
+     "type": "string"
+    },
+    "last_working_day": {
+     "format": "date",
+     "type": "string"
+    },
+    "notice_date": {
+     "format": "date",
+     "type": "string"
+    },
+    "reason_code": {
+     "type": "string"
+    },
+    "termination_type": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "employee_id",
+    "termination_type",
+    "reason_code",
+    "notice_date",
+    "last_working_day"
+   ],
+   "type": "object"
+  },
+  "id": "exit.start",
+  "kind": "action",
+  "method": "POST",
+  "path": "/api/exit/start",
+  "path_params": [],
+  "query_params": [],
+  "required": [
+   "employee_id",
+   "termination_type",
+   "reason_code",
+   "notice_date",
+   "last_working_day"
+  ],
+  "risk": "high",
+  "roles": [
+   "tenant_hr",
+   "tenant_founder"
+  ],
+  "summary": "Start an employee's exit (termination or resignation)",
+  "when_to_use": "The person wants to start the exit process for an employee."
+ },
+ {
+  "body_schema": {
+   "properties": {
+    "legal_entity_id": {
+     "format": "uuid",
+     "type": "string"
+    },
+    "period_end": {
+     "format": "date",
+     "type": "string"
+    },
+    "period_start": {
+     "format": "date",
+     "type": "string"
+    },
+    "retention_class_id": {
+     "format": "uuid",
+     "type": "string"
+    }
+   },
+   "required": [
+    "legal_entity_id",
+    "period_start",
+    "period_end",
+    "retention_class_id"
+   ],
+   "type": "object"
+  },
+  "id": "payroll.create_run",
+  "kind": "action",
+  "method": "POST",
+  "path": "/api/payroll/runs",
+  "path_params": [],
+  "query_params": [],
+  "required": [
+   "legal_entity_id",
+   "period_start",
+   "period_end",
+   "retention_class_id"
+  ],
+  "risk": "medium",
+  "roles": [
+   "tenant_payroll",
+   "tenant_founder"
+  ],
+  "summary": "Prepare a payroll run for a legal entity and period",
+  "when_to_use": "The person wants to run or prepare payroll for a period."
+ },
+ {
+  "body_schema": null,
+  "id": "payroll.request_disbursal",
+  "kind": "action",
+  "method": "POST",
+  "path": "/api/payroll/runs/{run_id}/request-disbursal",
+  "path_params": [
+   {
+    "format": "uuid",
+    "name": "run_id",
+    "type": "string"
+   }
+  ],
+  "query_params": [],
+  "required": [
+   "run_id"
+  ],
+  "risk": "medium",
+  "roles": [
+   "tenant_payroll"
+  ],
+  "summary": "Ask for approval to pay out a prepared payroll run (someone else approves; nothing is paid yet)",
+  "when_to_use": "The person wants a prepared payroll run sent for approval to be paid."
+ },
+ {
+  "body_schema": null,
+  "id": "payroll.issue_payslips",
+  "kind": "action",
+  "method": "POST",
+  "path": "/api/payroll/runs/{run_id}/issue-payslips",
+  "path_params": [
+   {
+    "format": "uuid",
+    "name": "run_id",
+    "type": "string"
+   }
+  ],
+  "query_params": [],
+  "required": [
+   "run_id"
+  ],
+  "risk": "low",
+  "roles": [
+   "tenant_payroll"
+  ],
+  "summary": "Issue payslips for a payroll run that has already been paid",
+  "when_to_use": "The person wants payslips issued for a paid run."
+ },
+ {
+  "body_schema": null,
+  "id": "payroll.open_gl_entry",
+  "kind": "action",
+  "method": "POST",
+  "path": "/api/payroll/runs/{run_id}/gl",
+  "path_params": [
+   {
+    "format": "uuid",
+    "name": "run_id",
+    "type": "string"
+   }
+  ],
+  "query_params": [],
+  "required": [
+   "run_id"
+  ],
+  "risk": "medium",
+  "roles": [
+   "tenant_payroll"
+  ],
+  "summary": "Prepare the ledger entry for a payroll run and ask for approval to post it (nothing is posted yet)",
+  "when_to_use": "The person wants a payroll run's accounting entry prepared."
+ },
+ {
+  "body_schema": {
+   "properties": {
+    "employee_id": {
+     "format": "uuid",
+     "type": "string"
+    },
+    "period_end": {
+     "format": "date",
+     "type": "string"
+    },
+    "period_start": {
+     "format": "date",
+     "type": "string"
+    }
+   },
+   "required": [
+    "employee_id",
+    "period_start",
+    "period_end"
+   ],
+   "type": "object"
+  },
+  "id": "timekeeping.create_timecard",
+  "kind": "action",
+  "method": "POST",
+  "path": "/api/timekeeping/timecards",
+  "path_params": [],
+  "query_params": [],
+  "required": [
+   "employee_id",
+   "period_start",
+   "period_end"
+  ],
+  "risk": "low",
+  "roles": [
+   "tenant_employee",
+   "tenant_manager",
+   "tenant_hr",
+   "tenant_founder"
+  ],
+  "summary": "Create a timecard for an employee and period",
+  "when_to_use": "The person wants to start a timecard for a pay period."
+ },
+ {
+  "body_schema": {
+   "properties": {
+    "as_of": {
+     "format": "date",
+     "type": "string"
+    },
+    "employee_id": {
+     "format": "uuid",
+     "type": "string"
+    },
+    "leave_policy_id": {
+     "format": "uuid",
+     "type": "string"
+    }
+   },
+   "required": [
+    "employee_id",
+    "leave_policy_id",
+    "as_of"
+   ],
+   "type": "object"
+  },
+  "id": "timekeeping.accrue_leave",
+  "kind": "action",
+  "method": "POST",
+  "path": "/api/timekeeping/leave-balances/accrue",
+  "path_params": [],
+  "query_params": [],
+  "required": [
+   "employee_id",
+   "leave_policy_id",
+   "as_of"
+  ],
+  "risk": "low",
+  "roles": [
+   "tenant_hr",
+   "tenant_founder"
+  ],
+  "summary": "Accrue leave for an employee under a leave policy up to a date",
+  "when_to_use": "The person wants to add earned leave to someone's balance."
+ },
+ {
+  "body_schema": {
+   "properties": {
+    "benefit_plan_id": {
+     "format": "uuid",
+     "type": "string"
+    },
+    "coverage_tier": {
+     "type": "string"
+    },
+    "effective_from": {
+     "format": "date",
+     "type": "string"
+    },
+    "employee_cost": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+       "type": "string"
+      }
+     ]
+    },
+    "employee_id": {
+     "format": "uuid",
+     "type": "string"
+    }
+   },
+   "required": [
+    "employee_id",
+    "benefit_plan_id",
+    "coverage_tier",
+    "employee_cost",
+    "effective_from"
+   ],
+   "type": "object"
+  },
+  "id": "benefits.elect",
+  "kind": "action",
+  "method": "POST",
+  "path": "/api/benefits/elections",
+  "path_params": [],
+  "query_params": [],
+  "required": [
+   "employee_id",
+   "benefit_plan_id",
+   "coverage_tier",
+   "employee_cost",
+   "effective_from"
+  ],
+  "risk": "low",
+  "roles": [
+   "tenant_employee",
+   "tenant_manager",
+   "tenant_hr",
+   "tenant_founder"
+  ],
+  "summary": "Choose a benefit plan and coverage tier",
+  "when_to_use": "The person wants to enrol in or choose a benefit plan."
+ },
+ {
+  "body_schema": {
+   "properties": {
+    "amount": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+       "type": "string"
+      }
+     ]
+    },
+    "category": {
+     "type": "string"
+    },
+    "receipt_document_id": {
+     "anyOf": [
+      {
+       "format": "uuid",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ]
+    }
+   },
+   "required": [
+    "amount",
+    "category"
+   ],
+   "type": "object"
+  },
+  "id": "expense.submit",
+  "kind": "action",
+  "method": "POST",
+  "path": "/api/expenses",
+  "path_params": [],
+  "query_params": [],
+  "required": [
+   "amount",
+   "category"
+  ],
+  "risk": "low",
+  "roles": [
+   "tenant_employee",
+   "tenant_manager",
+   "tenant_hr",
+   "tenant_payroll",
+   "tenant_it",
+   "tenant_founder"
+  ],
+  "summary": "Submit an expense claim for approval",
+  "when_to_use": "The person wants to claim back money they spent."
+ },
+ {
+  "body_schema": null,
+  "id": "hire.list_requisitions",
+  "kind": "query",
+  "method": "GET",
+  "path": "/api/hire/requisitions",
+  "path_params": [],
+  "query_params": [],
+  "required": [],
+  "risk": "none",
+  "roles": [
+   "tenant_hr",
+   "tenant_founder",
+   "tenant_manager"
+  ],
+  "summary": "Show requisitions",
+  "when_to_use": "The person wants to see open or recent requisitions."
+ },
+ {
+  "body_schema": null,
+  "id": "directory.list",
+  "kind": "query",
+  "method": "GET",
+  "path": "/api/directory",
+  "path_params": [],
+  "query_params": [
+   {
+    "name": "limit",
+    "type": "integer"
+   }
+  ],
+  "required": [],
+  "risk": "none",
+  "roles": [
+   "tenant_hr",
+   "tenant_founder",
+   "tenant_payroll",
+   "tenant_it",
+   "tenant_manager",
+   "tenant_employee"
+  ],
+  "summary": "Show the people directory",
+  "when_to_use": "The person wants to find or list colleagues."
+ }
+]

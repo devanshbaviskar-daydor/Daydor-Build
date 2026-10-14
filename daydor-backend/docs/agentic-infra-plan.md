@@ -136,3 +136,17 @@ clock scan and the approval sweep for every active tenant (`app.platform_tenants
 Decisions taken: the escalation window is 48 h (24 h for the three time-sensitive gates), the escalation target is the founder, one escalation per
 request. Not done: a React screen for the inbox and the controls (the endpoints are the contract), e-mail or chat delivery of notifications, and a
 second escalation level. The "first real cross-domain subscriptions" are the notification consumers; no flow reacts to another flow's events yet.
+
+## 10. What Phase E changed (built Oct 14, migration 0045; code in `daydor-frontend/api`, `daydor_api/frontdoor/`)
+G9 is closed. **The command catalogue** is a reviewed list (`commands.json`, 14 commands: 12 actions and 2 queries) joined to the API's own OpenAPI schemas;
+`commands.generated.json` is the committed result and a test fails on drift. An endpoint is a command only if listed, and nothing that decides, pays, files,
+posts or removes access can be (`FORBIDDEN_PATH`, enforced when the catalogue is built); the two payroll "request" commands only ask for an approval someone
+else decides. **The agent** (`frontdoor/agent.py`, prompt pinned by hash) turns a sentence into one typed command: it is shown only the commands the
+person's role may ask for, may call one read-only `lookup` tool for ids, and finishes with a typed proposal that is validated deterministically (command in
+catalogue, fields in the endpoint's schema, types and formats, **every id must come from the person's words or a lookup**); a missing required field is
+asked back, in plain words, with what was already collected carried forward. It **never executes**: the answer is a command with `confirm_required`, and the
+app calls the real endpoint as that person, so permissions, gates and idempotency are the endpoint's. It runs in a read-only transaction, so it cannot write
+even if tricked. **Operations:** off until Daydor enables it per tenant (`app.frontdoor_tenant`); each turn is logged with a hash and length of what was typed
+and argument *names* only (`app.frontdoor_turn`), counts against the tenant's AI cap, is gated by the provider circuit and a per-person rate limit (30 an
+hour), and fails to a plain "unavailable". Decisions taken: typed command only, never gates (as you decided earlier); small model tier; ask back one
+thing at a time. Not done: a React command bar and confirm screen, a live eval (open-issues B1), the other lookups beyond ten kinds of record.

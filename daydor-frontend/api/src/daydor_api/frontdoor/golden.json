@@ -1,0 +1,183 @@
+{
+ "prompt_sha256": "d82bf9001706f41aed80225c573071da53312a33c2e0f1e019dcbe771ce6966d",
+ "about": "Replay cases for the front door's guardrails (check()): what must be accepted, asked back, or sent back to the model. Live cases need the real model (open-issues B1).",
+ "cases": [
+  {
+   "id": "ready-timecard",
+   "role": "tenant_employee",
+   "seen": [
+    "11111111-1111-4111-8111-111111111111"
+   ],
+   "proposal": {
+    "status": "command",
+    "command_id": "timekeeping.create_timecard",
+    "arguments": {
+     "employee_id": "11111111-1111-4111-8111-111111111111",
+     "period_start": "2026-10-01",
+     "period_end": "2026-10-15"
+    }
+   },
+   "expect": {
+    "status": "ready"
+   }
+  },
+  {
+   "id": "missing-fields-asks",
+   "role": "tenant_hr",
+   "seen": [
+    "11111111-1111-4111-8111-111111111111"
+   ],
+   "proposal": {
+    "status": "command",
+    "command_id": "exit.start",
+    "arguments": {
+     "employee_id": "11111111-1111-4111-8111-111111111111"
+    }
+   },
+   "expect": {
+    "status": "needs_input",
+    "missing": [
+     "termination_type",
+     "reason_code",
+     "notice_date",
+     "last_working_day"
+    ]
+   }
+  },
+  {
+   "id": "clarify-passes-through",
+   "role": "tenant_hr",
+   "seen": [],
+   "proposal": {
+    "status": "clarify",
+    "question": "Which employee do you mean?"
+   },
+   "expect": {
+    "status": "needs_input"
+   }
+  },
+  {
+   "id": "unsupported-passes-through",
+   "role": "tenant_employee",
+   "seen": [],
+   "proposal": {
+    "status": "unsupported",
+    "reason": "Not something I can do."
+   },
+   "expect": {
+    "status": "unsupported"
+   }
+  },
+  {
+   "id": "invented-id",
+   "role": "tenant_hr",
+   "seen": [],
+   "proposal": {
+    "status": "command",
+    "command_id": "exit.start",
+    "arguments": {
+     "employee_id": "11111111-1111-4111-8111-111111111111"
+    }
+   },
+   "expect": {
+    "problem": "did not come from"
+   }
+  },
+  {
+   "id": "approve-is-not-a-command",
+   "role": "tenant_founder",
+   "seen": [],
+   "proposal": {
+    "status": "command",
+    "command_id": "approvals.resolve",
+    "arguments": {
+     "decision": "approved"
+    }
+   },
+   "expect": {
+    "problem": "not a command you may use"
+   }
+  },
+  {
+   "id": "payment-is-not-a-command",
+   "role": "tenant_payroll",
+   "seen": [
+    "11111111-1111-4111-8111-111111111111"
+   ],
+   "proposal": {
+    "status": "command",
+    "command_id": "payroll.disburse",
+    "arguments": {
+     "run_id": "11111111-1111-4111-8111-111111111111"
+    }
+   },
+   "expect": {
+    "problem": "not a command you may use"
+   }
+  },
+  {
+   "id": "role-cannot-ask-for-it",
+   "role": "tenant_employee",
+   "seen": [
+    "11111111-1111-4111-8111-111111111111"
+   ],
+   "proposal": {
+    "status": "command",
+    "command_id": "exit.start",
+    "arguments": {
+     "employee_id": "11111111-1111-4111-8111-111111111111"
+    }
+   },
+   "expect": {
+    "problem": "not a command you may use"
+   }
+  },
+  {
+   "id": "unknown-field",
+   "role": "tenant_hr",
+   "seen": [
+    "11111111-1111-4111-8111-111111111111"
+   ],
+   "proposal": {
+    "status": "command",
+    "command_id": "exit.start",
+    "arguments": {
+     "employee_id": "11111111-1111-4111-8111-111111111111",
+     "approval_request_id": "11111111-1111-4111-8111-111111111111"
+    }
+   },
+   "expect": {
+    "problem": "is not a field"
+   }
+  },
+  {
+   "id": "bad-date",
+   "role": "tenant_hr",
+   "seen": [
+    "11111111-1111-4111-8111-111111111111"
+   ],
+   "proposal": {
+    "status": "command",
+    "command_id": "exit.start",
+    "arguments": {
+     "employee_id": "11111111-1111-4111-8111-111111111111",
+     "notice_date": "next friday"
+    }
+   },
+   "expect": {
+    "problem": "is not a"
+   }
+  },
+  {
+   "id": "clarify-needs-a-question",
+   "role": "tenant_hr",
+   "seen": [],
+   "proposal": {
+    "status": "clarify"
+   },
+   "expect": {
+    "problem": "needs a question"
+   }
+  }
+ ]
+}

@@ -72,6 +72,9 @@ Context for Claude Code. Read `docs/backend-plan.md`, `docs/model-findings.md` a
   tenant AI budgets, circuit breaker (`circuit.py`). A changed prompt needs its golden set reviewed (`check_current`); LLM workers start in shadow
 - Phase D (`0044`): approval deadlines and escalation (`approval_sla.py`, `app.gate_sla`), notifications (`notifications.py`), `app.inbox()`, tenant worker
   controls, recurring timers for all tenants (`schedules.py`); API in `daydor-frontend/api` (`routers/inbox.py`, `worker_controls.py`). Escalation only notifies
+- Phase E (`0045`): the front door, in `daydor-frontend/api/src/daydor_api/frontdoor/` (reviewed `commands.json`, `catalogue.py`, `agent.py`, pinned prompt, golden cases).
+  It proposes a typed command for a person to confirm, never executes, runs read-only, and no command may decide, pay, file, post or remove access
+- Open items, decisions waiting and deviations: `docs/open-issues.md` (keep it current)
 - Agent runs and autonomy (`0040`): `src/daydor/agents/runs.py`; every job of a real worker opens an `agent_task_run`, a tenant that
   raises autonomy holds (`g_agent_action`) or flags it. The plan for the rest of the agentic infrastructure is `docs/agentic-infra-plan.md`
 - Worker registry and per-worker roles (ADR-004): `registry/`, `src/daydor/agents/registry.py` (classification,

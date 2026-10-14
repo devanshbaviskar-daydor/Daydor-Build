@@ -6,7 +6,7 @@ from sqlalchemy import text
 
 from . import errors
 from .config import DEFAULT_SECRET, settings
-from .routers import approvals, auth, directory, exit as exit_router, hire, inbox, meta, payroll, requisitions, tables, timekeeping, trail, worker_controls, workflows
+from .routers import approvals, auth, directory, exit as exit_router, frontdoor, hire, inbox, meta, payroll, requisitions, tables, timekeeping, trail, worker_controls, workflows
 from .state import get_engine
 
 
@@ -27,7 +27,7 @@ def create_app() -> FastAPI:
         return {"status": "ok", "env": s.env}
 
     for r in (auth.router, meta.router, tables.router, approvals.router, workflows.router, trail.router, hire.router, requisitions.router,
-              directory.router, payroll.router, timekeeping.router, exit_router.router, inbox.router, worker_controls.router):
+              directory.router, payroll.router, timekeeping.router, exit_router.router, inbox.router, worker_controls.router, frontdoor.router):
         api.include_router(r)
     app.include_router(api)
     return app
